@@ -11,6 +11,7 @@ urlpatterns = [
     
     # --- ¡NUEVA RUTA DE IA AÑADIDA AQUÍ! ---
     # Esta es la dirección que usará el botón de "Resumir"
+    path('api/sugerir_respuesta/', views.sugerir_respuesta_ia, name='sugerir_respuesta_ia'),
     path('api/resumir_chat/', views.resumir_chat_ia, name='resumir_chat_ia'),
 ]
 
