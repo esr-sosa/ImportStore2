@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Inventario{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Estilos específicos para el interruptor de Activo/Inactivo */
+    .switch { position: relative; display: inline-block; width: 34px; height: 20px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 20px; }
+    .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+    input:checked + .slider { background-color: #2563eb; } /* bg-blue-600 */
+    input:checked + .slider:before { transform: translateX(14px); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="p-4 sm:p-6 lg:p-8">
+    
+    <div class="sm:flex sm:items-center sm:justify-between mb-6">
+        <h1 class="text-3xl font-bold text-gray-900">Inventario</h1>
+        <div class="mt-4 sm:mt-0 sm:ml-4 flex items-center gap-2">
+            <button class="bg-white text-gray-700 font-semibold py-2 px-4 rounded-lg border hover:bg-gray-50 transition-colors">Exportar</button>
+            <button class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+                + Agregar Producto
+            </button>
+        </div>
+    </div>
+
+    <div class="bg-white p-4 rounded-lg shadow-sm mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <input type="text" placeholder="Buscar por nombre, SKU..." class="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500">
+            <select class="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                <option value="">Todas las categorías</option>
+                {% for c in categorias %}<option value="{{ c.id }}">{{ c.nombre }}</option>{% endfor %}
+            </select>
+            <select class="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                <option value="">Todos los proveedores</option>
+                {% for p in proveedores %}<option value="{{ p.id }}">{{ p.nombre }}</option>{% endfor %}
+            </select>
+            <div class="flex items-center">
+                <input type="checkbox" id="solo-activos" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                <label for="solo-activos" class="ml-2 block text-sm text-gray-900">Mostrar solo activos</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 border-b">
+                    <tr>
+                        <th class="p-4 text-left text-sm font-semibold text-gray-600 w-2/5">Producto</th>
+                        <th class="p-4 text-left text-sm font-semibold text-gray-600">Categoría</th>
+                        <th class="p-4 text-center text-sm font-semibold text-gray-600">Stock</th>
+                        <th class="p-4 text-right text-sm font-semibold text-gray-600">P. Minorista</th>
+                        <th class="p-4 text-right text-sm font-semibold text-gray-600">P. Mayorista</th>
+                        <th class="p-4 text-center text-sm font-semibold text-gray-600">Estado</th>
+                        <th class="p-4 text-center text-sm font-semibold text-gray-600">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for v in page_obj %}
+                    <tr>
+                        <td class="p-4"><div class="flex items-center">
+                            {% if v.producto.imagen %}
+                                <img class="h-10 w-10 rounded-md object-cover mr-4 flex-shrink-0" src="{{ v.producto.imagen.url }}" alt="Foto de {{ v.producto.nombre }}">
+                            {% else %}
+                                <div class="h-10 w-10 rounded-md bg-gray-200 mr-4 flex-shrink-0 flex items-center justify-center text-gray-400">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                                </div>
+                            {% endif %}
+                            <div>
+                                <p class="font-semibold text-gray-800">{{ v.producto.nombre }}</p>
+                                <p class="text-sm text-gray-500">{{ v.nombre_variante }}</p>
+                            </div>
+                        </div></td>
+                        <td class="p-4 text-gray-600">{{ v.producto.categoria.nombre|default:"--" }}</td>
+                        <td class="p-4 text-center font-medium">
+                            {% if v.stock > 10 %}<span class="text-green-600">{{ v.stock }}</span>
+                            {% elif v.stock > 0 %}<span class="text-yellow-600">{{ v.stock }}</span>
+                            {% else %}<span class="px-2 py-0.5 text-xs font-semibold text-red-800 bg-red-100 rounded-full">Agotado</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-4 text-right font-semibold text-gray-800">${{ v.precio_minorista|default:"--" }}</td>
+                        <td class="p-4 text-right font-semibold text-gray-800">${{ v.precio_mayorista|default:"--" }}</td>
+                        <td class="p-4 text-center">
+                            <label class="switch"><input type="checkbox" {% if v.producto.activo %}checked{% endif %}><span class="slider"></span></label>
+                        </td>
+                        <td class="p-4 text-center"><button class="text-blue-600 hover:underline font-semibold">Editar</button></td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" class="p-8 text-center text-gray-500">No hay productos en el inventario.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        {% if page_obj.has_other_pages %}
+        <div class="p-4 bg-white rounded-lg shadow-sm mt-6">
+            <nav class="flex items-center justify-between">
+                <div class="text-sm text-gray-600">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</div>
+                <div>
+                    {% if page_obj.has_previous %}
+                        <a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 border rounded-md hover:bg-gray-100">Anterior</a>
+                    {% endif %}
+                    {% if page_obj.has_next %}
+                        <a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 border rounded-md hover:bg-gray-100 ml-2">Siguiente</a>
+                    {% endif %}
+                </div>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

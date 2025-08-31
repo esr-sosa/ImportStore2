@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -39,6 +39,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'crm',
     'inventario',
+    'ventas',
+    'dashboard',
 ]
 
 MIDDLEWARE = [
@@ -56,7 +58,8 @@ ROOT_URLCONF = 'core.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        # --- LÍNEA MODIFICADA AQUÍ ---
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -80,7 +83,7 @@ DATABASES = {
         'NAME': 'sistema_negocio',
         'USER': 'root',
         'PASSWORD': '',
-        'HOST': '127.0.0.1',
+        'HOST': 'localhost',
         'PORT': '3306',
     }
 }
@@ -128,3 +131,13 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 GEMINI_API_KEY = "AIzaSyDFKmdjG-A247bllzRg_N1s6nii_ttV1wo"
+# core/settings.py
+
+# ... (al final del archivo, después de DEFAULT_AUTO_FIELD y GEMINI_API_KEY) ...
+
+# --- CONFIGURACIÓN DE ARCHIVOS MULTIMEDIA ---
+# URL que se usará en las plantillas para acceder a los archivos
+MEDIA_URL = '/media/'
+
+# Ruta en tu computadora donde se guardarán las imágenes subidas
+MEDIA_ROOT = BASE_DIR / 'media'

@@ -35,7 +35,10 @@ class Producto(models.Model):
     nombre = models.CharField(max_length=200, help_text="Nombre del producto. Ej: iPhone 15 Pro Max")
     descripcion = models.TextField(blank=True, null=True)
     categoria = models.ForeignKey(Categoria, on_delete=models.SET_NULL, null=True, related_name="productos")
+    activo = models.BooleanField(default=True, help_text="Indica si el producto está activo y visible para la venta")
+
     proveedor = models.ForeignKey(Proveedor, on_delete=models.SET_NULL, null=True, related_name="productos")
+    imagen = models.ImageField(upload_to='productos/', blank=True, null=True, help_text="Foto principal del producto")
     codigo_barras = models.CharField(max_length=13, unique=True, blank=True, help_text="Código de barras (EAN-13). Se genera automáticamente.")
     imagen_codigo_barras = models.ImageField(upload_to='codigos_de_barras/', blank=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
