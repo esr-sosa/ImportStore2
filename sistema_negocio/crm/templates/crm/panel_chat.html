@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Centro de Mando - ImportStore</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+        ::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; } ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+        #ai-summary-modal { display: none; }
+        button:disabled { opacity: 0.4; cursor: not-allowed; }
+        .chat-message-content { word-break: break-word; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    
+    <div class="w-full h-screen flex overflow-hidden">
+        <!-- Columna Izquierda: Lista de Conversaciones -->
+        <div class="w-[340px] bg-white border-r border-gray-200 flex flex-col">
+            <div class="p-4 border-b border-gray-200"><h2 class="text-xl font-bold text-gray-800">Bandeja de Entrada</h2></div>
+            <div id="conversation-list" class="flex-grow overflow-y-auto">
+                {% for conv in conversaciones %}
+                <div class="conversation-item p-4 flex gap-4 cursor-pointer hover:bg-gray-100 transition-colors duration-200 border-b border-gray-100 relative" data-conv-id="{{ conv.id }}">
+                    <div class="w-12 h-12 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center font-bold text-xl flex-shrink-0">{{ conv.cliente.nombre|first|upper }}</div>
+                    <div class="w-full overflow-hidden">
+                        <div class="flex justify-between items-center">
+                            <p class="font-semibold text-gray-900 truncate">{{ conv.cliente.nombre }}</p>
+                            <p class="text-xs text-gray-500 flex-shrink-0">{{ conv.ultima_actualizacion|date:"P" }}</p>
+                        </div>
+                        <p class="text-sm text-gray-600 truncate">Último mensaje de la conversación...</p>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="p-8 text-center text-gray-500"><p>No hay conversaciones activas.</p></div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Columna Central: Ventana de Chat Activa -->
+        <div class="flex-1 flex flex-col bg-gray-100">
+            <div class="p-4 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">
+                <div class="flex items-center gap-4">
+                    <div id="chat-header-avatar" class="w-10 h-10 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center font-bold text-lg flex-shrink-0">?</div>
+                    <div>
+                        <p id="chat-header-nombre" class="font-bold text-gray-800">Selecciona una conversación</p>
+                        <div id="chat-header-fuente" class="flex items-center gap-1.5"><p class="text-xs text-gray-500">...</p></div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4 text-gray-400">
+                     <button id="summarize-button" onclick="summarizeChat()" title="✨ Resumir Chat con IA" class="hover:text-blue-600" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+                    </button>
+                    <button class="hover:text-blue-600"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg></button>
+                </div>
+            </div>
+            <div id="chat-window" class="flex-grow p-6 overflow-y-auto space-y-6 flex items-center justify-center">
+                 <div class="text-center text-gray-500"><p>Selecciona una conversación de la izquierda.</p></div>
+            </div>
+            <div class="p-4 bg-white border-t border-gray-200">
+                <div class="flex border-b border-gray-200 mb-2">
+                    <button class="px-4 py-2 text-sm font-semibold border-b-2 border-blue-600 text-blue-600">Respuesta Pública</button>
+                    <button class="px-4 py-2 text-sm font-semibold text-gray-500 hover:text-gray-700">Nota Interna</button>
+                </div>
+                <div class="relative">
+                    <button id="suggest-reply-button" onclick="suggestReply()" title="✨ Sugerir Respuesta con IA" class="absolute right-24 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600 z-10" disabled>
+                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8-5.8 1.9 5.8 1.9L12 21l1.9-5.8 5.8-1.9-5.8-1.9L12 3z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+                    </button>
+                    <textarea id="message-input" placeholder="Escribe tu mensaje o usa / para respuestas rápidas..." class="w-full pl-12 pr-28 py-3 bg-gray-100 border border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow resize-none" rows="1"></textarea>
+                    <div class="absolute left-4 top-1/2 -translate-y-1/2 flex items-center">
+                        <button class="text-gray-400 hover:text-blue-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+                        </button>
+                    </div>
+                    <div id="send-button-container" class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
+                        <button class="text-white bg-blue-600 hover:bg-blue-700 rounded-full p-2.5 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M3.4 20.4l17.4-8.7c.9-.4.9-1.6 0-2L3.4 1c-.9-.5-1.9.4-1.5 1.4L4 9.8l8.6.4c.5 0 .5.8 0 .8L4 11.4l-2.1 7.5c-.4 1 .6 1.9 1.5 1.5z"></path></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna Derecha: Información del Cliente -->
+        <div class="w-[360px] bg-white border-l border-gray-200 flex flex-col">
+            <div id="cliente-info-panel">
+                <div class="p-6 text-center border-b border-gray-200">
+                     <div id="cliente-avatar" class="w-24 h-24 rounded-full mx-auto bg-gray-200 flex items-center justify-center text-3xl font-bold text-gray-600">?</div>
+                     <h3 id="cliente-nombre" class="text-xl font-bold mt-4 text-gray-800">Sin Cliente Seleccionado</h3>
+                     <p id="cliente-telefono" class="text-sm text-gray-500">-</p>
+                </div>
+                <div id="cliente-detalles" class="flex-grow overflow-y-auto p-6 space-y-6"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para el Resumen de IA -->
+    <div id="ai-summary-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-2xl p-6 w-full max-w-lg mx-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600"><path d="m12 3-1.9 5.8-5.8 1.9 5.8 1.9L12 21l1.9-5.8 5.8-1.9-5.8-1.9L12 3z"/></svg>
+                    Resumen del Chat (Generado por IA)
+                </h3>
+                <button onclick="closeSummaryModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+            </div>
+            <div id="summary-content" class="text-sm text-gray-600 space-y-2"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            let activeConvId = null;
+            const summaryModal = document.getElementById('ai-summary-modal');
+            const summaryContent = document.getElementById('summary-content');
+            const summarizeButton = document.getElementById('summarize-button');
+            const suggestButton = document.getElementById('suggest-reply-button');
+            const conversationList = document.getElementById('conversation-list');
+            const sendButton = document.getElementById('send-button-container');
+            const messageInput = document.getElementById('message-input');
+            const chatWindow = document.getElementById('chat-window');
+
+            window.openSummaryModal = () => { summaryModal.style.display = 'flex'; }
+            window.closeSummaryModal = () => { summaryModal.style.display = 'none'; }
+            
+            async function callGeminiAPI(userPrompt, systemInstruction, targetElement = null) {
+                const apiKey = "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                const payload = {
+                    contents: [{ parts: [{ text: userPrompt }] }],
+                    systemInstruction: { parts: [{ text: systemInstruction }] },
+                };
+                try {
+                    const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (!response.ok) throw new Error(`Error de la API: ${response.statusText}`);
+                    const result = await response.json();
+                    const textContent = result.candidates[0]?.content?.parts[0]?.text || "No se pudo generar una respuesta.";
+                    if(targetElement) targetElement.innerHTML = textContent;
+                    return { text: textContent };
+                } catch (error) {
+                    console.error('Error al llamar a la API de Gemini:', error);
+                    const errorMessage = 'Hubo un error al conectar con el servicio de IA.';
+                    if(targetElement) targetElement.textContent = errorMessage;
+                    return { text: errorMessage };
+                }
+            }
+
+            window.summarizeChat = async () => {
+                if (!activeConvId) return;
+                openSummaryModal();
+                summaryContent.innerHTML = '<p class="text-center animate-pulse">✨ Analizando conversación con Gemini...</p>';
+                let historial = '';
+                chatWindow.querySelectorAll('.chat-message').forEach(msgDiv => {
+                    const emisor = msgDiv.dataset.sender === 'cliente' ? 'Cliente' : 'Asesor';
+                    const contenido = msgDiv.querySelector('.chat-message-content').textContent;
+                    historial += `${emisor}: ${contenido}\n`;
+                });
+                const systemInstruction = "Eres un asistente de ventas experto para 'ImportStore'. Tu tarea es leer una conversación y generar un resumen conciso en formato HTML de lista (<ul> y <li>). Resalta en negrita (<strong>) los puntos clave.";
+                const userPrompt = `Resume la siguiente conversación en puntos clave:\n\n${historial}`;
+                await callGeminiAPI(userPrompt, systemInstruction, summaryContent);
+            }
+
+            window.suggestReply = async () => {
+                if (!activeConvId) return;
+                messageInput.placeholder = "✨ Generando sugerencia con Gemini...";
+                const lastCustomerMessage = Array.from(chatWindow.querySelectorAll('.chat-message[data-sender="cliente"]')).pop();
+                if (!lastCustomerMessage) {
+                    messageInput.placeholder = "No hay mensaje del cliente para responder.";
+                    return;
+                }
+                const lastMessageText = lastCustomerMessage.querySelector('.chat-message-content').innerText;
+                const systemInstruction = "Eres un asistente de ventas para 'ImportStore'. Tu tono debe ser amigable, profesional y resolutivo. El objetivo es siempre avanzar la venta.";
+                const userPrompt = `Un cliente acaba de escribir: "${lastMessageText}". Escribe una respuesta amigable y profesional.`;
+                const result = await callGeminiAPI(userPrompt, systemInstruction);
+                messageInput.value = result.text;
+                messageInput.placeholder = "Escribe tu mensaje o usa / para respuestas rápidas...";
+            }
+            
+            conversationList.addEventListener('click', (event) => {
+                const conversationItem = event.target.closest('.conversation-item');
+                if (conversationItem) {
+                    activeConvId = conversationItem.dataset.convId;
+                    document.querySelectorAll('.conversation-item').forEach(el => el.classList.remove('bg-gray-100'));
+                    conversationItem.classList.add('bg-gray-100');
+                    fetch(`/chat/api/conversacion/${activeConvId}/`).then(res => res.json()).then(data => updateUI(data));
+                }
+            });
+
+            sendButton.addEventListener('click', handleSendMessage);
+            messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }
+            });
+
+            function handleSendMessage() {
+                const contenido = messageInput.value.trim();
+                if (!contenido || !activeConvId) return;
+                fetch('/chat/api/enviar_mensaje/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ conversacion_id: activeConvId, contenido: contenido })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'ok') {
+                        addMessageToUI({ emisor: 'Sistema', contenido: contenido, fecha_envio: data.fecha_envio });
+                        messageInput.value = '';
+                    } else { alert('Error al enviar el mensaje.'); }
+                });
+            }
+
+            function addMessageToUI(msg, clienteData = {}) {
+                if (chatWindow.querySelector('.text-center')) {
+                    chatWindow.innerHTML = '';
+                    chatWindow.classList.remove('items-center', 'justify-center');
+                }
+                const messageWrapper = document.createElement('div');
+                messageWrapper.classList.add('chat-message');
+                messageWrapper.dataset.sender = msg.emisor.toLowerCase();
+                const inicial = clienteData.inicial || document.getElementById('chat-header-avatar').textContent;
+
+                if (msg.emisor === 'Cliente') {
+                    messageWrapper.innerHTML = `
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center font-bold text-sm flex-shrink-0">${inicial}</div>
+                            <div class="bg-white p-3 rounded-lg max-w-lg shadow-sm border border-gray-200">
+                                <p class="text-sm text-gray-800 chat-message-content">${msg.contenido}</p>
+                                <p class="text-xs text-gray-400 text-right mt-1">${msg.fecha_envio}</p>
+                            </div>
+                        </div>`;
+                } else { // Asesor o Sistema
+                    messageWrapper.innerHTML = `
+                        <div class="flex items-start gap-3 justify-end">
+                            <div class="bg-blue-600 text-white p-3 rounded-lg max-w-lg shadow-sm">
+                                <p class="text-sm chat-message-content">${msg.contenido}</p>
+                                <p class="text-xs text-blue-200 text-right mt-1">${msg.fecha_envio}</p>
+                            </div>
+                        </div>`;
+                }
+                chatWindow.appendChild(messageWrapper);
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+            }
+            
+            function updateUI(data) {
+                document.getElementById('chat-header-avatar').textContent = data.cliente.inicial;
+                document.getElementById('chat-header-nombre').textContent = data.cliente.nombre;
+                document.getElementById('chat-header-fuente').innerHTML = `<p class="text-xs text-gray-500">${data.fuente}</p>`;
+                document.getElementById('cliente-avatar').textContent = data.cliente.inicial;
+                document.getElementById('cliente-nombre').textContent = data.cliente.nombre;
+                document.getElementById('cliente-telefono').textContent = data.cliente.telefono;
+                
+                const detallesCliente = document.getElementById('cliente-detalles');
+                detallesCliente.innerHTML = `<div class="space-y-1"><p class="text-sm font-semibold text-gray-600">Tipo de Cliente</p><span class="px-2 py-1 text-xs font-semibold text-blue-800 bg-blue-100 rounded-full">${data.cliente.tipo_cliente}</span></div>`;
+                
+                chatWindow.innerHTML = '';
+                if (data.mensajes.length === 0) {
+                    chatWindow.classList.add('items-center', 'justify-center');
+                    chatWindow.innerHTML = '<div class="text-center text-gray-500"><p>Inicia la conversación.</p></div>';
+                } else {
+                    chatWindow.classList.remove('items-center', 'justify-center');
+                    data.mensajes.forEach(msg => addMessageToUI(msg, data.cliente));
+                }
+                summarizeButton.disabled = false;
+                suggestButton.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
+
