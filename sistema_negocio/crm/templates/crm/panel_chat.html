@@ -6,6 +6,8 @@
     <title>Centro de Mando - ImportStore</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -16,6 +18,9 @@
         #ai-summary-modal { display: none; }
         button:disabled { opacity: 0.4; cursor: not-allowed; }
         .chat-message-content { word-break: break-word; }
+        .detail-item { display: flex; justify-content: space-between; align-items: center; }
+        .detail-label { font-semibold; color: #4b5563; }
+        .detail-value { color: #1f2937; text-align: right; }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -71,16 +76,12 @@
                     <button id="suggest-reply-button" onclick="suggestReply()" title="✨ Sugerir Respuesta con IA" class="absolute right-24 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600 z-10" disabled>
                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8-5.8 1.9 5.8 1.9L12 21l1.9-5.8 5.8-1.9-5.8-1.9L12 3z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
                     </button>
-                    <textarea id="message-input" placeholder="Escribe tu mensaje o usa / para respuestas rápidas..." class="w-full pl-12 pr-28 py-3 bg-gray-100 border border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow resize-none" rows="1"></textarea>
+                    <textarea id="message-input" placeholder="Escribe tu mensaje..." class="w-full pl-12 pr-28 py-3 bg-gray-100 border border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow resize-none" rows="1"></textarea>
                     <div class="absolute left-4 top-1/2 -translate-y-1/2 flex items-center">
-                        <button class="text-gray-400 hover:text-blue-600">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
-                        </button>
+                        <button class="text-gray-400 hover:text-blue-600"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg></button>
                     </div>
                     <div id="send-button-container" class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
-                        <button class="text-white bg-blue-600 hover:bg-blue-700 rounded-full p-2.5 transition-colors">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M3.4 20.4l17.4-8.7c.9-.4.9-1.6 0-2L3.4 1c-.9-.5-1.9.4-1.5 1.4L4 9.8l8.6.4c.5 0 .5.8 0 .8L4 11.4l-2.1 7.5c-.4 1 .6 1.9 1.5 1.5z"></path></svg>
-                        </button>
+                        <button class="text-white bg-blue-600 hover:bg-blue-700 rounded-full p-2.5 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M3.4 20.4l17.4-8.7c.9-.4.9-1.6 0-2L3.4 1c-.9-.5-1.9.4-1.5 1.4L4 9.8l8.6.4c.5 0 .5.8 0 .8L4 11.4l-2.1 7.5c-.4 1 .6 1.9 1.5 1.5z"></path></svg></button>
                     </div>
                 </div>
             </div>
@@ -90,10 +91,11 @@
             <div id="cliente-info-panel">
                 <div class="p-6 text-center border-b border-gray-200">
                      <div id="cliente-avatar" class="w-24 h-24 rounded-full mx-auto bg-gray-200 flex items-center justify-center text-3xl font-bold text-gray-600">?</div>
-                     <h3 id="cliente-nombre" class="text-xl font-bold mt-4 text-gray-800">Sin Cliente Seleccionado</h3>
-                     <p id="cliente-telefono" class="text-sm text-gray-500">-</p>
+                     <h3 id="cliente-nombre" class="text-xl font-bold mt-4 text-gray-800">Sin Cliente</h3>
                 </div>
-                <div id="cliente-detalles" class="flex-grow overflow-y-auto p-6 space-y-6"></div>
+                <div id="cliente-detalles" class="flex-grow overflow-y-auto p-6 text-sm space-y-4">
+                    <div class="text-center text-gray-500">Selecciona una conversación para ver los detalles del cliente.</div>
+                </div>
             </div>
         </div>
     </div>
@@ -107,13 +109,16 @@
                 </h3>
                 <button onclick="closeSummaryModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
             </div>
-            <div id="summary-content" class="text-sm text-gray-600 space-y-2"></div>
+            <div id="summary-content" class="text-sm text-gray-600 space-y-2 prose max-w-none">
+                </div>
         </div>
     </div>
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         let activeConvId = null;
+        let activeClienteData = null; 
+
         const summaryModal = document.getElementById('ai-summary-modal');
         const summaryContent = document.getElementById('summary-content');
         const summarizeButton = document.getElementById('summarize-button');
@@ -126,14 +131,11 @@
         window.openSummaryModal = () => { summaryModal.style.display = 'flex'; }
         window.closeSummaryModal = () => { summaryModal.style.display = 'none'; }
         
-        // --- FUNCIÓN DE RESUMEN ACTUALIZADA ---
         window.summarizeChat = async () => {
             if (!activeConvId) return;
             openSummaryModal();
-            summaryContent.innerHTML = '<p class="text-center animate-pulse">✨ Analizando conversación desde el servidor...</p>';
-            
+            summaryContent.innerHTML = '<p class="text-center animate-pulse">✨ Analizando conversación...</p>';
             let historial = '';
-            // Corregido: .chat-message-row es la clase correcta de la fila del mensaje
             document.querySelectorAll('.chat-message-row').forEach(msgDiv => {
                 const emisor = msgDiv.dataset.sender === 'cliente' ? 'Cliente' : 'Asesor';
                 const contenido = msgDiv.querySelector('.chat-message-content').textContent;
@@ -141,74 +143,57 @@
             });
 
             try {
-                // Hacemos la llamada a nuestro propio backend
                 const response = await fetch('/chat/api/resumir_chat/', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ historial: historial })
                 });
-
-                if (!response.ok) {
-                    throw new Error('La respuesta del servidor no fue exitosa.');
-                }
-
+                if (!response.ok) throw new Error('Error del servidor.');
                 const data = await response.json();
                 summaryContent.innerHTML = data.resumen;
-
             } catch (error) {
-                console.error('Error al llamar al backend para resumir:', error);
-                summaryContent.textContent = 'No se pudo generar el resumen. Inténtalo de nuevo.';
+                console.error('Error al resumir:', error);
+                summaryContent.textContent = 'No se pudo generar el resumen.';
             }
         }
 
-       // Dentro de la etiqueta <script> de tu archivo panel_chat.html
-// REEMPLAZA la función window.suggestReply por esta:
+        window.suggestReply = async () => {
+            if (!activeConvId || !activeClienteData) return;
+            
+            const originalPlaceholder = messageInput.placeholder;
+            messageInput.placeholder = "✨ Generando sugerencia...";
+            suggestButton.disabled = true;
 
-window.suggestReply = async () => {
-    if (!activeConvId) return;
-    
-    // Mostramos feedback visual al usuario
-    const originalPlaceholder = messageInput.placeholder;
-    messageInput.placeholder = "✨ Generando sugerencia con IA...";
-    suggestButton.disabled = true;
+            let historial = '';
+            document.querySelectorAll('.chat-message-row').forEach(msgDiv => {
+                const emisor = msgDiv.dataset.sender === 'cliente' ? 'Cliente' : 'Asesor';
+                const contenido = msgDiv.querySelector('.chat-message-content').textContent;
+                historial += `${emisor}: ${contenido}\n`;
+            });
 
-    // Recolectamos el historial, igual que para el resumen
-    let historial = '';
-    document.querySelectorAll('.chat-message-row').forEach(msgDiv => {
-        const emisor = msgDiv.dataset.sender === 'cliente' ? 'Cliente' : 'Asesor';
-        const contenido = msgDiv.querySelector('.chat-message-content').textContent;
-        historial += `${emisor}: ${contenido}\n`;
-    });
+            try {
+                const response = await fetch('/chat/api/sugerir_respuesta/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        historial: historial,
+                        cliente: activeClienteData 
+                    })
+                });
 
-    try {
-        // Hacemos la llamada a nuestro nuevo endpoint en el backend
-        const response = await fetch('/chat/api/sugerir_respuesta/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ historial: historial })
-        });
+                if (!response.ok) throw new Error('Error del servidor.');
+                const data = await response.json();
+                messageInput.value = data.sugerencia;
+                messageInput.focus();
 
-        if (!response.ok) {
-            throw new Error('La respuesta del servidor no fue exitosa.');
+            } catch (error) {
+                console.error('Error al sugerir respuesta:', error);
+                messageInput.placeholder = 'No se pudo generar la sugerencia.';
+            } finally {
+                setTimeout(() => { messageInput.placeholder = originalPlaceholder; }, 2000);
+                suggestButton.disabled = false;
+            }
         }
-
-        const data = await response.json();
-        // Ponemos la respuesta de la IA en el cuadro de texto
-        messageInput.value = data.sugerencia;
-        messageInput.focus(); // Ponemos el cursor listo para editar
-
-    } catch (error) {
-        console.error('Error al llamar al backend para sugerir respuesta:', error);
-        messageInput.placeholder = 'No se pudo generar la sugerencia.';
-    } finally {
-        // Restauramos el botón y el placeholder, incluso si hubo un error
-        setTimeout(() => {
-            messageInput.placeholder = originalPlaceholder;
-        }, 2000);
-        suggestButton.disabled = false;
-    }
-}
-
         
         conversationList.addEventListener('click', (event) => {
             const conversationItem = event.target.closest('.conversation-item');
@@ -236,42 +221,70 @@ window.suggestReply = async () => {
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'ok') {
-                    addMessageToUI({ emisor: 'Sistema', contenido: contenido, fecha_envio: data.fecha_envio });
+                    addMessageToUI({ emisor: 'Sistema', contenido: contenido, fecha_envio: data.fecha_envio }, activeClienteData);
                     messageInput.value = '';
                 } else { alert('Error al enviar el mensaje.'); }
             });
         }
 
-        function addMessageToUI(msg, clienteData = {}) {
-            if (chatWindow.querySelector('.m-auto')) {
-                chatWindow.innerHTML = '';
-            }
+        function addMessageToUI(msg, clienteData) {
+            if (chatWindow.querySelector('.m-auto')) { chatWindow.innerHTML = ''; }
             const messageRow = document.createElement('div');
             messageRow.classList.add('w-full', 'flex', 'mb-4', 'chat-message-row'); 
             messageRow.dataset.sender = msg.emisor.toLowerCase();
-            const inicial = clienteData.inicial || document.getElementById('chat-header-avatar').textContent;
+            const inicial = clienteData.inicial;
 
             if (msg.emisor === 'Cliente') {
                 messageRow.classList.add('justify-start');
                 messageRow.innerHTML = `<div class="flex items-start gap-3"><div class="w-8 h-8 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center font-bold text-sm flex-shrink-0">${inicial}</div><div class="bg-white p-3 rounded-lg max-w-lg shadow-sm border border-gray-200"><p class="text-sm text-gray-800 chat-message-content">${msg.contenido}</p><p class="text-xs text-gray-400 text-right mt-1">${msg.fecha_envio}</p></div></div>`;
             } else {
                 messageRow.classList.add('justify-end');
-                messageRow.innerHTML = `<div class="flex items-start gap-3"><div class="bg-blue-600 text-white p-3 rounded-lg max-w-lg shadow-sm"><p class="text-sm chat-message-content">${msg.contenido}</p><p class="text-xs text-blue-200 text-right mt-1">${msg.fecha_envio}</p></div></div>`;
+                messageRow.innerHTML = `<div class="bg-blue-600 text-white p-3 rounded-lg max-w-lg shadow-sm"><p class="text-sm chat-message-content">${msg.contenido}</p><p class="text-xs text-blue-200 text-right mt-1">${msg.fecha_envio}</p></div>`;
             }
             chatWindow.appendChild(messageRow);
             chatWindow.scrollTop = chatWindow.scrollHeight;
         }
         
         function updateUI(data) {
+            activeClienteData = data.cliente; 
+
             document.getElementById('chat-header-avatar').textContent = data.cliente.inicial;
             document.getElementById('chat-header-nombre').textContent = data.cliente.nombre;
             document.getElementById('chat-header-fuente').innerHTML = `<p class="text-xs text-gray-500">${data.fuente}</p>`;
+            
             document.getElementById('cliente-avatar').textContent = data.cliente.inicial;
             document.getElementById('cliente-nombre').textContent = data.cliente.nombre;
-            document.getElementById('cliente-telefono').textContent = data.cliente.telefono;
-            
+
             const detallesCliente = document.getElementById('cliente-detalles');
-            detallesCliente.innerHTML = `<div class="space-y-1"><p class="text-sm font-semibold text-gray-600">Tipo de Cliente</p><span class="px-2 py-1 text-xs font-semibold text-blue-800 bg-blue-100 rounded-full">${data.cliente.tipo_cliente}</span></div>`;
+            detallesCliente.innerHTML = `
+                <div class="space-y-2">
+                    <div class="detail-item">
+                        <span class="detail-label">Categoría</span>
+                        <span class="px-2 py-1 text-xs font-semibold text-blue-800 bg-blue-100 rounded-full">${data.cliente.tipo_cliente}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Teléfono</span>
+                        <span class="detail-value">${data.cliente.telefono}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Email</span>
+                        <span class="detail-value">${data.cliente.email}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Instagram</span>
+                        <span class="detail-value">${data.cliente.instagram}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Cliente desde</span>
+                        <span class="detail-value">${data.cliente.fecha_creacion}</span>
+                    </div>
+                </div>
+                <hr class="my-4">
+                <div>
+                    <h4 class="font-semibold text-gray-700 mb-2">Historial de Compras</h4>
+                    <p class="text-gray-500">Próximamente...</p>
+                </div>
+            `;
             
             chatWindow.innerHTML = '';
             if (data.mensajes.length === 0) {
@@ -284,6 +297,6 @@ window.suggestReply = async () => {
             suggestButton.disabled = false;
         }
     });
-</script>
+    </script>
 </body>
 </html>
