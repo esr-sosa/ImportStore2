@@ -14,47 +14,107 @@
             <h1 class="text-3xl font-bold text-gray-900 ml-4">Agregar Nuevo Producto</h1>
         </div>
         
-        <form method="post" enctype="multipart/form-data" class="bg-white p-8 rounded-lg shadow-sm space-y-6">
+        <form method="post" enctype="multipart/form-data">
             {% csrf_token %}
             
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Nombre del Producto</label>
-                {{ form.nombre }}
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Descripción (Opcional)</label>
-                {{ form.descripcion }}
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Datos del Producto Principal -->
+            <div class="bg-white p-6 rounded-lg shadow-sm space-y-6 mb-6">
+                <h2 class="text-xl font-semibold text-gray-800 border-b pb-4">Datos Principales</h2>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
-                    {{ form.categoria }}
+                    <label for="{{ form.nombre.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Nombre del Producto</label>
+                    {{ form.nombre }}
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Proveedor</label>
-                    {{ form.proveedor }}
+                    <label for="{{ form.descripcion.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Descripción (Opcional)</label>
+                    {{ form.descripcion }}
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div><label for="{{ form.categoria.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Categoría</label>{{ form.categoria }}</div>
+                    <div><label for="{{ form.proveedor.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Proveedor</label>{{ form.proveedor }}</div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Imagen Principal</label>
+                    {{ form.imagen }}
+                </div>
+                <div class="flex items-center pt-4">
+                    {{ form.activo }}
+                    <label for="{{ form.activo.id_for_label }}" class="ml-3 block text-sm font-medium text-gray-900">Producto activo para la venta</label>
                 </div>
             </div>
 
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Imagen Principal</label>
-                {{ form.imagen }}
+            <!-- Sección de Variantes y Precios -->
+            <div class="bg-white p-6 rounded-lg shadow-sm space-y-6">
+                <div class="flex justify-between items-center border-b pb-4">
+                    <h2 class="text-xl font-semibold text-gray-800">Variantes y Stock</h2>
+                    <button type="button" id="add-variante" class="text-sm bg-blue-50 text-blue-700 font-semibold py-2 px-3 rounded-lg hover:bg-blue-100">+ Agregar Variante</button>
+                </div>
+                
+                {{ variante_formset.management_form }}
+                <div id="variantes-container" class="space-y-6">
+                    {% for form in variante_formset %}
+                    <div class="variante-form p-4 border rounded-lg space-y-4 relative">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="{{ form.nombre_variante.id_for_label }}" class="text-sm font-medium text-gray-600">Nombre Variante</label>
+                                {{ form.nombre_variante }}
+                            </div>
+                            <div>
+                                <label for="{{ form.stock.id_for_label }}" class="text-sm font-medium text-gray-600">Stock Inicial</label>
+                                {{ form.stock }}
+                            </div>
+                        </div>
+                        <div class="absolute top-2 right-2">
+                           {{ form.DELETE }}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
-            
-            <div class="flex items-center">
-                {{ form.activo }}
-                <label for="id_activo" class="ml-2 block text-sm text-gray-900">Producto activo para la venta</label>
-            </div>
-            
-            <div class="pt-6 border-t flex justify-end gap-3">
+
+            <div class="pt-6 flex justify-end gap-3">
                 <a href="{% url 'inventario:dashboard' %}" class="bg-gray-100 text-gray-700 font-semibold py-2 px-4 rounded-lg border hover:bg-gray-200">Cancelar</a>
-                <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 shadow-sm">
-                    Guardar Producto
-                </button>
+                <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 shadow-sm">Guardar Producto</button>
             </div>
         </form>
+
+        <!-- Plantilla de Variante para clonar con JS -->
+        <div id="variante-template" class="hidden variante-form p-4 border rounded-lg space-y-4 relative">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="text-sm font-medium text-gray-600">Nombre Variante</label>
+                    {{ variante_formset.empty_form.nombre_variante }}
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-600">Stock Inicial</label>
+                    {{ variante_formset.empty_form.stock }}
+                </div>
+            </div>
+            <div class="absolute top-2 right-2">
+                {{ variante_formset.empty_form.DELETE }}
+            </div>
+        </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const addButton = document.getElementById('add-variante');
+        const container = document.getElementById('variantes-container');
+        const template = document.getElementById('variante-template').innerHTML;
+        const totalFormsInput = document.getElementById('id_variantes-TOTAL_FORMS');
+        
+        addButton.addEventListener('click', function() {
+            let formIdx = parseInt(totalFormsInput.value);
+            const newForm = template.replace(/__prefix__/g, formIdx);
+            
+            const newDiv = document.createElement('div');
+            newDiv.innerHTML = newForm;
+            // Quitamos la clase 'hidden' del elemento clonado
+            newDiv.firstElementChild.classList.remove('hidden'); 
+            
+            container.appendChild(newDiv.firstElementChild);
+            totalFormsInput.value = formIdx + 1;
+        });
+    });
+</script>
 {% endblock %}

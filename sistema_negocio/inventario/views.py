@@ -3,8 +3,10 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from .models import ProductoVariante, Categoria, Proveedor
-from .forms import ProductoForm # Importamos nuestro nuevo formulario
+from django.db import transaction # Para asegurar que todo se guarde correctamente
+
+from .models import Producto, ProductoVariante, Categoria, Proveedor
+from .forms import ProductoForm, VarianteFormSet # Importamos nuestros nuevos formularios
 
 @login_required
 def inventario_dashboard(request):
@@ -18,23 +20,34 @@ def inventario_dashboard(request):
         precios = {p.tipo_precio: p.precio_venta_normal for p in variante.precios.all()}
         variante.precio_minorista = precios.get('Minorista')
         variante.precio_mayorista = precios.get('Mayorista')
-    context = { 'page_obj': page_obj, 'categorias': categorias, 'proveedores': proveedores, }
+    context = { 'page_obj': page_obj, 'categorias': categorias, 'proveedores': proveedores }
     return render(request, 'inventario/dashboard.html', context)
 
-# --- ¡NUEVA VISTA AÑADIDA AQUÍ! ---
 @login_required
+@transaction.atomic # Si algo falla durante el guardado, se deshace todo.
 def agregar_producto(request):
     if request.method == 'POST':
         form = ProductoForm(request.POST, request.FILES)
-        if form.is_valid():
-            producto = form.save()
-            # Aquí, en el futuro, manejaremos la lógica para crear variantes y precios.
-            # Por ahora, solo creamos el producto principal.
+        variante_formset = VarianteFormSet(request.POST, prefix='variantes')
+        
+        if form.is_valid() and variante_formset.is_valid():
+            producto = form.save() # Guardamos el producto principal
+
+            # Ahora guardamos las variantes asociadas a ese producto
+            variantes = variante_formset.save(commit=False)
+            for variante in variantes:
+                variante.producto = producto
+                variante.save()
+            
+            # (En el futuro, aquí también guardaremos los precios de cada variante)
+
             return redirect('inventario:dashboard')
     else:
         form = ProductoForm()
+        variante_formset = VarianteFormSet(prefix='variantes')
 
     context = {
-        'form': form
+        'form': form,
+        'variante_formset': variante_formset
     }
     return render(request, 'inventario/producto_form.html', context)

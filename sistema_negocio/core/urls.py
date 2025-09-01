@@ -12,9 +12,8 @@ urlpatterns = [
     path('chat/', include('crm.urls')),
     path('ventas/', include('ventas.urls')),
     path('inventario/', include('inventario.urls')),
-    
-    # ¡Esta es la línea que conecta el dashboard principal!
-    path('', include('dashboard.urls')), 
+    path('iphones/', include('iphones.urls')), # <--- AÑADIR ESTA LÍNEA
+    path('', include('dashboard.urls')),
 ]
 
 # Configuración para servir archivos de imágenes en modo de desarrollo

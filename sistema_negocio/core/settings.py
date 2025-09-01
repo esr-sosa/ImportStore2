@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'inventario',
     'ventas',
     'dashboard',
+    'iphones',
 ]
 
 MIDDLEWARE = [

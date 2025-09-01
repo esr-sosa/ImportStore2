@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de iPhones{% endblock %}
+
+{% block content %}
+<div class="p-4 sm:p-6 lg:p-8">
+
+    <div class="sm:flex sm:items-center sm:justify-between mb-6">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Gestión de iPhones</h1>
+            <p class="mt-1 text-sm text-gray-500">Panel dedicado para la gestión de iPhones y precios en dólares.</p>
+        </div>
+        <div class="mt-4 sm:mt-0">
+            {% if valor_dolar %}
+            <div class="bg-white p-3 rounded-lg shadow-sm border text-right">
+                <p class="text-sm font-medium text-gray-500">Dólar Blue (Venta)</p>
+                <p class="text-2xl font-bold text-green-600">${{ valor_dolar|floatformat:2 }}</p>
+            </div>
+            {% else %}
+            <div class="bg-red-50 p-3 rounded-lg border border-red-200 text-right">
+                <p class="text-sm font-medium text-red-700">Error al obtener cotización</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 border-b">
+                    <tr>
+                        <th class="p-4 text-left text-sm font-semibold text-gray-600 w-2/5">Modelo</th>
+                        <th class="p-4 text-center text-sm font-semibold text-gray-600">Stock</th>
+                        <th class="p-4 text-right text-sm font-semibold text-gray-600">Precio (USD)</th>
+                        <th class="p-4 text-right text-sm font-semibold text-gray-600">Precio Sugerido (ARS)</th>
+                        <th class="p-4 text-center text-sm font-semibold text-gray-600">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for v in variantes %}
+                    <tr>
+                        <td class="p-4"><div class="flex items-center">
+                            {% if v.producto.imagen %}
+                                <img class="h-10 w-10 rounded-md object-cover mr-4 flex-shrink-0" src="{{ v.producto.imagen.url }}" alt="Foto de {{ v.producto.nombre }}">
+                            {% else %}
+                                <div class="h-10 w-10 rounded-md bg-gray-200 mr-4"></div>
+                            {% endif %}
+                            <div>
+                                <p class="font-semibold text-gray-800">{{ v.producto.nombre }}</p>
+                                <p class="text-sm text-gray-500">{{ v.nombre_variante }}</p>
+                            </div>
+                        </div></td>
+                        <td class="p-4 text-center font-medium">
+                            {% if v.stock > 10 %}<span class="text-green-600">{{ v.stock }}</span>
+                            {% elif v.stock > 0 %}<span class="text-yellow-600">{{ v.stock }}</span>
+                            {% else %}<span class="px-2 py-0.5 text-xs font-semibold text-red-800 bg-red-100 rounded-full">Agotado</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-4 text-right font-semibold text-blue-600">US$ {{ v.precio_usd|floatformat:2|default:"--" }}</td>
+                        <td class="p-4 text-right font-semibold text-gray-800">$ {{ v.precio_ars_calculado|floatformat:2|default:"--" }}</td>
+                        <td class="p-4 text-center"><a href="#" class="text-blue-600 hover:underline font-semibold">Editar</a></td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="p-8 text-center text-gray-500">
+                        No se encontraron productos en la categoría "Celulares".<br>
+                        Asegurate de crear la categoría y asignar los productos a ella.
+                    </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
