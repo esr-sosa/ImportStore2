@@ -7,12 +7,12 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-
+    
     # Conecta las URLs de cada una de nuestras apps
     path('chat/', include('crm.urls')),
     path('ventas/', include('ventas.urls')),
     path('inventario/', include('inventario.urls')),
-
+    
     # ¡Esta es la línea que conecta el dashboard principal!
     path('', include('dashboard.urls')), 
 ]
