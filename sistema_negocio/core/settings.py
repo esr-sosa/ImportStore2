@@ -141,3 +141,10 @@ MEDIA_URL = '/media/'
 
 # Ruta en tu computadora donde se guardarán las imágenes subidas
 MEDIA_ROOT = BASE_DIR / 'media'
+# core/settings.py
+
+# ... (al final de todo, después de MEDIA_ROOT) ...
+
+# --- URL DE LOGIN ---
+# Le decimos a Django que use la página de login del admin cuando una página requiera autenticación.
+LOGIN_URL = '/admin/login/'

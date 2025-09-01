@@ -1,124 +1,117 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Centro de Mando - ImportStore</title>
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
-    
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
-    <style>
-        body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-        ::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-track { background: #f1f5f9; } ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; } ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
-        #ai-summary-modal { display: none; }
-        button:disabled { opacity: 0.4; cursor: not-allowed; }
-        .chat-message-content { word-break: break-word; }
-        .detail-item { display: flex; justify-content: space-between; align-items: center; }
-        .detail-label { font-semibold; color: #4b5563; }
-        .detail-value { color: #1f2937; text-align: right; }
-    </style>
-</head>
-<body class="bg-gray-50">
-    
-    <div class="w-full h-screen flex overflow-hidden">
-        <div class="w-[340px] bg-white border-r border-gray-200 flex flex-col">
-            <div class="p-4 border-b border-gray-200"><h2 class="text-xl font-bold text-gray-800">Bandeja de Entrada</h2></div>
-            <div id="conversation-list" class="flex-grow overflow-y-auto">
-                {% for conv in conversaciones %}
-                <div class="conversation-item p-4 flex gap-4 cursor-pointer hover:bg-gray-100 transition-colors duration-200 border-b border-gray-100 relative" data-conv-id="{{ conv.id }}">
-                    <div class="w-12 h-12 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center font-bold text-xl flex-shrink-0">{{ conv.cliente.nombre|first|upper }}</div>
-                    <div class="w-full overflow-hidden">
-                        <div class="flex justify-between items-center">
-                            <p class="font-semibold text-gray-900 truncate">{{ conv.cliente.nombre }}</p>
-                            <p class="text-xs text-gray-500 flex-shrink-0">{{ conv.ultima_actualizacion|date:"P" }}</p>
-                        </div>
-                        <p class="text-sm text-gray-600 truncate">Último mensaje de la conversación...</p>
+{% extends "base.html" %}
+
+{% block title %}Chat{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Estilos MUY IMPORTANTES para que el chat ocupe el 100% del alto disponible */
+    main { padding: 0 !important; height: 100vh; }
+    .chat-container { display: flex; height: 100%; overflow: hidden; }
+
+    /* Estilos que ya teníamos para el chat */
+    .chat-message-content { word-break: break-word; }
+    #ai-summary-modal { display: none; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .detail-item { display: flex; justify-content: space-between; align-items: center; }
+    .detail-label { font-semibold; color: #4b5563; }
+    .detail-value { color: #1f2937; text-align: right; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="chat-container w-full">
+    <div class="w-[340px] bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
+        <div class="p-4 border-b border-gray-200"><h2 class="text-xl font-bold text-gray-800">Bandeja de Entrada</h2></div>
+        <div id="conversation-list" class="flex-grow overflow-y-auto">
+            {% for conv in conversaciones %}
+            <div class="conversation-item p-4 flex gap-4 cursor-pointer hover:bg-gray-100 transition-colors duration-200 border-b border-gray-100 relative" data-conv-id="{{ conv.id }}">
+                <div class="w-12 h-12 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center font-bold text-xl flex-shrink-0">{{ conv.cliente.nombre|first|upper }}</div>
+                <div class="w-full overflow-hidden">
+                    <div class="flex justify-between items-center">
+                        <p class="font-semibold text-gray-900 truncate">{{ conv.cliente.nombre }}</p>
+                        <p class="text-xs text-gray-500 flex-shrink-0">{{ conv.ultima_actualizacion|date:"P" }}</p>
                     </div>
+                    <p class="text-sm text-gray-600 truncate">Último mensaje de la conversación...</p>
                 </div>
-                {% empty %}
-                <div class="p-8 text-center text-gray-500"><p>No hay conversaciones activas.</p></div>
-                {% endfor %}
+            </div>
+            {% empty %}
+            <div class="p-8 text-center text-gray-500"><p>No hay conversaciones activas.</p></div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="flex-1 flex flex-col bg-gray-100">
+        <div class="p-4 border-b border-gray-200 flex justify-between items-center bg-white z-10">
+            <div class="flex items-center gap-4">
+                <div id="chat-header-avatar" class="w-10 h-10 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center font-bold text-lg flex-shrink-0">?</div>
+                <div>
+                    <p id="chat-header-nombre" class="font-bold text-gray-800">Selecciona una conversación</p>
+                    <div id="chat-header-fuente" class="flex items-center gap-1.5"><p class="text-xs text-gray-500">...</p></div>
+                </div>
+            </div>
+            <div class="flex items-center gap-4 text-gray-400">
+                 <button id="summarize-button" onclick="summarizeChat()" title="✨ Resumir Chat con IA" class="hover:text-blue-600" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+                </button>
+                <button class="hover:text-blue-600"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg></button>
             </div>
         </div>
-
-        <div class="flex-1 flex flex-col bg-gray-100">
-            <div class="p-4 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">
-                <div class="flex items-center gap-4">
-                    <div id="chat-header-avatar" class="w-10 h-10 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center font-bold text-lg flex-shrink-0">?</div>
-                    <div>
-                        <p id="chat-header-nombre" class="font-bold text-gray-800">Selecciona una conversación</p>
-                        <div id="chat-header-fuente" class="flex items-center gap-1.5"><p class="text-xs text-gray-500">...</p></div>
-                    </div>
-                </div>
-                <div class="flex items-center gap-4 text-gray-400">
-                     <button id="summarize-button" onclick="summarizeChat()" title="✨ Resumir Chat con IA" class="hover:text-blue-600" disabled>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
-                    </button>
-                    <button class="hover:text-blue-600"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg></button>
-                </div>
-            </div>
-            
-            <div id="chat-window" class="flex-grow p-6 overflow-y-auto flex flex-col">
-                 <div class="m-auto text-center text-gray-500"><p>Selecciona una conversación de la izquierda.</p></div>
-            </div>
-
-            <div class="p-4 bg-white border-t border-gray-200">
-                <div class="flex border-b border-gray-200 mb-2">
-                    <button class="px-4 py-2 text-sm font-semibold border-b-2 border-blue-600 text-blue-600">Respuesta Pública</button>
-                    <button class="px-4 py-2 text-sm font-semibold text-gray-500 hover:text-gray-700">Nota Interna</button>
-                </div>
-                <div class="relative">
-                    <button id="suggest-reply-button" onclick="suggestReply()" title="✨ Sugerir Respuesta con IA" class="absolute right-24 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600 z-10" disabled>
-                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8-5.8 1.9 5.8 1.9L12 21l1.9-5.8 5.8-1.9-5.8-1.9L12 3z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
-                    </button>
-                    <textarea id="message-input" placeholder="Escribe tu mensaje..." class="w-full pl-12 pr-28 py-3 bg-gray-100 border border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow resize-none" rows="1"></textarea>
-                    <div class="absolute left-4 top-1/2 -translate-y-1/2 flex items-center">
-                        <button class="text-gray-400 hover:text-blue-600"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg></button>
-                    </div>
-                    <div id="send-button-container" class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
-                        <button class="text-white bg-blue-600 hover:bg-blue-700 rounded-full p-2.5 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M3.4 20.4l17.4-8.7c.9-.4.9-1.6 0-2L3.4 1c-.9-.5-1.9.4-1.5 1.4L4 9.8l8.6.4c.5 0 .5.8 0 .8L4 11.4l-2.1 7.5c-.4 1 .6 1.9 1.5 1.5z"></path></svg></button>
-                    </div>
-                </div>
-            </div>
+        
+        <div id="chat-window" class="flex-grow p-6 overflow-y-auto flex flex-col">
+             <div class="m-auto text-center text-gray-500"><p>Selecciona una conversación de la izquierda.</p></div>
         </div>
 
-        <div class="w-[360px] bg-white border-l border-gray-200 flex flex-col">
-            <div id="cliente-info-panel">
-                <div class="p-6 text-center border-b border-gray-200">
-                     <div id="cliente-avatar" class="w-24 h-24 rounded-full mx-auto bg-gray-200 flex items-center justify-center text-3xl font-bold text-gray-600">?</div>
-                     <h3 id="cliente-nombre" class="text-xl font-bold mt-4 text-gray-800">Sin Cliente</h3>
+        <div class="p-4 bg-white border-t border-gray-200">
+            <div class="flex border-b border-gray-200 mb-2">
+                <button class="px-4 py-2 text-sm font-semibold border-b-2 border-blue-600 text-blue-600">Respuesta Pública</button>
+                <button class="px-4 py-2 text-sm font-semibold text-gray-500 hover:text-gray-700">Nota Interna</button>
+            </div>
+            <div class="relative">
+                <button id="suggest-reply-button" onclick="suggestReply()" title="✨ Sugerir Respuesta con IA" class="absolute right-24 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600 z-10" disabled>
+                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8-5.8 1.9 5.8 1.9L12 21l1.9-5.8 5.8-1.9-5.8-1.9L12 3z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+                </button>
+                <textarea id="message-input" placeholder="Escribe tu mensaje..." class="w-full pl-12 pr-28 py-3 bg-gray-100 border border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow resize-none" rows="1"></textarea>
+                <div class="absolute left-4 top-1/2 -translate-y-1/2 flex items-center">
+                    <button class="text-gray-400 hover:text-blue-600"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg></button>
                 </div>
-                <div id="cliente-detalles" class="flex-grow overflow-y-auto p-6 text-sm space-y-4">
-                    <div class="text-center text-gray-500">Selecciona una conversación para ver los detalles del cliente.</div>
+                <div id="send-button-container" class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
+                    <button class="text-white bg-blue-600 hover:bg-blue-700 rounded-full p-2.5 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M3.4 20.4l17.4-8.7c.9-.4.9-1.6 0-2L3.4 1c-.9-.5-1.9.4-1.5 1.4L4 9.8l8.6.4c.5 0 .5.8 0 .8L4 11.4l-2.1 7.5c-.4 1 .6 1.9 1.5 1.5z"></path></svg></button>
                 </div>
             </div>
         </div>
     </div>
 
-    <div id="ai-summary-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg shadow-2xl w-full max-w-2xl mx-4 flex flex-col" style="max-height: 80vh;">
-            <div class="p-4 border-b">
-                <div class="flex justify-between items-center">
-                    <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600"><path d="m12 3-1.9 5.8-5.8 1.9 5.8 1.9L12 21l1.9-5.8 5.8-1.9-5.8-1.9L12 3z"/></svg>
-                        Resumen del Chat (Generado por IA)
-                    </h3>
-                    <button onclick="closeSummaryModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
-                </div>
+    <div class="w-[360px] bg-white border-l border-gray-200 flex flex-col flex-shrink-0">
+        <div id="cliente-info-panel">
+            <div class="p-6 text-center border-b border-gray-200">
+                 <div id="cliente-avatar" class="w-24 h-24 rounded-full mx-auto bg-gray-200 flex items-center justify-center text-3xl font-bold text-gray-600">?</div>
+                 <h3 id="cliente-nombre" class="text-xl font-bold mt-4 text-gray-800">Sin Cliente</h3>
             </div>
-            <div class="p-6 overflow-y-auto">
-                <div id="summary-content" class="text-sm text-gray-700 prose max-w-none">
-                    </div>
+            <div id="cliente-detalles" class="flex-grow overflow-y-auto p-6 text-sm space-y-4">
+                <div class="text-center text-gray-500">Selecciona una conversación para ver los detalles del cliente.</div>
             </div>
         </div>
     </div>
+</div>
 
-    <script>
+<div id="ai-summary-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-2xl w-full max-w-2xl mx-4 flex flex-col" style="max-height: 80vh;">
+        <div class="p-4 border-b">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600"><path d="m12 3-1.9 5.8-5.8 1.9 5.8 1.9L12 21l1.9-5.8 5.8-1.9-5.8-1.9L12 3z"/></svg>
+                    Resumen del Chat (Generado por IA)
+                </h3>
+                <button onclick="closeSummaryModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+            </div>
+        </div>
+        <div class="p-6 overflow-y-auto">
+            <div id="summary-content" class="text-sm text-gray-700 prose max-w-none"></div>
+        </div>
+    </div>
+</div>
+
+<script>
     document.addEventListener('DOMContentLoaded', () => {
         let activeConvId = null;
         let activeClienteData = null; 
@@ -302,5 +295,7 @@
         }
     });
     </script>
-</body>
-</html>
+
+{% endblock %}
+
+
