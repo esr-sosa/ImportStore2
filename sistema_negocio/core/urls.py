@@ -3,6 +3,7 @@
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
+from crm import views # <--- AGREGA ESTA LÍNEA
 from django.conf.urls.static import static
 
 urlpatterns = [

@@ -30,7 +30,7 @@ SECRET_KEY = 'django-insecure-y1r-da*d4kgxhe-u@z4l7bd*=&i84@w=c&ybdp^w14d0=(zpv+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['4fe3b300ae54.ngrok-free.app', '127.0.0.1']
 
 
 # Application definition
@@ -137,8 +137,11 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-GEMINI_API_KEY = "AIzaSyDFKmdjG-A247bllzRg_N1s6nii_ttV1wo"
-
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+# --- CONFIGURACIÓN DE WHATSAPP ---
+WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN")
+WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID")
+WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN")
 # --- CONFIGURACIÓN DE ARCHIVOS MULTIMEDIA ---
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
