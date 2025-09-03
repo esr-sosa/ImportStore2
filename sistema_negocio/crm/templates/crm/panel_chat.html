@@ -220,9 +220,13 @@
                 if (data.status === 'ok') {
                     addMessageToUI({ emisor: 'Sistema', contenido: contenido, fecha_envio: data.fecha_envio }, activeClienteData);
                     messageInput.value = '';
-                } else { alert('Error al enviar el mensaje.'); }
+                } else {
+                    // --- ¡ESTA ES LA LÍNEA CORREGIDA! ---
+                    alert('Error al enviar el mensaje: ' + data.error); 
+                }
             });
         }
+
 
         function addMessageToUI(msg, clienteData) {
             if (chatWindow.querySelector('.m-auto')) { chatWindow.innerHTML = ''; }

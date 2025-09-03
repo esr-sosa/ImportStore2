@@ -1,5 +1,5 @@
 # crm/views.py
-
+import requests # <--- AGREGA ESTA LÍNEA
 from django.shortcuts import render
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -41,6 +41,9 @@ def get_conversacion_details(request, conv_id):
     except Conversacion.DoesNotExist:
         return JsonResponse({'error': 'Conversacion no encontrada'}, status=404)
 
+# crm/views.py
+
+# ... (importaciones y otras vistas quedan igual) ...
 
 # --- VISTA DE ENVIAR MENSAJE MODIFICADA ---
 @csrf_exempt
@@ -61,10 +64,21 @@ def enviar_mensaje(request):
             send_whatsapp_message(conversacion.cliente.telefono, contenido)
 
             return JsonResponse({'status': 'ok', 'mensaje_id': nuevo_mensaje.id, 'fecha_envio': nuevo_mensaje.fecha_envio.strftime('%d de %b, %H:%M')})
+        
+        # --- ¡ESTA ES LA MODIFICACIÓN IMPORTANTE! ---
+        except requests.exceptions.RequestException as e:
+            # Si el error viene de la API de Meta, devolvemos el detalle exacto.
+            error_detalle = "No se pudo obtener el detalle del error."
+            if e.response:
+                error_detalle = e.response.text
+            return JsonResponse({'error': f"Error de Meta: {error_detalle}"}, status=400)
+            
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
+
     return JsonResponse({'error': 'Solo se aceptan peticiones POST'}, status=405)
 
+# ... (el resto de las vistas quedan igual) ...
 
 # --- FUNCIÓN DE RESUMEN (Sin cambios) ---
 @csrf_exempt
