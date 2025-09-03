@@ -74,6 +74,7 @@ class Mensaje(models.Model):
     EMISOR_CHOICES = [
         ('Cliente', 'Cliente'),
         ('Sistema', 'Sistema'), # Usado para IA y Asesores
+        ('IA_Nota', 'Nota de IA'), # <---
     ]
 
     conversacion = models.ForeignKey(Conversacion, on_delete=models.CASCADE, related_name="mensajes")

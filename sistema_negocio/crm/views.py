@@ -4,7 +4,9 @@ from django.shortcuts import render
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
-
+# crm/views.py
+# ... (debajo de las otras importaciones)
+from asistente_ia import interpreter
 from django.conf import settings
 import google.generativeai as genai
 
@@ -147,25 +149,28 @@ def sugerir_respuesta_ia(request):
             return JsonResponse({'error': 'Hubo un problema al generar la sugerencia.'}, status=500)
     return JsonResponse({'error': 'Solo se aceptan peticiones POST'}, status=405)
 
+# crm/views.py
 
-# --- ¡NUEVA VISTA PARA EL WEBHOOK DE WHATSAPP! ---
+# ... (otras vistas e importaciones) ...
+# crm/views.py
+
+# ... (importaciones y otras vistas) ...
+# crm/views.py
+# crm/views.py
+
 @csrf_exempt
 def whatsapp_webhook(request):
-    # Verificación del Webhook (se usa una sola vez al configurar en Meta)
+    # ... (la parte de verificación del webhook 'GET' no cambia) ...
     if request.method == 'GET':
         verify_token = settings.WHATSAPP_VERIFY_TOKEN
         mode = request.GET.get('hub.mode')
         token = request.GET.get('hub.verify_token')
         challenge = request.GET.get('hub.challenge')
-
         if mode == 'subscribe' and token == verify_token:
-            print("Webhook verificado con éxito!")
             return HttpResponse(challenge, status=200)
         else:
-            print("Falló la verificación del Webhook.")
             return HttpResponse('Error, token de verificación inválido', status=403)
 
-    # Procesar mensajes entrantes de clientes
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
@@ -177,18 +182,35 @@ def whatsapp_webhook(request):
                                 if message.get('type') == 'text':
                                     from_number = message['from']
                                     msg_body = message['text']['body']
-                                    
-                                    # Lógica para guardar el mensaje en nuestra base de datos
+
                                     cliente, _ = Cliente.objects.get_or_create(telefono=from_number, defaults={'nombre': f"Cliente {from_number[-4:]}"})
                                     conversacion, _ = Conversacion.objects.get_or_create(cliente=cliente, fuente='WhatsApp', defaults={'estado': 'Abierta'})
                                     Mensaje.objects.create(conversacion=conversacion, emisor='Cliente', contenido=msg_body)
-                                    
                                     print(f"Mensaje recibido de {from_number}: {msg_body}")
-            
+
+                                    # --- ¡NUEVA LÓGICA PARA CONSTRUIR EL HISTORIAL! ---
+                                    ultimos_mensajes = conversacion.mensajes.order_by('-fecha_envio')[:6]
+                                    historial_chat = "\n".join([f"{m.emisor}: {m.contenido}" for m in reversed(ultimos_mensajes)])
+
+                                    # --- Llamamos a ISAC con el contexto ---
+                                    query_json = interpreter.generate_query_json_from_question(msg_body, chat_history=historial_chat)
+                                    if query_json and query_json.get("action") != "chat":
+                                        query_results = interpreter.run_query_from_json(query_json)
+                                        respuesta_cliente = interpreter.generate_final_response(msg_body, query_results, chat_history=historial_chat)
+
+                                        if respuesta_cliente:
+                                            send_whatsapp_message(from_number, respuesta_cliente)
+                                            Mensaje.objects.create(
+                                                conversacion=conversacion,
+                                                emisor='Sistema',
+                                                contenido=respuesta_cliente,
+                                                enviado_por_ia=True
+                                            )
+                                            print(f"Respuesta de ISAC (con contexto) enviada: {respuesta_cliente}")
+
             return HttpResponse(status=200)
         except Exception as e:
             print(f"Error procesando webhook: {e}")
             return HttpResponse(status=500)
 
     return HttpResponse(status=405)
-

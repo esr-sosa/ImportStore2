@@ -111,6 +111,7 @@
     </div>
 </div>
 
+
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         let activeConvId = null;
@@ -237,8 +238,7 @@
             });
         }
 
-
-        function addMessageToUI(msg, clienteData) {
+function addMessageToUI(msg, clienteData) {
             if (chatWindow.querySelector('.m-auto')) { chatWindow.innerHTML = ''; }
             const messageRow = document.createElement('div');
             messageRow.classList.add('w-full', 'flex', 'mb-4', 'chat-message-row'); 
@@ -248,10 +248,27 @@
             if (msg.emisor === 'Cliente') {
                 messageRow.classList.add('justify-start');
                 messageRow.innerHTML = `<div class="flex items-start gap-3"><div class="w-8 h-8 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center font-bold text-sm flex-shrink-0">${inicial}</div><div class="bg-white p-3 rounded-lg max-w-lg shadow-sm border border-gray-200"><p class="text-sm text-gray-800 chat-message-content">${msg.contenido}</p><p class="text-xs text-gray-400 text-right mt-1">${msg.fecha_envio}</p></div></div>`;
-            } else {
+            
+            } else if (msg.emisor === 'Sistema') {
                 messageRow.classList.add('justify-end');
                 messageRow.innerHTML = `<div class="bg-blue-600 text-white p-3 rounded-lg max-w-lg shadow-sm"><p class="text-sm chat-message-content">${msg.contenido}</p><p class="text-xs text-blue-200 text-right mt-1">${msg.fecha_envio}</p></div>`;
+            
+            // --- ¡NUEVA LÓGICA PARA MOSTRAR LAS NOTAS DE IA! ---
+            } else if (msg.emisor === 'IA_Nota') {
+                messageRow.classList.add('justify-center', 'my-2');
+                messageRow.innerHTML = `
+                    <div class="max-w-xl w-full">
+                        <div class="bg-yellow-100 border-l-4 border-yellow-400 text-yellow-800 p-3 rounded-r-lg flex items-center gap-3 text-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0"><path d="m12 3-1.9 5.8-5.8 1.9 5.8 1.9L12 21l1.9-5.8 5.8-1.9-5.8-1.9L12 3z"/></svg>
+                            <div>
+                                <p class="font-semibold">Nota de ISAC</p>
+                                <p class="chat-message-content">${msg.contenido}</p>
+                            </div>
+                        </div>
+                    </div>`;
             }
+            // --- FIN DE LA NUEVA LÓGICA ---
+            
             chatWindow.appendChild(messageRow);
             chatWindow.scrollTop = chatWindow.scrollHeight;
         }

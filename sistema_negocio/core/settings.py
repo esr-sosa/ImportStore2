@@ -148,4 +148,18 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # --- URL DE LOGIN ---
 LOGIN_URL = '/admin/login/'
+# sistema_negocio/core/settings.py
+
+# ... (al final del archivo) ...
+
+# Configuración de ASGI para Channels
+ASGI_APPLICATION = 'core.asgi.application'
+
+# Configuración del "Channel Layer" para la comunicación en tiempo real
+# En desarrollo, podemos usar una versión en memoria.
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+    },
+}
 

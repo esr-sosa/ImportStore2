@@ -50,45 +50,44 @@ class Precio(models.Model):
     precio_venta_normal = models.DecimalField(max_digits=10, decimal_places=2)
 """
 
-def generate_query_json_from_question(question, user_name="Ema"):
+# asistente_ia/interpreter.py
+
+def generate_query_json_from_question(question, user_name="Ema", chat_history=""): # <-- Argumento nuevo
     """
-    Convierte una pregunta en un JSON que describe la consulta a la base de datos.
+    Convierte la PREGUNTA MÁS RECIENTE en un JSON, usando el historial como contexto.
     """
-    # --- ¡NUEVO! FILTRO DE SENTIDO COMÚN ---
     if question.lower().strip() in SIMPLE_GREETINGS:
         return {"model": "None", "action": "chat", "filters": []}
 
     model = genai.GenerativeModel('gemini-1.5-flash-latest')
     prompt = f"""
-    Tu tarea es ser el motor de análisis de lenguaje para ISAC, un asistente de IA.
-    El usuario que te habla es {user_name}, el dueño del negocio.
-    Convierte su pregunta en una estructura JSON para una consulta al ORM de Django.
+    Tu tarea es ser el motor de análisis de lenguaje para ISAC.
+    El usuario es {user_name}, el dueño.
+
+    **Contexto de la Conversación:**
+    {chat_history}
+    ---
+    **Tarea:** Analiza el **último mensaje del cliente** ("{question}") y conviértelo en un JSON de consulta para el ORM de Django.
+    Usa el contexto si es necesario (ej: si pregunta "y de 256gb?", se refiere al modelo que venían hablando).
 
     **REGLAS CRÍTICAS:**
-    1.  **Devolvé ÚNICAMENTE un objeto JSON válido.** Sin explicaciones ni markdown.
-    2.  El JSON debe tener "model", "action", y "filters".
-    3.  **"model"**: Debe ser uno de: {', '.join(MODEL_MAP.keys())}.
-    4.  **"action"**: Puede ser "filter" (lista) o "count" (número).
-    5.  **"filters"**: Una lista de diccionarios con "field" y "value".
-    6.  **Usa `__icontains` para búsquedas de texto flexibles.**
-    7.  **SIEMPRE que se pregunte por "iPhones", agrega un filtro para la categoría "Celulares"**: `{{"field": "producto__categoria__nombre__iexact", "value": "Celulares"}}`
-    8.  **Para preguntas de cantidad ("cuántos", "stock de"), la acción debe ser "count" y el modelo `ProductoVariante`.**
-    9.  **Para preguntas de precio o costo ("cuánto vale", "precio de", "costo"), el modelo debe ser `Precio` y la acción `filter`.**
-    10. Si la pregunta es un saludo o no parece una consulta (ej: "quien sos"), devolvé: `{{"model": "None", "action": "chat", "filters": []}}`
+    1.  **Devolvé ÚNICAMENTE un objeto JSON válido.**
+    2.  **"model"**: Debe ser uno de: {', '.join(MODEL_MAP.keys())}.
+    3.  **"action"**: "filter" (lista) o "count" (número).
+    4.  **Si el último mensaje no es una consulta de datos** (ej: "gracias"), devolvé: `{{"model": "None", "action": "chat", "filters": []}}`
 
     **Esquema de la Base de Datos:**
     {DATABASE_SCHEMA}
     ---
-    **Pregunta del usuario:** "{question}"
-    **JSON de la consulta:**
+    **JSON de la consulta para el último mensaje:**
     """
     try:
+        # ... (el resto de la función no cambia) ...
         response = model.generate_content(prompt)
         json_text = response.text.strip().replace('```json', '').replace('```', '')
         return json.loads(json_text)
     except Exception as e:
         if "429" in str(e):
-            print("Se alcanzó el límite de la API de Gemini.")
             return {"error": "RATE_LIMIT_EXCEEDED"}
         print(f"Error generando JSON de consulta: {e}")
         return None
@@ -118,32 +117,40 @@ def run_query_from_json(query_json):
         if action == "count":
             results = queryset.count()
         elif action == "filter":
-            if model_name in ['ProductoVariante', 'DetalleIphone', 'Precio']:
-                queryset = queryset.select_related('variante__producto', 'producto__categoria')
+            # --- CÓDIGO CORREGIDO ---
+            # Ahora la optimización de la consulta es específica para cada modelo.
+            if model_name == 'Precio':
+                queryset = queryset.select_related('variante__producto__categoria')
+            elif model_name == 'DetalleIphone':
+                queryset = queryset.select_related('variante__producto__categoria')
+            elif model_name == 'ProductoVariante':
+                queryset = queryset.select_related('producto__categoria')
+            # --- FIN DE LA CORRECCIÓN ---
             results = list(queryset[:10])
         else:
             return f"Error: La acción '{action}' no es válida."
-        
-        return results
     except Exception as e:
         print(f"Error ejecutando consulta desde JSON: {e}")
         return f"Error al ejecutar la consulta: {type(e).__name__} - {e}"
+# asistente_ia/interpreter.py
 
-def generate_final_response(question, query_results, user_name="Ema"):
+def generate_final_response(question, query_results, user_name="Ema", chat_history=""): # <-- Argumento nuevo
+    # ... (la primera parte de la función no cambia) ...
     if isinstance(query_results, dict) and query_results.get("error") == "RATE_LIMIT_EXCEEDED":
-        return f"Disculpame, {user_name}. Parece que hemos hecho muchas consultas a la inteligencia artificial por hoy y alcanzamos el límite de la capa gratuita. Podemos seguir mañana cuando se reinicie la cuota."
+        return f"Disculpame, {user_name}. [...]" # Mensaje de error
 
     model = genai.GenerativeModel('gemini-1.5-flash-latest')
-    
     results_str = ""
+    # ... (la lógica para formatear results_str no cambia) ...
     if query_results is None:
         results_str = "Es una pregunta de chat, no una consulta de datos."
     elif isinstance(query_results, list):
         if not query_results:
             results_str = "La consulta no devolvió ningún resultado."
         else:
-            formatted_items = []
-            for item in query_results:
+            # ... (código para formatear la lista de resultados) ...
+             formatted_items = []
+             for item in query_results:
                 if isinstance(item, ProductoVariante):
                     formatted_items.append(f"Producto: {item.producto.nombre}, Variante: {item.nombre_variante}")
                 elif isinstance(item, Precio):
@@ -155,36 +162,36 @@ def generate_final_response(question, query_results, user_name="Ema"):
                     formatted_items.append(info)
                 else:
                     formatted_items.append(str(item))
-            results_str = "\n".join(formatted_items)
+             results_str = "\n".join(formatted_items)
     else:
         results_str = str(query_results)
 
+
     prompt = f"""
-    Sos ISAC, el asistente de IA de ImportStore. Tu interlocutor es {user_name}, el dueño del negocio.
-    Tu tono es el de un colega proactivo y eficiente, pero siempre servicial. Usá un lenguaje argentino y profesional.
+    Sos ISAC, el asistente de IA de ImportStore. Tu tono es el de un colega proactivo y eficiente. Usá un lenguaje argentino y profesional.
 
-    El usuario te hizo una pregunta y vos obtuviste un resultado de la base de datos (o no, si era un saludo). Tu tarea es formular la respuesta final.
+    **Historial de la Conversación:**
+    {chat_history}
+    ---
+    **Pregunta más reciente del cliente:** "{question}"
+    **Resultados de tu consulta a la Base de Datos:** "{results_str}"
+    ---
+    **Tarea:** Formula la respuesta final para el cliente. La respuesta debe ser la continuación LÓGICA y COHERENTE del historial.
 
-    **REGLAS DE PERSONALIDAD Y RESPUESTA:**
-    1.  **Si es una pregunta de chat** (resultado: "Es una pregunta de chat..."), respondé de forma natural y directa. No repitas "Hola Ema" si él ya saludó. Si te pregunta "como estas", respondé brevemente y devolvé la pregunta o ponete a disposición. Ej: "Todo bien por acá, Ema. ¿En qué te puedo ayudar?".
-    2.  **Si es un error técnico**, informá que hubo un problema al consultar la base de datos, de forma concisa.
-    3.  **Si no se encontraron resultados**, informalo claramente. Ej: "Ema, estuve buscando pero no encontré ningún iPhone que coincida con esa descripción en la base de datos."
-    4.  **Si hay resultados**, presentalos de forma clara y directa. No inventes contexto, solo presentá los datos.
-    5.  **NUNCA INVENTES INFORMACIÓN.** Es tu regla más importante.
+    **REGLAS DE RESPUESTA:**
+    1.  **Si el cliente saluda**, respondé al saludo de forma natural.
+    2.  **Si no hay resultados**, informalo amablemente. Ej: "Ema, busqué el iPhone 16 Pro Max pero no me figura stock disponible en este momento."
+    3.  **Si hay resultados**, presentalos de forma clara y directa. Si antes preguntó por un modelo y ahora por colores, respondé sobre los colores de ESE modelo.
+    4.  **Sé proactivo.** Si un cliente pregunta "¿Tienen iPhone 16?", y vos encontrás 3 variantes, una buena respuesta sería: "¡Hola! Sí, tenemos el iPhone 16. ¿Te interesa en alguna capacidad o color en particular? Así te paso el precio exacto."
 
-    **Pregunta Original de {user_name}:** "{question}"
-
-    **Resultados de la Base de Datos (en crudo):**
-    {results_str}
-
-    **Tu Respuesta Final (concisa y directa para {user_name}):**
+    **Tu Respuesta Final (concisa, directa y en español de Argentina):**
     """
     try:
+        # ... (el resto de la función no cambia) ...
         response = model.generate_content(prompt)
         return response.text.strip()
     except Exception as e:
         if "429" in str(e):
-             return f"Disculpame, {user_name}. Parece que hemos hecho muchas consultas a la inteligencia artificial por hoy y alcanzamos el límite de la capa gratuita. Podemos seguir mañana cuando se reinicie la cuota."
+             return f"Disculpame, {user_name}. [...]"
         print(f"Error generando respuesta final: {e}")
         return "Disculpame, Ema. Tuve un problema para formular la respuesta final."
-
