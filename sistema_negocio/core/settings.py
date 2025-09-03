@@ -11,9 +11,14 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 import os
 from pathlib import Path
+# core/settings.py
+from dotenv import load_dotenv # <--- AÑADIR ESTA LÍNEA
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# --- ¡NUEVO! Cargar variables de entorno desde el archivo .env ---
+load_dotenv(os.path.join(BASE_DIR, '.env')) # <--- AÑADIR ESTA LÍNEA
 
 
 # Quick-start development settings - unsuitable for production

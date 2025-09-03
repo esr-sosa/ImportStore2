@@ -17,6 +17,7 @@ urlpatterns = [
 path('asistente_ia/', include('asistente_ia.urls')), # <-- ¡AÑADIR ESTA LÍNEA!
 
     path('', include('dashboard.urls')),
+    path('webhook/', views.whatsapp_webhook, name='whatsapp_webhook'),
 ]
 
 # Configuración para servir archivos de imágenes en modo de desarrollo

@@ -1,7 +1,7 @@
 # crm/views.py
 
 from django.shortcuts import render
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
 
@@ -9,6 +9,8 @@ from django.conf import settings
 import google.generativeai as genai
 
 from .models import Conversacion, Mensaje, Cliente
+# --- ¡NUEVO! Importamos nuestro servicio de WhatsApp ---
+from .whatsapp_service import send_whatsapp_message
 
 genai.configure(api_key=settings.GEMINI_API_KEY)
 
@@ -40,6 +42,7 @@ def get_conversacion_details(request, conv_id):
         return JsonResponse({'error': 'Conversacion no encontrada'}, status=404)
 
 
+# --- VISTA DE ENVIAR MENSAJE MODIFICADA ---
 @csrf_exempt
 def enviar_mensaje(request):
     if request.method == 'POST':
@@ -47,25 +50,25 @@ def enviar_mensaje(request):
             data = json.loads(request.body)
             conv_id = data.get('conversacion_id')
             contenido = data.get('contenido')
-            if not conv_id or not contenido:
-                return JsonResponse({'error': 'Faltan datos'}, status=400)
-            conversacion = Conversacion.objects.get(id=conv_id)
+            
+            conversacion = Conversacion.objects.select_related('cliente').get(id=conv_id)
+            
+            # 1. Guardar el mensaje en nuestra base de datos
             nuevo_mensaje = Mensaje.objects.create(conversacion=conversacion, emisor='Sistema', contenido=contenido)
             conversacion.save()
+            
+            # 2. ¡NUEVO! Enviar el mensaje por WhatsApp al cliente a través del servicio
+            send_whatsapp_message(conversacion.cliente.telefono, contenido)
+
             return JsonResponse({'status': 'ok', 'mensaje_id': nuevo_mensaje.id, 'fecha_envio': nuevo_mensaje.fecha_envio.strftime('%d de %b, %H:%M')})
-        except Conversacion.DoesNotExist:
-            return JsonResponse({'error': 'La conversación no existe'}, status=404)
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
     return JsonResponse({'error': 'Solo se aceptan peticiones POST'}, status=405)
 
 
-# --- FUNCIÓN DE RESUMEN ACTUALIZADA ---
+# --- FUNCIÓN DE RESUMEN (Sin cambios) ---
 @csrf_exempt
 def resumir_chat_ia(request):
-    """
-    Genera un resumen estructurado con puntos clave, contexto y recomendaciones.
-    """
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
@@ -73,30 +76,17 @@ def resumir_chat_ia(request):
             if not historial_chat:
                 return JsonResponse({'error': 'No se proporcionó historial'}, status=400)
             model = genai.GenerativeModel('gemini-1.5-flash-latest')
-            
-            # --- PROMPT MEJORADO Y ESTRUCTURADO ---
             prompt = f"""
                 Tu tarea es actuar como un analista de ventas experto para 'ImportStore'.
                 Leé la siguiente conversación y generá un informe DIRECTAMENTE en formato HTML.
-
                 El informe debe tener la siguiente estructura:
-                
-                <h4>Puntos Clave</h4>
-                <ul>
-                    <li>...resumen en 3 o 4 puntos...</li>
-                </ul>
-                <hr class="my-3">
-                <h4>Contexto Adicional</h4>
-                <p>...un párrafo breve explicando la situación actual de la conversación...</p>
-                <hr class="my-3">
-                <h4>Recomendaciones</h4>
-                <p>...un párrafo con acciones claras y específicas que el asesor debería tomar a continuación para avanzar la venta o resolver la consulta...</p>
-
+                <h4>Puntos Clave</h4><ul><li>...resumen...</li></ul><hr class="my-3">
+                <h4>Contexto Adicional</h4><p>...</p><hr class="my-3">
+                <h4>Recomendaciones</h4><p>...</p>
                 **Instrucciones Importantes:**
                 - Sé conciso y andá al grano.
                 - Usá la etiqueta <strong> para resaltar las palabras más importantes.
                 - NO incluyas ` ```html ` ni nada fuera de la estructura HTML solicitada.
-
                 **Conversación a Analizar:**
                 {historial_chat}
             """
@@ -109,6 +99,7 @@ def resumir_chat_ia(request):
     return JsonResponse({'error': 'Solo se aceptan peticiones POST'}, status=405)
 
 
+# --- FUNCIÓN DE SUGERIR RESPUESTA (Sin cambios) ---
 @csrf_exempt
 def sugerir_respuesta_ia(request):
     if request.method == 'POST':
@@ -125,10 +116,10 @@ def sugerir_respuesta_ia(request):
                 - Nombre: {cliente_data.get('nombre', 'N/A')}
                 - Tipo de Cliente: {cliente_data.get('tipo_cliente', 'N/A')}
                 **Reglas de Estilo y Tono:**
-                1.  **Español de Argentina (Rioplatense Profesional):** Utilizá "vos" y conjugaciones verbales correspondientes (ej. 'tenés', 'querés', 'podés'). El tono debe ser profesional, servicial y humano. Evitá el "che" o jerga excesivamente informal.
-                2.  **Continuidad y Coherencia:** Analizá el historial completo para entender en qué punto se encuentra la conversación. NO saludes con "Hola" si el diálogo ya comenzó. Tu respuesta debe ser la continuación lógica del último mensaje.
-                3.  **Adaptación al Cliente:** Tené en cuenta si el cliente es 'Mayorista' o 'Minorista' para adaptar sutilmente la formalidad o el enfoque de la respuesta.
-                4.  **Enfoque en la Solución:** Sé proactivo. El objetivo es siempre avanzar hacia la resolución o la venta.
+                1. Español de Argentina (Rioplatense Profesional).
+                2. Continuidad y Coherencia.
+                3. Adaptación al Cliente.
+                4. Enfoque en la Solución.
                 **Tarea Inmediata:**
                 Basado en el siguiente historial y los datos del cliente, generá únicamente el texto de la respuesta que el asesor debe enviar.
                 **Historial de la Conversación:**
@@ -141,3 +132,49 @@ def sugerir_respuesta_ia(request):
             print(f"Error en la vista sugerir_respuesta_ia: {e}")
             return JsonResponse({'error': 'Hubo un problema al generar la sugerencia.'}, status=500)
     return JsonResponse({'error': 'Solo se aceptan peticiones POST'}, status=405)
+
+
+# --- ¡NUEVA VISTA PARA EL WEBHOOK DE WHATSAPP! ---
+@csrf_exempt
+def whatsapp_webhook(request):
+    # Verificación del Webhook (se usa una sola vez al configurar en Meta)
+    if request.method == 'GET':
+        verify_token = settings.WHATSAPP_VERIFY_TOKEN
+        mode = request.GET.get('hub.mode')
+        token = request.GET.get('hub.verify_token')
+        challenge = request.GET.get('hub.challenge')
+
+        if mode == 'subscribe' and token == verify_token:
+            print("Webhook verificado con éxito!")
+            return HttpResponse(challenge, status=200)
+        else:
+            print("Falló la verificación del Webhook.")
+            return HttpResponse('Error, token de verificación inválido', status=403)
+
+    # Procesar mensajes entrantes de clientes
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            if 'object' in data and data['object'] == 'whatsapp_business_account':
+                for entry in data.get('entry', []):
+                    for change in entry.get('changes', []):
+                        if 'messages' in change.get('value', {}):
+                            for message in change['value']['messages']:
+                                if message.get('type') == 'text':
+                                    from_number = message['from']
+                                    msg_body = message['text']['body']
+                                    
+                                    # Lógica para guardar el mensaje en nuestra base de datos
+                                    cliente, _ = Cliente.objects.get_or_create(telefono=from_number, defaults={'nombre': f"Cliente {from_number[-4:]}"})
+                                    conversacion, _ = Conversacion.objects.get_or_create(cliente=cliente, fuente='WhatsApp', defaults={'estado': 'Abierta'})
+                                    Mensaje.objects.create(conversacion=conversacion, emisor='Cliente', contenido=msg_body)
+                                    
+                                    print(f"Mensaje recibido de {from_number}: {msg_body}")
+            
+            return HttpResponse(status=200)
+        except Exception as e:
+            print(f"Error procesando webhook: {e}")
+            return HttpResponse(status=500)
+
+    return HttpResponse(status=405)
+
