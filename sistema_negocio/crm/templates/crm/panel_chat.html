@@ -210,20 +210,30 @@
         function handleSendMessage() {
             const contenido = messageInput.value.trim();
             if (!contenido || !activeConvId) return;
+
             fetch('/chat/api/enviar_mensaje/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ conversacion_id: activeConvId, contenido: contenido })
             })
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'ok') {
+            .then(response => {
+                // Convertimos la respuesta a JSON para poder leerla, sin importar si fue exitosa o no
+                return response.json().then(data => ({ ok: response.ok, data }));
+            })
+            .then(({ ok, data }) => {
+                if (ok && data.status === 'ok') {
+                    // Si todo salió bien, agregamos el mensaje a la UI
                     addMessageToUI({ emisor: 'Sistema', contenido: contenido, fecha_envio: data.fecha_envio }, activeClienteData);
                     messageInput.value = '';
                 } else {
-                    // --- ¡ESTA ES LA LÍNEA CORREGIDA! ---
-                    alert('Error al enviar el mensaje: ' + data.error); 
+                    // Si hubo un error, MOSTRAMOS el detalle completo que nos dio el servidor
+                    alert('Error desde el servidor: ' + JSON.stringify(data));
                 }
+            })
+            .catch(error => {
+                // Por si ocurre un error de red
+                console.error('Error en la comunicación:', error);
+                alert('Ocurrió un error de red. Revisa la consola del navegador.');
             });
         }
 
