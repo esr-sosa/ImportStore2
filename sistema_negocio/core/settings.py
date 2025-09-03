@@ -37,11 +37,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.humanize', # <-- ¡AQUÍ ESTÁ LA LÍNEA AÑADIDA!
     'crm',
     'inventario',
     'ventas',
     'dashboard',
     'iphones',
+    'historial',
+     'asistente_ia',
 ]
 
 MIDDLEWARE = [
@@ -59,7 +62,6 @@ ROOT_URLCONF = 'core.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        # --- LÍNEA MODIFICADA AQUÍ ---
         'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
@@ -91,7 +93,6 @@ DATABASES = {
 
 
 # Password validation
-
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -132,20 +133,11 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 GEMINI_API_KEY = "AIzaSyDFKmdjG-A247bllzRg_N1s6nii_ttV1wo"
-# core/settings.py
-
-# ... (al final del archivo, después de DEFAULT_AUTO_FIELD y GEMINI_API_KEY) ...
 
 # --- CONFIGURACIÓN DE ARCHIVOS MULTIMEDIA ---
-# URL que se usará en las plantillas para acceder a los archivos
 MEDIA_URL = '/media/'
-
-# Ruta en tu computadora donde se guardarán las imágenes subidas
 MEDIA_ROOT = BASE_DIR / 'media'
-# core/settings.py
-
-# ... (al final de todo, después de MEDIA_ROOT) ...
 
 # --- URL DE LOGIN ---
-# Le decimos a Django que use la página de login del admin cuando una página requiera autenticación.
 LOGIN_URL = '/admin/login/'
+

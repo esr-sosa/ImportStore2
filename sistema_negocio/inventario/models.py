@@ -57,16 +57,10 @@ class ProductoVariante(models.Model):
         unique_together = ('producto', 'nombre_variante')
 
 class Precio(models.Model):
-    MONEDA_CHOICES = [
-        ('ARS', 'Pesos Argentinos (ARS)'),
-        ('USD', 'Dólares Estadounidenses (USD)'),
-    ]
-    TIPO_PRECIO_CHOICES = [
-        ('Minorista', 'Minorista'),
-        ('Mayorista', 'Mayorista'),
-    ]
+    MONEDA_CHOICES = [('ARS', 'Pesos Argentinos (ARS)'), ('USD', 'Dólares Estadounidenses (USD)')]
+    TIPO_PRECIO_CHOICES = [('Minorista', 'Minorista'), ('Mayorista', 'Mayorista')]
     variante = models.ForeignKey(ProductoVariante, on_delete=models.CASCADE, related_name="precios")
-    moneda = models.CharField(max_length=3, choices=MONEDA_CHOICES, default='ARS')
+    moneda = models.CharField(max_length=3, choices=MONEDA_CHOICES, default='USD')
     tipo_precio = models.CharField(max_length=20, choices=TIPO_PRECIO_CHOICES, default='Minorista')
     costo = models.DecimalField(max_digits=10, decimal_places=2, help_text="Costo de adquisición del producto")
     precio_venta_normal = models.DecimalField(max_digits=10, decimal_places=2, help_text="Precio de venta estándar")
@@ -82,12 +76,14 @@ class Precio(models.Model):
 
 class DetalleIphone(models.Model):
     variante = models.OneToOneField(ProductoVariante, on_delete=models.CASCADE, related_name="detalle_iphone")
-    imei = models.CharField(max_length=15, unique=True, help_text="IMEI único del equipo")
-    salud_bateria = models.PositiveIntegerField(help_text="Porcentaje de salud de la batería (ej: 98)")
+    imei = models.CharField(max_length=15, unique=True, blank=True, null=True, help_text="IMEI único del equipo")
+    salud_bateria = models.PositiveIntegerField(blank=True, null=True, help_text="Porcentaje de salud de la batería (ej: 98)")
     fallas_detectadas = models.TextField(blank=True, null=True, help_text="Descripción de cualquier falla o detalle")
-    fecha_compra = models.DateField()
-    def __str__(self): return f"iPhone con IMEI: {self.imei}"
+    # --- CAMPO NUEVO PARA PLAN CANJE ---
+    es_plan_canje = models.BooleanField(default=False, help_text="Marcar si este equipo fue recibido como parte de un Plan Canje")
+    
+    def __str__(self): return f"Detalles para: {self.variante}"
     class Meta: verbose_name, verbose_name_plural = "Detalle de iPhone", "Detalles de iPhones"
     def clean(self):
-        if not self.imei.isdigit() or len(self.imei) not in [14, 15]:
+        if self.imei and (not self.imei.isdigit() or len(self.imei) not in [14, 15]):
             raise ValidationError("El IMEI debe ser un número de 14 o 15 dígitos.")

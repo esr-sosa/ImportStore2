@@ -13,6 +13,9 @@ urlpatterns = [
     path('ventas/', include('ventas.urls')),
     path('inventario/', include('inventario.urls')),
     path('iphones/', include('iphones.urls')), # <--- AÑADIR ESTA LÍNEA
+        path('historial/', include('historial.urls')), # <-- ¡AÑADIR ESTA LÍNEA!
+path('asistente_ia/', include('asistente_ia.urls')), # <-- ¡AÑADIR ESTA LÍNEA!
+
     path('', include('dashboard.urls')),
 ]
 

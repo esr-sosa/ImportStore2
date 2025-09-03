@@ -1,28 +1,73 @@
 {% extends "base.html" %}
+{% load humanize %} 
 
 {% block title %}Gestión de iPhones{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Estilos para el slider de Activo/Inactivo */
+    .switch { position: relative; display: inline-block; width: 34px; height: 20px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 20px; }
+    .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+    input:checked + .slider { background-color: #2563eb; } /* Color azul cuando está activo */
+    input:checked + .slider:before { transform: translateX(14px); }
+    /* Ocultar el modal por defecto */
+    #delete-modal { display: none; }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="p-4 sm:p-6 lg:p-8">
     
-    <!-- Cabecera y Cotización del Dólar -->
-    <div class="sm:flex sm:items-center sm:justify-between mb-6">
+    <!-- Cabecera -->
+    <div class="sm:flex sm:items-start sm:justify-between mb-6">
         <div>
             <h1 class="text-3xl font-bold text-gray-900">Gestión de iPhones</h1>
-            <p class="mt-1 text-sm text-gray-500">Panel dedicado para la gestión de iPhones y precios en dólares.</p>
+            <p class="mt-1 text-sm text-gray-500">Panel de control para el inventario de iPhones.</p>
         </div>
         <div class="mt-4 sm:mt-0">
-            {% if valor_dolar %}
-            <div class="bg-white p-3 rounded-lg shadow-sm border text-right">
-                <p class="text-sm font-medium text-gray-500">Dólar Blue (Venta)</p>
-                <p class="text-2xl font-bold text-green-600">${{ valor_dolar|floatformat:2 }}</p>
-            </div>
-            {% else %}
-            <div class="bg-red-50 p-3 rounded-lg border border-red-200 text-right">
-                <p class="text-sm font-medium text-red-700">Error al obtener cotización</p>
-            </div>
-            {% endif %}
+             <a href="{% url 'iphones:agregar_iphone' %}" class="w-full sm:w-auto bg-gray-900 text-white font-semibold py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors shadow-sm flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
+                Agregar iPhone
+            </a>
         </div>
+    </div>
+
+    <!-- Indicadores Clave (KPIs) -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        <!-- Card: Dólar Blue -->
+        <div class="bg-white p-5 rounded-xl shadow-sm border">
+            <h3 class="text-sm font-semibold text-gray-500">Dólar Blue (Venta)</h3>
+            <p class="text-3xl font-bold text-green-600 mt-1">${{ valor_dolar|floatformat:2|intcomma }}</p>
+        </div>
+        <!-- Card: Stock Total -->
+        <div class="bg-white p-5 rounded-xl shadow-sm border">
+            <h3 class="text-sm font-semibold text-gray-500">Stock Total de iPhones</h3>
+            <p class="text-3xl font-bold text-gray-800 mt-1">{{ total_stock }} <span class="text-lg font-medium text-gray-500">unidades</span></p>
+        </div>
+        <!-- Card: Valor Total USD -->
+        <div class="bg-white p-5 rounded-xl shadow-sm border">
+            <h3 class="text-sm font-semibold text-gray-500">Valor de Venta (USD)</h3>
+            <p class="text-3xl font-bold text-blue-600 mt-1">US$ {{ valor_total_usd|floatformat:2|intcomma }}</p>
+        </div>
+        <!-- Card: Valor Total ARS -->
+        <div class="bg-white p-5 rounded-xl shadow-sm border">
+            <h3 class="text-sm font-semibold text-gray-500">Valor Estimado (ARS)</h3>
+            <p class="text-3xl font-bold text-gray-800 mt-1">$ {{ valor_total_ars|floatformat:0|intcomma }}</p>
+        </div>
+    </div>
+    
+    <!-- Barra de Búsqueda -->
+     <div class="mb-6">
+        <form method="get">
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg>
+                </div>
+                <input type="text" name="q" value="{{ search_query|default:'' }}" class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Buscar por modelo, capacidad, color o IMEI...">
+            </div>
+        </form>
     </div>
 
     <!-- Tabla de iPhones -->
@@ -32,7 +77,7 @@
                 <thead class="bg-gray-50 border-b">
                     <tr>
                         <th class="p-4 text-left text-sm font-semibold text-gray-600 w-2/5">Modelo</th>
-                        <th class="p-4 text-center text-sm font-semibold text-gray-600">Stock</th>
+                        <th class="p-4 text-center text-sm font-semibold text-gray-600">Activo</th>
                         <th class="p-4 text-right text-sm font-semibold text-gray-600">Precio (USD)</th>
                         <th class="p-4 text-right text-sm font-semibold text-gray-600">Precio Sugerido (ARS)</th>
                         <th class="p-4 text-center text-sm font-semibold text-gray-600">Acciones</th>
@@ -41,31 +86,48 @@
                 <tbody class="divide-y divide-gray-200">
                     {% for v in variantes %}
                     <tr>
-                        <td class="p-4"><div class="flex items-center">
-                            {% if v.producto.imagen %}
-                                <img class="h-10 w-10 rounded-md object-cover mr-4 flex-shrink-0" src="{{ v.producto.imagen.url }}" alt="Foto de {{ v.producto.nombre }}">
-                            {% else %}
-                                <div class="h-10 w-10 rounded-md bg-gray-200 mr-4"></div>
-                            {% endif %}
-                            <div>
-                                <p class="font-semibold text-gray-800">{{ v.producto.nombre }}</p>
-                                <p class="text-sm text-gray-500">{{ v.nombre_variante }}</p>
+                        <td class="p-4">
+                            <div class="flex items-center">
+                                {% if v.producto.imagen %}
+                                    <img class="h-10 w-10 rounded-md object-cover mr-4 flex-shrink-0" src="{{ v.producto.imagen.url }}" alt="Foto de {{ v.producto.nombre }}">
+                                {% else %}
+                                    <div class="h-10 w-10 rounded-md bg-gray-200 mr-4 flex-shrink-0"></div>
+                                {% endif %}
+                                <div>
+                                    <p class="font-semibold text-gray-800">{{ v.producto.nombre }}</p>
+                                    <p class="text-sm text-gray-500">{{ v.nombre_variante }}</p>
+                                </div>
                             </div>
-                        </div></td>
-                        <td class="p-4 text-center font-medium">
-                            {% if v.stock > 10 %}<span class="text-green-600">{{ v.stock }}</span>
-                            {% elif v.stock > 0 %}<span class="text-yellow-600">{{ v.stock }}</span>
-                            {% else %}<span class="px-2 py-0.5 text-xs font-semibold text-red-800 bg-red-100 rounded-full">Agotado</span>
-                            {% endif %}
                         </td>
-                        <td class="p-4 text-right font-semibold text-blue-600">US$ {{ v.precio_usd|floatformat:2|default:"--" }}</td>
-                        <td class="p-4 text-right font-semibold text-gray-800">$ {{ v.precio_ars_calculado|floatformat:2|default:"--" }}</td>
-                        <td class="p-4 text-center"><a href="#" class="text-blue-600 hover:underline font-semibold">Editar</a></td>
+                        <td class="p-4 text-center">
+                            <form action="{% url 'iphones:toggle_iphone_status' v.producto.id %}" method="POST" class="inline-block">
+                                {% csrf_token %}
+                                <label class="switch">
+                                    <input type="checkbox" {% if v.producto.activo %}checked{% endif %} onchange="this.form.submit()">
+                                    <span class="slider"></span>
+                                </label>
+                            </form>
+                        </td>
+                        <td class="p-4 text-right font-semibold text-blue-600">US$ {{ v.precio_usd|floatformat:2|intcomma }}</td>
+                        <td class="p-4 text-right font-semibold text-gray-800">$ {{ v.precio_ars_calculado|floatformat:0|intcomma }}</td>
+                        <td class="p-4 text-center">
+                            <div class="flex justify-center items-center gap-4">
+                                <a href="{% url 'iphones:editar_iphone' v.id %}" class="text-gray-500 hover:text-blue-600 transition-colors" title="Editar">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg>
+                                </a>
+                                <button onclick="openDeleteModal('{{ v.id }}', '{{ v.producto.nombre }} - {{ v.nombre_variante }}')" class="text-gray-500 hover:text-red-600 transition-colors" title="Eliminar">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                                </button>
+                            </div>
+                        </td>
                     </tr>
                     {% empty %}
                     <tr><td colspan="5" class="p-8 text-center text-gray-500">
-                        No se encontraron productos en la categoría "Celulares".<br>
-                        Asegurate de crear la categoría y asignar los productos a ella.
+                        {% if search_query %}
+                            No se encontraron iPhones que coincidan con tu búsqueda.
+                        {% else %}
+                            No hay iPhones cargados en la categoría "Celulares".
+                        {% endif %}
                     </td></tr>
                     {% endfor %}
                 </tbody>
@@ -73,4 +135,36 @@
         </div>
     </div>
 </div>
+
+<!-- Modal de Confirmación de Eliminación -->
+<div id="delete-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-2xl w-full max-w-md mx-4 p-6 text-center">
+        <h3 class="text-xl font-bold text-gray-900">¿Estás seguro?</h3>
+        <p class="text-gray-600 my-4">Estás a punto de eliminar permanentemente el iPhone "<strong id="modal-iphone-name"></strong>". Esta acción no se puede deshacer.</p>
+        <div class="flex justify-center gap-4 mt-6">
+            <button onclick="closeDeleteModal()" class="py-2 px-6 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300">Cancelar</button>
+            <form id="delete-form" method="POST">
+                {% csrf_token %}
+                <button type="submit" class="py-2 px-6 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700">Sí, eliminar</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    const deleteModal = document.getElementById('delete-modal');
+    const deleteForm = document.getElementById('delete-form');
+    const modalIphoneName = document.getElementById('modal-iphone-name');
+
+    function openDeleteModal(id, name) {
+        deleteForm.action = `/iphones/eliminar/${id}/`;
+        modalIphoneName.textContent = name;
+        deleteModal.style.display = 'flex';
+    }
+
+    function closeDeleteModal() {
+        deleteModal.style.display = 'none';
+    }
+</script>
 {% endblock %}
+
