@@ -80,6 +80,9 @@ class Mensaje(models.Model):
     conversacion = models.ForeignKey(Conversacion, on_delete=models.CASCADE, related_name="mensajes")
     emisor = models.CharField(max_length=10, choices=EMISOR_CHOICES)
     contenido = models.TextField()
+    archivo = models.FileField(upload_to='archivos_chat/', blank=True, null=True)
+    tipo_mensaje = models.CharField(max_length=20, default='texto') # texto, imagen, audio
+    # --- FIN DEL NUEVO CAMPO --
     fecha_envio = models.DateTimeField(auto_now_add=True)
     enviado_por_ia = models.BooleanField(default=False, help_text="Marca si este mensaje fue enviado automáticamente por la IA.")
     
