@@ -194,3 +194,53 @@ def whatsapp_webhook(request):
             return HttpResponse(status=500)
 
     return HttpResponse(status=405)
+
+@csrf_exempt
+def resumir_chat_ia(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            historial = data.get('historial', '')
+
+            if not historial:
+                return JsonResponse({'error': 'No se proporcionó historial'}, status=400)
+
+            # Usamos una función del intérprete específica para resúmenes (debemos crearla)
+            # Por ahora, vamos a simularla para que no falle.
+            # En un futuro, llamaríamos a algo como:
+            # resumen = interpreter.generate_summary_from_history(historial)
+            
+            # SIMULACIÓN TEMPORAL:
+            resumen = "Este es un resumen de la conversación generado por IA. El cliente parece interesado en los iPhones y preguntó por los precios. Se le proporcionó la información solicitada."
+
+            return JsonResponse({'resumen': resumen})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+
+@csrf_exempt
+def sugerir_respuesta_ia(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            historial = data.get('historial', '')
+            cliente_info = data.get('cliente', {}) # Obtenemos info del cliente
+            
+            if not historial:
+                return JsonResponse({'error': 'No se proporcionó historial'}, status=400)
+
+            # Extraemos la última pregunta del historial para darle más contexto a la IA
+            ultima_pregunta = historial.strip().split('\n')[-1]
+
+            # Llamamos a la función que ya tenemos en nuestro intérprete
+            sugerencia = interpreter.generate_final_response(
+                question=ultima_pregunta,
+                query_results="Basado en el historial, necesito sugerir una buena respuesta.", # Le damos un contexto a la IA
+                chat_history=historial
+            )
+
+            return JsonResponse({'sugerencia': sugerencia})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    return JsonResponse({'error': 'Método no permitido'}, status=405)
