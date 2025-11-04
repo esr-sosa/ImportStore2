@@ -4,10 +4,12 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction 
-from django.db.models import Q # Importamos Q para filtros complejos
+from django.db.models import Q
 
-from .models import Producto, ProductoVariante, Categoria, Proveedor
-from .forms import ProductoForm, VarianteFormSet
+# ¡Asegúrate de importar los modelos y el formulario nuevo!
+from .models import Producto, ProductoVariante, Categoria, Proveedor, Precio
+from .forms import ProductoForm 
+# Ya no importamos VarianteFormSet desde aquí
 
 @login_required
 def inventario_dashboard(request):
@@ -38,28 +40,50 @@ def inventario_dashboard(request):
     }
     return render(request, 'inventario/dashboard.html', context)
 
+
+# --- ¡AQUÍ ESTÁ LA VISTA COMPLETAMENTE REESCRITA! ---
 @login_required
 @transaction.atomic
 def agregar_producto(request):
     if request.method == 'POST':
+        # 1. Usamos solo ProductoForm. Ya no hay VarianteFormSet.
         form = ProductoForm(request.POST, request.FILES)
-        variante_formset = VarianteFormSet(request.POST, prefix='variantes')
         
-        if form.is_valid() and variante_formset.is_valid():
-            producto = form.save() 
+        if form.is_valid():
+            # 2. Guardamos el producto principal (Nombre, Desc, Categoría, etc.)
+            producto = form.save() # Se guarda el Producto en la BD
 
-            variantes = variante_formset.save(commit=False)
-            for variante in variantes:
-                variante.producto = producto
-                variante.save()
+            # 3. Extraemos los datos extra del formulario
+            data = form.cleaned_data
+            
+            # 4. Creamos la Variante "default" automáticamente
+            # Usamos "Único" como nombre_variante para productos simples.
+            variante = ProductoVariante.objects.create(
+                producto=producto,
+                nombre_variante="Único", 
+                stock=data['stock']
+            )
+            
+            # 5. Creamos el Precio "default" automáticamente
+            # Asumimos 'Minorista' y 'USD' como defaults.
+            Precio.objects.create(
+                variante=variante,
+                moneda='USD', 
+                tipo_precio='Minorista',
+                costo=data['costo'],
+                precio_venta_normal=data['precio_venta_normal'],
+                # Aseguramos que el precio mínimo sea al menos el costo
+                precio_venta_minimo=data['costo'], 
+                precio_venta_descuento=data.get('precio_venta_descuento')
+            )
             
             return redirect('inventario:dashboard')
     else:
+        # 6. Si es GET, solo mostramos el formulario simple.
         form = ProductoForm()
-        variante_formset = VarianteFormSet(prefix='variantes')
 
     context = {
         'form': form,
-        'variante_formset': variante_formset
+        # 'variante_formset' ya no se pasa al contexto
     }
     return render(request, 'inventario/producto_form.html', context)

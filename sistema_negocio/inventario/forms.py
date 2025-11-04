@@ -4,8 +4,39 @@ from django import forms
 from .models import Producto, ProductoVariante, Precio
 
 class ProductoForm(forms.ModelForm):
+    # --- ¡CAMPOS NUEVOS AÑADIDOS! ---
+    # Estos campos no están en el modelo 'Producto', pero los vamos a capturar aquí
+    # para pasárselos a la vista.
+    stock = forms.IntegerField(
+        label="Stock inicial",
+        required=True,
+        widget=forms.NumberInput(attrs={'class': 'w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500', 'placeholder': 'Ej: 50'})
+    )
+    costo = forms.DecimalField(
+        label="Costo (USD)",
+        required=True,
+        max_digits=10, 
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={'class': 'w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500', 'placeholder': 'Ej: 150.00'})
+    )
+    precio_venta_normal = forms.DecimalField(
+        label="Precio de Venta (USD)",
+        required=True,
+        max_digits=10, 
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={'class': 'w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500', 'placeholder': 'Ej: 250.00'})
+    )
+    precio_venta_descuento = forms.DecimalField(
+        label="Precio de Oferta (USD, Opcional)",
+        required=False,
+        max_digits=10, 
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={'class': 'w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500', 'placeholder': 'Ej: 225.00'})
+    )
+    
     class Meta:
         model = Producto
+        # El 'stock' no está aquí, porque lo definimos arriba.
         fields = ['nombre', 'descripcion', 'categoria', 'proveedor', 'imagen', 'activo']
         widgets = {
             'nombre': forms.TextInput(attrs={'class': 'w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500'}),
@@ -15,6 +46,9 @@ class ProductoForm(forms.ModelForm):
             'imagen': forms.ClearableFileInput(attrs={'class': 'w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100'}),
             'activo': forms.CheckboxInput(attrs={'class': 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'}),
         }
+
+# --- NO TOCAMOS EL RESTO DEL ARCHIVO ---
+# (Dejamos los otros Formsets por si los usamos en el futuro en otro lado)
 
 class VarianteForm(forms.ModelForm):
     class Meta:
@@ -46,4 +80,3 @@ PrecioFormSet = forms.inlineformset_factory(
 VarianteFormSet = forms.inlineformset_factory(
     Producto, ProductoVariante, form=VarianteForm, extra=1, can_delete=True, can_delete_extra=True
 )
-
