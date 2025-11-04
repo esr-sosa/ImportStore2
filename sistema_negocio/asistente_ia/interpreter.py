@@ -59,7 +59,7 @@ def generate_query_json_from_question(question, user_name="Ema", chat_history=""
     if question.lower().strip() in SIMPLE_GREETINGS:
         return {"model": "None", "action": "chat", "filters": []}
 
-    model = genai.GenerativeModel('models/gemini-pro') # <-- CORRECCIÓN 1 (AÑADIDO 'models/')
+    model = genai.GenerativeModel('gemini-1.5-flash-latest')
     prompt = f"""
     Tu tarea es ser el motor de análisis de lenguaje para ISAC.
     El usuario es {user_name}, el dueño.
@@ -139,7 +139,7 @@ def generate_final_response(question, query_results, user_name="Ema", chat_histo
     if isinstance(query_results, dict) and query_results.get("error") == "RATE_LIMIT_EXCEEDED":
         return f"Disculpame, {user_name}. [...]" # Mensaje de error
 
-    model = genai.GenerativeModel('models/gemini-pro') # <-- CORRECCIÓN 2 (AÑADIDO 'models/')
+    model = genai.GenerativeModel('gemini-1.5-flash-latest')
     results_str = ""
     # ... (la lógica para formatear results_str no cambia) ...
     if query_results is None:
