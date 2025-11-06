@@ -283,6 +283,7 @@
                 {{ variante_formset.empty_form.id }}
                 {{ variante_formset.empty_form.DELETE }} </div>
         </div>
+
     </div>
 </div>
 
@@ -322,7 +323,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- LÓGICA DE TABS DE PRECIOS SIMPLES ---
     const priceSectionSimple = document.querySelector('[data-price-section="simple"]');
     priceSectionSimple.querySelectorAll('.tab-button').forEach(button => {
-        button.addEventListener('click', () => {
+        button.addEventListener('click', (e) => {
+            e.preventDefault(); // Prevenir que el form se envíe
             const tabId = button.dataset.tab;
             priceSectionSimple.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
             button.classList.add('active');
@@ -341,21 +343,25 @@ document.addEventListener('DOMContentLoaded', () => {
             const finalPriceDisplay = context.querySelector(`[data-final-price-for="${priceFieldName}"]`);
             
             function calculate() {
+                if (!priceInput || !finalPriceDisplay) return; // Si no existen los elementos
+                
                 const price = parseFloat(priceInput.value) || 0;
                 const percent = parseFloat(pcInput.value) || 0;
+                let finalPrice = price;
                 
                 if (price > 0 && percent > 0) {
-                    const finalPrice = price * (1 - (percent / 100));
-                    const currency = priceFieldName.includes('usd') ? 'USD' : '$';
-                    finalPriceDisplay.textContent = `${currency} ${finalPrice.toFixed(2)}`;
-                } else {
-                    const currency = priceFieldName.includes('usd') ? 'USD' : '$';
-                    finalPriceDisplay.textContent = `${currency} ${price.toFixed(2)}`;
+                    finalPrice = price * (1 - (percent / 100));
                 }
+                
+                const currency = priceFieldName.includes('usd') ? 'USD' : '$';
+                finalPriceDisplay.textContent = `${currency} ${finalPrice.toFixed(2)}`;
             }
             
-            priceInput.addEventListener('input', calculate);
-            pcInput.addEventListener('input', calculate);
+            if (priceInput) {
+                priceInput.addEventListener('input', calculate);
+                pcInput.addEventListener('input', calculate);
+                calculate(); // Calcular al inicio
+            }
         });
     }
     
@@ -364,51 +370,58 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- LÓGICA DEL FORMSET DE VARIANTES ---
     const container = document.getElementById('variante-forms-container');
-    const template = document.getElementById('variante-template').innerHTML; // Obtenemos el HTML interno
+    const templateNode = document.getElementById('variante-template'); // Get the template *node*
     const addButton = document.getElementById('add-variante-btn');
     const totalFormsInput = document.querySelector('input[name="variantes-TOTAL_FORMS"]');
 
     addButton.addEventListener('click', () => {
         let formIdx = parseInt(totalFormsInput.value);
         
-        // Reemplazamos el prefijo de la variante
-        let newFormHTML = template.replace(/__prefix__/g, formIdx);
+        // 1. Clonar el NODO de la plantilla (esto clona también los campos de precio)
+        let newForm = templateNode.firstElementChild.cloneNode(true);
+        newForm.classList.remove('hidden');
+
+        // 2. Obtener el HTML del clon para reemplazar prefijos
+        let newFormHTML = newForm.innerHTML;
+
+        // 3. Reemplazar el prefijo de la variante
+        newFormHTML = newFormHTML.replace(/__prefix__/g, formIdx);
         
-        let newFormDiv = document.createElement('div');
-        newFormDiv.innerHTML = newFormHTML;
-        const newForm = newFormDiv.firstElementChild; // Obtenemos el div .variante-form
-        
+        // 4. Asignar el HTML modificado de vuelta al clon
+        newForm.innerHTML = newFormHTML;
+
+        // 5. Añadir al contenedor
         container.appendChild(newForm);
         
-        // Habilitamos los inputs del nuevo formset (ya que estaban deshabilitados por el toggle)
+        // Habilitamos los inputs (por si el toggle los deshabilitó)
         newForm.querySelectorAll('input, select').forEach(input => input.disabled = false);
 
-        // Incrementamos el contador total de formularios
+        // Incrementar el contador
         totalFormsInput.value = formIdx + 1;
         
-        // Re-vinculamos los listeners a los nuevos elementos
+        // Vincular el botón de eliminar
         addRemoveButtonListener(newForm);
+        
+        // (Aún no se aplica el descuento % a variantes, lo vemos después si es necesario)
     });
     
     // --- LÓGICA PARA BOTÓN DE SACAR VARIANTE ---
-    function addRemoveButtonListener(form) {
-        form.querySelector('.remove-variante-btn').addEventListener('click', (e) => {
+    function addRemoveButtonListener(formElement) {
+        formElement.querySelector('.remove-variante-btn').addEventListener('click', (e) => {
             e.preventDefault();
             // Marcamos el checkbox DELETE
-            const deleteInput = form.querySelector('input[name$="-DELETE"]');
+            const deleteInput = formElement.querySelector('input[id$="-DELETE"]');
             if (deleteInput) {
                 deleteInput.checked = true;
             }
             // Ocultamos el formulario
-            form.classList.add('hidden');
+            formElement.classList.add('hidden');
         });
     }
     
-    // Vinculamos el listener a los formularios que ya existen
-    document.querySelectorAll('.variante-form').forEach(form => {
-        if (!form.id.includes('template')) { // No al template
-            addRemoveButtonListener(form);
-        }
+    // Vinculamos el listener a los formularios que ya existen (en caso de error de form)
+    document.querySelectorAll('#variante-forms-container .variante-form').forEach(form => {
+        addRemoveButtonListener(form);
     });
 
 });
