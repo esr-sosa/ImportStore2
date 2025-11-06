@@ -2,6 +2,47 @@
 
 {% block title %}Agregar Producto{% endblock %}
 
+{% block extra_head %}
+<style>
+    /* Estilos para ocultar y mostrar secciones */
+    .seccion-simple, .seccion-variantes {
+        transition: all 0.3s ease-in-out;
+    }
+    
+    .seccion-simple.hidden, .seccion-variantes.hidden {
+        opacity: 0;
+        max-height: 0;
+        overflow: hidden;
+        margin: 0 !important; /* Forzar a que no ocupe espacio */
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        border: none !important;
+    }
+    
+    .seccion-simple, .seccion-variantes {
+        opacity: 1;
+        max-height: 9999px; /* Altura suficiente */
+    }
+    
+    /* Estilos para los tabs de precios */
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .tab-button.active { 
+        background-color: #ffffff;
+        border-bottom-color: transparent;
+        border-left-width: 1px;
+        border-right-width: 1px;
+        border-top-width: 2px;
+        border-top-color: #3b82f6; /* blue-500 */
+        font-weight: 600;
+    }
+    .tab-button {
+        background-color: #f3f4f6; /* gray-100 */
+        border-bottom: 1px solid #d1d5db; /* gray-300 */
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="p-4 sm:p-6 lg:p-8">
     <div class="max-w-4xl mx-auto">
@@ -14,7 +55,7 @@
             <h1 class="text-3xl font-bold text-gray-900 ml-4">Agregar Nuevo Producto</h1>
         </div>
         
-        <form method="post" enctype="multipart/form-data" class="space-y-6">
+        <form method="post" enctype="multipart/form-data" class="space-y-6" id="producto-form">
             {% csrf_token %}
             
             <div class="bg-white p-6 rounded-lg shadow-sm space-y-6">
@@ -22,6 +63,7 @@
                 <div>
                     <label for="{{ form.nombre.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Nombre del Producto</label>
                     {{ form.nombre }}
+                    {{ form.nombre.errors }}
                 </div>
                 <div>
                     <label for="{{ form.descripcion.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Descripción (Opcional)</label>
@@ -31,6 +73,7 @@
                     <div>
                         <label for="{{ form.categoria.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
                         {{ form.categoria }}
+                        {{ form.categoria.errors }}
                     </div>
                     <div>
                         <label for="{{ form.proveedor.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Proveedor</label>
@@ -47,30 +90,120 @@
                 </div>
             </div>
 
-            <div class="bg-white p-6 rounded-lg shadow-sm space-y-6">
-                <h2 class="text-xl font-semibold text-gray-800 border-b pb-4">Precios (USD)</h2>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                        <label for="{{ form.costo.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.costo.label }}</label>
-                        {{ form.costo }}
-                    </div>
-                    <div>
-                        <label for="{{ form.precio_venta_normal.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.precio_venta_normal.label }}</label>
-                        {{ form.precio_venta_normal }}
-                    </div>
-                    <div>
-                        <label for="{{ form.precio_venta_descuento.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.precio_venta_descuento.label }}</label>
-                        {{ form.precio_venta_descuento }}
-                    </div>
+            <div class="bg-white p-6 rounded-lg shadow-sm">
+                <h2 class="text-xl font-semibold text-gray-800 border-b pb-4 mb-4">Variantes</h2>
+                <div class="flex items-center">
+                    <input type="checkbox" id="tiene_variantes_toggle" name="tiene_variantes" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" {% if tiene_variantes %}checked{% endif %}>
+                    <label for="tiene_variantes_toggle" class="ml-3 block text-sm font-medium text-gray-900">Este producto tiene variantes (ej: Talle, Color)</label>
                 </div>
             </div>
 
-            <div class="bg-white p-6 rounded-lg shadow-sm space-y-6">
-                <h2 class="text-xl font-semibold text-gray-800 border-b pb-4">Inventario</h2>
-                <div>
-                    <label for="{{ form.stock.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.stock.label }}</label>
-                    {{ form.stock }}
+            <div id="seccion-producto-simple" class="bg-white p-6 rounded-lg shadow-sm space-y-6 seccion-simple {% if tiene_variantes %}hidden{% endif %}">
+                <h2 class="text-xl font-semibold text-gray-800 border-b pb-4">Precio y Stock</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="{{ form.stock.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Stock</label>
+                        {{ form.stock }}
+                    </div>
                 </div>
+
+                <div class="mt-4">
+                    <div class="border-b border-gray-300">
+                        <nav class="-mb-px flex space-x-4" aria-label="Tabs">
+                            <button type="button" class="tab-button active py-3 px-4 text-sm font-medium text-gray-700 rounded-t-lg border-t-2 border-l border-r border-transparent" data-tab="ars">
+                                Precios en Pesos (ARS)
+                            </button>
+                            <button type="button" class="tab-button py-3 px-4 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-t-lg border-t-2 border-l border-r border-transparent" data-tab="usd">
+                                Precios en Dólares (USD)
+                            </button>
+                        </nav>
+                    </div>
+                    <div class="border border-t-0 rounded-b-lg p-4">
+                        <div id="tab-content-ars" class="tab-content active space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label for="{{ form.costo_ars.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Costo (ARS)</label>
+                                    {{ form.costo_ars }}
+                                </div>
+                                <div>
+                                    <label for="{{ form.precio_ars.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Precio de Venta (ARS)</label>
+                                    {{ form.precio_ars }}
+                                </div>
+                            </div>
+                        </div>
+                        <div id="tab-content-usd" class="tab-content space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label for="{{ form.costo_usd.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Costo (USD)</label>
+                                    {{ form.costo_usd }}
+                                </div>
+                                <div>
+                                    <label for="{{ form.precio_usd.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Precio de Venta (USD)</label>
+                                    {{ form.precio_usd }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="seccion-producto-variantes" class="bg-white p-6 rounded-lg shadow-sm space-y-6 seccion-variantes {% if not tiene_variantes %}hidden{% endif %}">
+                <h2 class="text-xl font-semibold text-gray-800 border-b pb-4">Configuración de Variantes</h2>
+                
+                {{ variante_formset.management_form }}
+                {{ variante_formset.non_form_errors }}
+
+                <div id="variante-forms-container" class="space-y-6">
+                    {% for v_form in variante_formset %}
+                    <div class="variante-form p-4 border rounded-lg bg-gray-50/50 relative">
+                        {{ v_form.management_form }}
+                        <h3 class="font-semibold text-lg text-gray-700 mb-3">Variante</h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="{{ v_form.nombre_variante.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Nombre de Variante</label>
+                                {{ v_form.nombre_variante }}
+                                {{ v_form.nombre_variante.errors }}
+                            </div>
+                            <div>
+                                <label for="{{ v_form.stock.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Stock</label>
+                                {{ v_form.stock }}
+                                {{ v_form.stock.errors }}
+                            </div>
+                        </div>
+
+                        <div class="mt-4 pt-4 border-t">
+                            <h4 class="font-semibold text-md text-gray-600 mb-2">Precios de esta Variante</h4>
+                            {{ v_form.precio_formset.management_form }}
+                            {{ v_form.precio_formset.non_form_errors }}
+                            
+                            <div class="precio-forms-container space-y-3">
+                                {% for p_form in v_form.precio_formset %}
+                                <div class="precio-form grid grid-cols-2 md:grid-cols-6 gap-2 items-end">
+                                    {{ p_form.id }}
+                                    <div><label class="block text-xs font-medium text-gray-600">Moneda</label>{{ p_form.moneda }}</div>
+                                    <div><label class="block text-xs font-medium text-gray-600">Tipo</label>{{ p_form.tipo_precio }}</div>
+                                    <div><label class="block text-xs font-medium text-gray-600">Costo</label>{{ p_form.costo }}</div>
+                                    <div><label class="block text-xs font-medium text-gray-600">P. Venta</label>{{ p_form.precio_venta_normal }}</div>
+                                    <div><label class="block text-xs font-medium text-gray-600">P. Oferta</label>{{ p_form.precio_venta_descuento }}</div>
+                                    <div><label class="block text-xs font-medium text-gray-600">P. Mínimo</label>{{ p_form.precio_venta_minimo }}</div>
+                                </div>
+                                {{ p_form.errors }}
+                                {% endfor %}
+                            </div>
+                            </div>
+                        
+                        {% if v_form.non_field_errors %}
+                        <div class="text-red-500 text-sm mt-2">{{ v_form.non_field_errors }}</div>
+                        {% endif %}
+                        {{ v_form.id }}
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <button type="button" id="add-variante-btn" class="mt-4 bg-blue-100 text-blue-700 font-semibold py-2 px-4 rounded-lg border border-blue-200 hover:bg-blue-200">
+                    + Agregar otra Variante
+                </button>
             </div>
 
             <div class="pt-6 flex justify-end gap-3">
@@ -79,7 +212,121 @@
             </div>
         </form>
 
+        <div id="variante-template" class="hidden variante-form p-4 border rounded-lg bg-gray-50/50 relative">
+            {{ variante_formset.empty_form.management_form }}
+            <h3 class="font-semibold text-lg text-gray-700 mb-3">Nueva Variante</h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="{{ variante_formset.empty_form.nombre_variante.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Nombre de Variante</label>
+                    {{ variante_formset.empty_form.nombre_variante }}
+                </div>
+                <div>
+                    <label for="{{ variante_formset.empty_form.stock.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Stock</label>
+                    {{ variante_formset.empty_form.stock }}
+                </div>
+            </div>
+
+            <div class="mt-4 pt-4 border-t">
+                <h4 class="font-semibold text-md text-gray-600 mb-2">Precios de esta Variante</h4>
+                {{ variante_formset.empty_form.precio_formset.management_form }}
+                <div class="precio-forms-container space-y-3">
+                    {% for p_form in variante_formset.empty_form.precio_formset %}
+                    <div class="precio-form grid grid-cols-2 md:grid-cols-6 gap-2 items-end">
+                        {{ p_form.id }}
+                        <div><label class="block text-xs font-medium text-gray-600">Moneda</label>{{ p_form.moneda }}</div>
+                        <div><label class="block text-xs font-medium text-gray-600">Tipo</label>{{ p_form.tipo_precio }}</div>
+                        <div><label class="block text-xs font-medium text-gray-600">Costo</label>{{ p_form.costo }}</div>
+                        <div><label class="block text-xs font-medium text-gray-600">P. Venta</label>{{ p_form.precio_venta_normal }}</div>
+                        <div><label class="block text-xs font-medium text-gray-600">P. Oferta</label>{{ p_form.precio_venta_descuento }}</div>
+                        <div><label class="block text-xs font-medium text-gray-600">P. Mínimo</label>{{ p_form.precio_venta_minimo }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {{ variante_formset.empty_form.id }}
         </div>
+    </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // --- LÓGICA DEL TOGGLE DE VARIANTES ---
+    const toggle = document.getElementById('tiene_variantes_toggle');
+    const seccionSimple = document.getElementById('seccion-producto-simple');
+    const seccionVariantes = document.getElementById('seccion-producto-variantes');
+    
+    function toggleSecciones() {
+        if (toggle.checked) {
+            seccionSimple.classList.add('hidden');
+            seccionVariantes.classList.remove('hidden');
+            // Deshabilitamos los inputs del form simple para que no se envíen
+            seccionSimple.querySelectorAll('.form-input-simple').forEach(input => input.disabled = true);
+            // Habilitamos los del formset
+            seccionVariantes.querySelectorAll('input, select').forEach(input => input.disabled = false);
+
+        } else {
+            seccionSimple.classList.remove('hidden');
+            seccionVariantes.classList.add('hidden');
+            // Habilitamos los inputs del form simple
+            seccionSimple.querySelectorAll('.form-input-simple').forEach(input => input.disabled = false);
+            // Deshabilitamos los del formset
+            seccionVariantes.querySelectorAll('input, select').forEach(input => input.disabled = true);
+        }
+    }
+    toggle.addEventListener('change', toggleSecciones);
+    // Ejecutamos al inicio para setear el estado correcto
+    toggleSecciones();
+
+    // --- LÓGICA DE TABS DE PRECIOS SIMPLES ---
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const tabId = button.dataset.tab;
+            
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            
+            tabContents.forEach(content => {
+                if (content.id === `tab-content-${tabId}`) {
+                    content.classList.add('active');
+                } else {
+                    content.classList.remove('active');
+                }
+            });
+        });
+    });
+
+    // --- LÓGICA DEL FORMSET DE VARIANTES ---
+    const container = document.getElementById('variante-forms-container');
+    const template = document.getElementById('variante-template');
+    const addButton = document.getElementById('add-variante-btn');
+    const totalFormsInput = document.querySelector('input[name="variantes-TOTAL_FORMS"]');
+
+    addButton.addEventListener('click', () => {
+        let formIdx = parseInt(totalFormsInput.value);
+        
+        let newFormHTML = template.innerHTML;
+        
+        // Reemplazamos el prefijo de la variante
+        newFormHTML = newFormHTML.replace(/__prefix__/g, formIdx);
+        
+        // Creamos el nuevo elemento
+        let newForm = document.createElement('div');
+        newForm.className = 'variante-form p-4 border rounded-lg bg-gray-50/50 relative';
+        newForm.innerHTML = newFormHTML;
+        
+        container.appendChild(newForm);
+        
+        // Habilitamos los inputs del nuevo formset (ya que estaban deshabilitados por el toggle)
+        newForm.querySelectorAll('input, select').forEach(input => input.disabled = false);
+
+        // Incrementamos el contador total de formularios
+        totalFormsInput.value = formIdx + 1;
+    });
+});
+</script>
 
 {% endblock %}
