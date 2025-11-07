@@ -1,118 +1,144 @@
-{% extends "base.html" %}
+{% load static %}
+<!doctype html>
+<html lang="es" class="h-full">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Inventario — Dashboard</title>
+    <!-- Tailwind CDN (para build rápido). En prod conviene compilar. -->
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="h-full bg-gray-50 text-gray-900">
+    <div class="min-h-full">
+      <header class="bg-white shadow">
+        <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+          <h1 class="text-2xl font-bold tracking-tight">Inventario</h1>
+          <p class="text-sm text-gray-500">Búsqueda, filtros y estado de stock</p>
+        </div>
+      </header>
 
-{% block title %}Inventario{% endblock %}
-
-{% block extra_head %}
-<style>
-    /* Estilos específicos para el interruptor de Activo/Inactivo */
-    .switch { position: relative; display: inline-block; width: 34px; height: 20px; }
-    .switch input { opacity: 0; width: 0; height: 0; }
-    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 20px; }
-    .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
-    input:checked + .slider { background-color: #2563eb; } /* bg-blue-600 */
-    input:checked + .slider:before { transform: translateX(14px); }
-</style>
-{% endblock %}
-
-{% block content %}
-<div class="p-4 sm:p-6 lg:p-8">
-    
-    <div class="sm:flex sm:items-center sm:justify-between mb-6">
-        <h1 class="text-3xl font-bold text-gray-900">Inventario</h1>
-        <div class="mt-4 sm:mt-0 sm:ml-4 flex items-center gap-2">
-            <button class="bg-white text-gray-700 font-semibold py-2 px-4 rounded-lg border hover:bg-gray-50 transition-colors">Exportar</button>
-            <button class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
-               <a href="{% url 'inventario:agregar_producto' %}" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
-    + Agregar Producto
-</a>
+      <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <!-- Filtros -->
+        <form method="get" class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-5">
+          <div class="md:col-span-2">
+            {{ form.q }}
+          </div>
+          <div>
+            {{ form.categoria.label_tag }} {{ form.categoria }}
+          </div>
+          <div>
+            {{ form.proveedor.label_tag }} {{ form.proveedor }}
+          </div>
+          <div class="flex items-center gap-4">
+            <label class="flex items-center gap-2 text-sm">
+              {{ form.solo_activos }} <span>Solo activos</span>
+            </label>
+            <label class="flex items-center gap-2 text-sm">
+              {{ form.bajo_stock }} <span>Bajo stock</span>
+            </label>
+          </div>
+          <div class="md:col-span-5 flex justify-end">
+            <button class="rounded-lg bg-black px-4 py-2 text-white shadow hover:bg-gray-800">
+              Aplicar
             </button>
-        </div>
-    </div>
+          </div>
+        </form>
 
-    <div class="bg-white p-4 rounded-lg shadow-sm mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <input type="text" placeholder="Buscar por nombre, SKU..." class="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500">
-            <select class="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                <option value="">Todas las categorías</option>
-                {% for c in categorias %}<option value="{{ c.id }}">{{ c.nombre }}</option>{% endfor %}
-            </select>
-            <select class="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                <option value="">Todos los proveedores</option>
-                {% for p in proveedores %}<option value="{{ p.id }}">{{ p.nombre }}</option>{% endfor %}
-            </select>
-            <div class="flex items-center">
-                <input type="checkbox" id="solo-activos" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                <label for="solo-activos" class="ml-2 block text-sm text-gray-900">Mostrar solo activos</label>
-            </div>
+        <!-- Resumen -->
+        <div class="mb-3 text-sm text-gray-600">
+          Resultados: <span class="font-medium">{{ total }}</span>
         </div>
-    </div>
 
-    <div class="bg-white rounded-lg shadow-sm overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full">
-                <thead class="bg-gray-50 border-b">
-                    <tr>
-                        <th class="p-4 text-left text-sm font-semibold text-gray-600 w-2/5">Producto</th>
-                        <th class="p-4 text-left text-sm font-semibold text-gray-600">Categoría</th>
-                        <th class="p-4 text-center text-sm font-semibold text-gray-600">Stock</th>
-                        <th class="p-4 text-right text-sm font-semibold text-gray-600">P. Minorista</th>
-                        <th class="p-4 text-right text-sm font-semibold text-gray-600">P. Mayorista</th>
-                        <th class="p-4 text-center text-sm font-semibold text-gray-600">Estado</th>
-                        <th class="p-4 text-center text-sm font-semibold text-gray-600">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200">
-                    {% for v in page_obj %}
-                    <tr>
-                        <td class="p-4"><div class="flex items-center">
-                            {% if v.producto.imagen %}
-                                <img class="h-10 w-10 rounded-md object-cover mr-4 flex-shrink-0" src="{{ v.producto.imagen.url }}" alt="Foto de {{ v.producto.nombre }}">
-                            {% else %}
-                                <div class="h-10 w-10 rounded-md bg-gray-200 mr-4 flex-shrink-0 flex items-center justify-center text-gray-400">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                                </div>
-                            {% endif %}
-                            <div>
-                                <p class="font-semibold text-gray-800">{{ v.producto.nombre }}</p>
-                                <p class="text-sm text-gray-500">{{ v.nombre_variante }}</p>
-                            </div>
-                        </div></td>
-                        <td class="p-4 text-gray-600">{{ v.producto.categoria.nombre|default:"--" }}</td>
-                        <td class="p-4 text-center font-medium">
-                            {% if v.stock > 10 %}<span class="text-green-600">{{ v.stock }}</span>
-                            {% elif v.stock > 0 %}<span class="text-yellow-600">{{ v.stock }}</span>
-                            {% else %}<span class="px-2 py-0.5 text-xs font-semibold text-red-800 bg-red-100 rounded-full">Agotado</span>
-                            {% endif %}
-                        </td>
-                        <td class="p-4 text-right font-semibold text-gray-800">${{ v.precio_minorista|default:"--" }}</td>
-                        <td class="p-4 text-right font-semibold text-gray-800">${{ v.precio_mayorista|default:"--" }}</td>
-                        <td class="p-4 text-center">
-                            <label class="switch"><input type="checkbox" {% if v.producto.activo %}checked{% endif %}><span class="slider"></span></label>
-                        </td>
-                        <td class="p-4 text-center"><button class="text-blue-600 hover:underline font-semibold">Editar</button></td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="7" class="p-8 text-center text-gray-500">No hay productos en el inventario.</td></tr>
-                    {% endfor %}
-                </tbody>
+        <!-- Tabla -->
+        <div class="overflow-hidden rounded-xl bg-white shadow">
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Producto</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">SKU</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Cód. barras</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider">Stock</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider">Minorista</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider">Mayorista</th>
+                  <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider">Estado</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200 bg-white">
+                {% for v in page_obj %}
+                  <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3">
+                      <div class="flex flex-col">
+                        <span class="font-medium">{{ v.producto.nombre }}</span>
+                        <span class="text-xs text-gray-500">
+                          {% if v.producto.categoria %}{{ v.producto.categoria.nombre }}{% else %}Sin categoría{% endif %}
+                          ·
+                          {% if v.producto.proveedor %}{{ v.producto.proveedor.nombre }}{% else %}Sin proveedor{% endif %}
+                        </span>
+                        {% if v.atributo_1 or v.atributo_2 %}
+                          <span class="text-xs text-gray-500">
+                            {{ v.atributo_1 }}{% if v.atributo_1 and v.atributo_2 %} / {% endif %}{{ v.atributo_2 }}
+                          </span>
+                        {% endif %}
+                      </div>
+                    </td>
+                    <td class="px-4 py-3">
+                      <span class="font-mono text-sm">{{ v.sku }}</span>
+                    </td>
+                    <td class="px-4 py-3">
+                      <span class="font-mono text-sm">{{ v.producto.codigo_barras|default:"—" }}</span>
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                      <span class="font-semibold {{ v.bajo_stock|yesno:'text-red-600,text-gray-900' }}">
+                        {{ v.stock_actual }}
+                      </span>
+                      {% if v.stock_minimo %}
+                        <span class="ml-1 text-xs text-gray-500">/ min {{ v.stock_minimo }}</span>
+                      {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                      <div class="text-xs text-gray-500">USD {{ v.precio_min_usd_cast|default:"—" }}</div>
+                      <div class="text-xs text-gray-500">ARS {{ v.precio_min_ars_cast|default:"—" }}</div>
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                      <div class="text-xs text-gray-500">USD {{ v.precio_may_usd_cast|default:"—" }}</div>
+                      <div class="text-xs text-gray-500">ARS {{ v.precio_may_ars_cast|default:"—" }}</div>
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                      {% if v.activo %}
+                        <span class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">Activo</span>
+                      {% else %}
+                        <span class="inline-flex items-center rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-700">Inactivo</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% empty %}
+                  <tr>
+                    <td colspan="7" class="px-4 py-10 text-center text-sm text-gray-500">
+                      Sin resultados para tus filtros.
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
             </table>
+          </div>
+
+          <!-- Paginación -->
+          <div class="flex items-center justify-between border-t bg-gray-50 px-4 py-3 text-sm">
+            <div>
+              Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+            </div>
+            <div class="flex gap-2">
+              {% if page_obj.has_previous %}
+                <a href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}{% if request.GET.categoria %}categoria={{ request.GET.categoria }}&{% endif %}{% if request.GET.proveedor %}proveedor={{ request.GET.proveedor }}&{% endif %}{% if request.GET.solo_activos %}solo_activos=on&{% endif %}{% if request.GET.bajo_stock %}bajo_stock=on&{% endif %}page={{ page_obj.previous_page_number }}" class="rounded-md border px-3 py-1 hover:bg-white">Anterior</a>
+              {% endif %}
+              {% if page_obj.has_next %}
+                <a href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}{% if request.GET.categoria %}categoria={{ request.GET.categoria }}&{% endif %}{% if request.GET.proveedor %}proveedor={{ request.GET.proveedor }}&{% endif %}{% if request.GET.solo_activos %}solo_activos=on&{% endif %}{% if request.GET.bajo_stock %}bajo_stock=on&{% endif %}page={{ page_obj.next_page_number }}" class="rounded-md border px-3 py-1 hover:bg-white">Siguiente</a>
+              {% endif %}
+            </div>
+          </div>
         </div>
-        
-        {% if page_obj.has_other_pages %}
-        <div class="p-4 bg-white rounded-lg shadow-sm mt-6">
-            <nav class="flex items-center justify-between">
-                <div class="text-sm text-gray-600">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</div>
-                <div>
-                    {% if page_obj.has_previous %}
-                        <a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 border rounded-md hover:bg-gray-100">Anterior</a>
-                    {% endif %}
-                    {% if page_obj.has_next %}
-                        <a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 border rounded-md hover:bg-gray-100 ml-2">Siguiente</a>
-                    {% endif %}
-                </div>
-            </nav>
-        </div>
-        {% endif %}
+      </main>
     </div>
-</div>
-{% endblock %}
+  </body>
+</html>

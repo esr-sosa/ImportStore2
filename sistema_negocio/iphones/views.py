@@ -6,7 +6,18 @@ from django.db import transaction
 from django.db.models import Q
 from django.views.decorators.http import require_POST
 from django.contrib.humanize.templatetags.humanize import intcomma
-from inventario.models import Producto, ProductoVariante, Categoria, Precio, DetalleIphone
+from inventario.models import Producto, ProductoVariante, Categoria, Precio
+
+# Compatibilidad temporal: si DetalleIphone ya no existe, lo definimos como None
+try:
+    from inventario.models import DetalleIphone
+except Exception:
+    DetalleIphone = None
+
+
+
+
+
 from core.utils import obtener_valor_dolar_blue
 from .forms import AgregarIphoneForm 
 from decimal import Decimal

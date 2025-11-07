@@ -1,44 +1,55 @@
-# ventas/views.py
-
 from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
-from inventario.models import ProductoVariante
-from django.db.models import Q
+from django.http import JsonResponse, HttpResponseBadRequest
+from inventario.models import Producto, Precio, ProductoVariante
+from django.views.decorators.csrf import csrf_exempt
+import json
 
-@login_required
+# Vista principal del punto de venta
 def pos_view(request):
-    return render(request, 'ventas/pos.html')
+    return render(request, "ventas/pos.html")
 
-# --- ¡NUEVA FUNCIÓN AÑADIDA AQUÍ! ---
-@login_required
+# Buscar productos por nombre o SKU
 def buscar_productos_api(request):
-    # Obtenemos el término de búsqueda que nos envía el frontend
-    query = request.GET.get('q', '')
+    query = request.GET.get("q", "").strip()
+    if not query:
+        return JsonResponse({"results": []})
 
-    if query:
-        # Buscamos en la base de datos las variantes de productos que coincidan
-        # con el término de búsqueda. Buscamos por nombre de variante O por
-        # nombre del producto principal O por código de barras.
-        variantes = ProductoVariante.objects.filter(
-            Q(nombre_variante__icontains=query) | 
-            Q(producto__nombre__icontains=query) |
-            Q(producto__codigo_barras__icontains=query)
-        ).select_related('producto')[:10] # Limitamos a 10 resultados para que sea rápido
+    productos = Producto.objects.filter(nombre__icontains=query, activo=True).values(
+        "id", "nombre", "descripcion"
+    )[:10]
+    return JsonResponse({"results": list(productos)})
 
-        # Preparamos los datos para enviarlos de vuelta
-        resultados = []
-        for v in variantes:
-            # Buscamos el precio minorista para mostrarlo
-            precio_minorista = v.precios.filter(tipo_precio='Minorista').first()
+# Crear venta (API)
+@csrf_exempt
+def crear_venta_api(request):
+    if request.method != "POST":
+        return HttpResponseBadRequest("Método no permitido")
 
-            resultados.append({
-                'id': v.id,
-                'nombre': f"{v.producto.nombre} - {v.nombre_variante}",
-                'stock': v.stock,
-                'precio': f"{precio_minorista.precio_venta_normal:.2f}" if precio_minorista else "0.00"
-            })
+    try:
+        data = json.loads(request.body)
+        productos = data.get("productos", [])
+        total = 0
 
-        return JsonResponse(resultados, safe=False)
+        # ejemplo básico: validar y calcular total
+        for item in productos:
+            producto_id = item.get("id")
+            cantidad = int(item.get("cantidad", 1))
+            precio_obj = Precio.objects.filter(variante__producto_id=producto_id, activo=True).first()
 
-    return JsonResponse([], safe=False)
+            if not precio_obj:
+                continue
+
+            total += float(precio_obj.precio) * cantidad
+
+        # respuesta
+        return JsonResponse({
+            "status": "ok",
+            "message": "Venta registrada correctamente (demo)",
+            "total": total
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            "status": "error",
+            "message": str(e)
+        }, status=400)

@@ -2,7 +2,15 @@ import google.generativeai as genai
 import json
 from django.conf import settings
 from django.db.models import Q, Count
-from inventario.models import Producto, ProductoVariante, DetalleIphone, Precio, Categoria
+from inventario.models import Producto, ProductoVariante, Precio, Categoria
+
+# Compatibilidad: si DetalleIphone ya no existe en inventario.models,
+# mantenemos una referencia nula para que el import no explote.
+try:
+    from inventario.models import DetalleIphone  # puede no existir luego de la 0005
+except Exception:
+    DetalleIphone = None
+
 from historial.models import RegistroHistorial
 
 # Configurar la API de Gemini

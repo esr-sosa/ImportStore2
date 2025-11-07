@@ -1,89 +1,148 @@
-# inventario/models.py
-
 from django.db import models
-from django.core.exceptions import ValidationError
-import barcode
-from barcode.writer import ImageWriter
-from io import BytesIO
-from django.core.files import File
+from django.utils import timezone
 
-class Proveedor(models.Model):
-    nombre = models.CharField(max_length=150, unique=True, help_text="Nombre del proveedor")
-    contacto = models.CharField(max_length=150, blank=True, null=True, help_text="Persona de contacto")
-    telefono = models.CharField(max_length=20, blank=True, null=True)
-    email = models.EmailField(blank=True, null=True)
-    fecha_creacion = models.DateTimeField(auto_now_add=True)
-    def __str__(self): return self.nombre
-    class Meta: verbose_name, verbose_name_plural = "Proveedor", "Proveedores"
 
 class Categoria(models.Model):
-    nombre = models.CharField(max_length=100, unique=True)
-    def __str__(self): return self.nombre
-    class Meta: verbose_name, verbose_name_plural = "Categoría", "Categorías"
+    nombre = models.CharField(max_length=120, unique=True)
+    descripcion = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = "Categoría"
+        verbose_name_plural = "Categorías"
+        ordering = ["nombre"]
+        indexes = [
+            models.Index(fields=["nombre"], name="idx_categoria_nombre"),
+        ]
+
+    def __str__(self):
+        return self.nombre
+
+
+class Proveedor(models.Model):
+    nombre = models.CharField(max_length=150, unique=True)
+    telefono = models.CharField(max_length=50, blank=True)
+    email = models.EmailField(blank=True)
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["nombre"]
+        indexes = [
+            models.Index(fields=["activo"], name="idx_proveedor_activo"),
+            models.Index(fields=["nombre"], name="idx_proveedor_nombre"),
+        ]
+
+    def __str__(self):
+        return self.nombre
+
 
 class Producto(models.Model):
-    nombre = models.CharField(max_length=200, help_text="Nombre del producto. Ej: iPhone 15 Pro Max")
-    descripcion = models.TextField(blank=True, null=True)
-    categoria = models.ForeignKey(Categoria, on_delete=models.SET_NULL, null=True, related_name="productos")
-    proveedor = models.ForeignKey(Proveedor, on_delete=models.SET_NULL, null=True, related_name="productos")
-    activo = models.BooleanField(default=True, help_text="Indica si el producto está activo y visible para la venta")
-    imagen = models.ImageField(upload_to='productos/', blank=True, null=True, help_text="Foto principal del producto")
-    codigo_barras = models.CharField(max_length=13, unique=True, blank=True, help_text="Código de barras (EAN-13). Se genera automáticamente.")
-    imagen_codigo_barras = models.ImageField(upload_to='codigos_de_barras/', blank=True)
-    fecha_creacion = models.DateTimeField(auto_now_add=True)
-    ultima_actualizacion = models.DateTimeField(auto_now=True)
-    def __str__(self): return self.nombre
-    def save(self, *args, **kwargs):
-        is_new = self.pk is None
-        super().save(*args, **kwargs)
-        if is_new and not self.codigo_barras:
-            numero_base = f"{self.pk:012d}"
-            EAN = barcode.get_barcode_class('ean13')
-            ean = EAN(numero_base, writer=ImageWriter())
-            buffer = BytesIO()
-            ean.write(buffer)
-            self.imagen_codigo_barras.save(f'{numero_base}.png', File(buffer), save=False)
-            self.codigo_barras = numero_base
-            super().save(update_fields=['codigo_barras', 'imagen_codigo_barras'])
-    class Meta: verbose_name, verbose_name_plural = "Producto", "Productos"
+    nombre = models.CharField(max_length=180)
+    categoria = models.ForeignKey(
+        Categoria, on_delete=models.SET_NULL, null=True, blank=True, related_name="productos"
+    )
+    proveedor = models.ForeignKey(
+        Proveedor, on_delete=models.SET_NULL, null=True, blank=True, related_name="productos"
+    )
+    descripcion = models.TextField(blank=True)
+
+    # Campos que ya estás usando en tu DB:
+    activo = models.BooleanField(default=True)
+    codigo_barras = models.CharField(max_length=64, blank=True, null=True)
+    # Guardás un path/ruta (VARCHAR en DB). Lo dejo CharField para compatibilidad.
+    imagen_codigo_barras = models.CharField(max_length=255, blank=True, null=True)
+
+    creado = models.DateTimeField(default=timezone.now, editable=False)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-actualizado", "nombre"]
+        indexes = [
+            models.Index(fields=["activo"], name="idx_producto_activo"),
+            models.Index(fields=["nombre"], name="idx_producto_nombre"),
+            models.Index(fields=["codigo_barras"], name="idx_producto_cod_barras"),
+        ]
+
+    def __str__(self):
+        return self.nombre
+
 
 class ProductoVariante(models.Model):
-    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name="variantes")
-    nombre_variante = models.CharField(max_length=150, help_text="Descripción de la variante. Ej: 128GB / Azul Titanio")
-    stock = models.PositiveIntegerField(default=0)
-    def __str__(self): return f"{self.producto.nombre} - {self.nombre_variante}"
+    """
+    Variante de un producto (por ejemplo: color, capacidad, tamaño).
+    """
+    producto = models.ForeignKey(
+        Producto, on_delete=models.CASCADE, related_name="variantes"
+    )
+    sku = models.CharField(max_length=64, unique=True)
+    atributo_1 = models.CharField(max_length=120, blank=True)  # ej: color
+    atributo_2 = models.CharField(max_length=120, blank=True)  # ej: capacidad/tamaño
+    stock_actual = models.IntegerField(default=0)
+    stock_minimo = models.IntegerField(default=0)
+    activo = models.BooleanField(default=True)
+
+    creado = models.DateTimeField(default=timezone.now, editable=False)
+    actualizado = models.DateTimeField(auto_now=True)
+
     class Meta:
-        verbose_name, verbose_name_plural = "Variante de Producto", "Variantes de Productos"
-        unique_together = ('producto', 'nombre_variante')
+        verbose_name = "Variante de Producto"
+        verbose_name_plural = "Variantes de Producto"
+        ordering = ["producto__nombre", "sku"]
+        indexes = [
+            models.Index(fields=["sku"], name="idx_var_sku"),
+            models.Index(fields=["activo"], name="idx_var_activo"),
+            models.Index(fields=["stock_actual"], name="idx_var_stock"),
+        ]
+
+    def __str__(self):
+        etiqueta = self.producto.nombre if self.producto_id else "Producto"
+        detalles = " / ".join([x for x in [self.atributo_1, self.atributo_2] if x])
+        return f"{etiqueta} [{self.sku}]" + (f" — {detalles}" if detalles else "")
+
+    @property
+    def bajo_stock(self):
+        return self.stock_minimo and self.stock_actual <= self.stock_minimo
+
 
 class Precio(models.Model):
-    MONEDA_CHOICES = [('ARS', 'Pesos Argentinos (ARS)'), ('USD', 'Dólares Estadounidenses (USD)')]
-    TIPO_PRECIO_CHOICES = [('Minorista', 'Minorista'), ('Mayorista', 'Mayorista')]
-    variante = models.ForeignKey(ProductoVariante, on_delete=models.CASCADE, related_name="precios")
-    moneda = models.CharField(max_length=3, choices=MONEDA_CHOICES, default='USD')
-    tipo_precio = models.CharField(max_length=20, choices=TIPO_PRECIO_CHOICES, default='Minorista')
-    costo = models.DecimalField(max_digits=10, decimal_places=2, help_text="Costo de adquisición del producto")
-    precio_venta_normal = models.DecimalField(max_digits=10, decimal_places=2, help_text="Precio de venta estándar")
-    precio_venta_minimo = models.DecimalField(max_digits=10, decimal_places=2, help_text="Precio mínimo al que se puede vender")
-    precio_venta_descuento = models.DecimalField(blank=True, null=True, max_digits=10, decimal_places=2, help_text="Precio con descuento (opcional)")
-    def clean(self):
-        if self.precio_venta_minimo < self.costo: raise ValidationError("El precio mínimo no puede ser menor que el costo.")
-        if self.precio_venta_normal < self.precio_venta_minimo: raise ValidationError("El precio normal no puede ser menor que el precio mínimo.")
-    def __str__(self): return f"{self.variante} ({self.tipo_precio}) - {self.moneda} ${self.precio_venta_normal}"
-    class Meta:
-        verbose_name, verbose_name_plural = "Precio", "Precios"
-        unique_together = ('variante', 'tipo_precio')
+    """
+    Precio asociado a una variante.
+    - tipo: MINORISTA / MAYORISTA (podés agregar otros)
+    - moneda: ARS / USD (extensible)
+    """
+    class Tipo(models.TextChoices):
+        MINORISTA = "MINORISTA", "Minorista"
+        MAYORISTA = "MAYORISTA", "Mayorista"
 
-class DetalleIphone(models.Model):
-    variante = models.OneToOneField(ProductoVariante, on_delete=models.CASCADE, related_name="detalle_iphone")
-    imei = models.CharField(max_length=15, unique=True, blank=True, null=True, help_text="IMEI único del equipo")
-    salud_bateria = models.PositiveIntegerField(blank=True, null=True, help_text="Porcentaje de salud de la batería (ej: 98)")
-    fallas_detectadas = models.TextField(blank=True, null=True, help_text="Descripción de cualquier falla o detalle")
-    # --- CAMPO NUEVO PARA PLAN CANJE ---
-    es_plan_canje = models.BooleanField(default=False, help_text="Marcar si este equipo fue recibido como parte de un Plan Canje")
-    
-    def __str__(self): return f"Detalles para: {self.variante}"
-    class Meta: verbose_name, verbose_name_plural = "Detalle de iPhone", "Detalles de iPhones"
-    def clean(self):
-        if self.imei and (not self.imei.isdigit() or len(self.imei) not in [14, 15]):
-            raise ValidationError("El IMEI debe ser un número de 14 o 15 dígitos.")
+    class Moneda(models.TextChoices):
+        ARS = "ARS", "ARS"
+        USD = "USD", "USD"
+
+    variante = models.ForeignKey(
+        ProductoVariante, on_delete=models.CASCADE, related_name="precios"
+    )
+    tipo = models.CharField(max_length=20, choices=Tipo.choices, default=Tipo.MINORISTA)
+    precio = models.DecimalField(max_digits=12, decimal_places=2)
+    moneda = models.CharField(max_length=10, choices=Moneda.choices, default=Moneda.USD)
+    activo = models.BooleanField(default=True)
+
+    creado = models.DateTimeField(default=timezone.now, editable=False)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Precio"
+        verbose_name_plural = "Precios"
+        ordering = ["variante__sku", "tipo", "moneda"]
+        indexes = [
+            models.Index(fields=["activo"], name="idx_precio_activo"),
+            models.Index(fields=["variante", "tipo", "moneda"], name="idx_precio_var_tipo_mon"),
+        ]
+        # ⚠️ Antes de activar este UniqueConstraint en una migración, verificá duplicados.
+        # constraints = [
+        #     models.UniqueConstraint(
+        #         fields=["variante", "tipo", "moneda"],
+        #         name="uniq_precio_var_tipo_moneda",
+        #     )
+        # ]
+
+    def __str__(self):
+        return f"{self.variante.sku} — {self.tipo} {self.precio} {self.moneda}"
