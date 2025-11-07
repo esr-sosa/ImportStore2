@@ -60,12 +60,22 @@ class Precio(models.Model):
 
 # asistente_ia/interpreter.py
 
-def generate_query_json_from_question(question, user_name="Ema", chat_history=""): # <-- Argumento nuevo
+def generate_query_json_from_question(question, user_name="Ema", chat_history=""):  # <-- Argumento nuevo
     """
     Convierte la PREGUNTA MÁS RECIENTE en un JSON, usando el historial como contexto.
     """
-    if question.lower().strip() in SIMPLE_GREETINGS:
+    if not question:
         return {"model": "None", "action": "chat", "filters": []}
+
+    question_normalized = str(question).strip()
+
+    if not question_normalized:
+        return {"model": "None", "action": "chat", "filters": []}
+
+    if question_normalized.lower() in SIMPLE_GREETINGS:
+        return {"model": "None", "action": "chat", "filters": []}
+
+    question = question_normalized
 
     model = genai.GenerativeModel('gemini-1.5-flash-latest')
     prompt = f"""
@@ -137,6 +147,7 @@ def run_query_from_json(query_json):
             results = list(queryset[:10])
         else:
             return f"Error: La acción '{action}' no es válida."
+        return results
     except Exception as e:
         print(f"Error ejecutando consulta desde JSON: {e}")
         return f"Error al ejecutar la consulta: {type(e).__name__} - {e}"
@@ -144,8 +155,17 @@ def run_query_from_json(query_json):
 
 def generate_final_response(question, query_results, user_name="Ema", chat_history=""): # <-- Argumento nuevo
     # ... (la primera parte de la función no cambia) ...
-    if isinstance(query_results, dict) and query_results.get("error") == "RATE_LIMIT_EXCEEDED":
-        return f"Disculpame, {user_name}. [...]" # Mensaje de error
+    if isinstance(query_results, dict):
+        if query_results.get("error") == "RATE_LIMIT_EXCEEDED":
+            return (
+                f"Disculpame, {user_name}. Llegamos al límite de consultas a la IA. "
+                "Probá de nuevo en unos instantes."
+            )
+        # Otros errores inesperados se devuelven como mensaje legible.
+        return (
+            f"{user_name}, tuve un problema al interpretar la consulta: "
+            f"{query_results.get('error', 'Error desconocido')}"
+        )
 
     model = genai.GenerativeModel('gemini-1.5-flash-latest')
     results_str = ""
@@ -157,12 +177,16 @@ def generate_final_response(question, query_results, user_name="Ema", chat_histo
             results_str = "La consulta no devolvió ningún resultado."
         else:
             # ... (código para formatear la lista de resultados) ...
-             formatted_items = []
-             for item in query_results:
+            formatted_items = []
+            for item in query_results:
                 if isinstance(item, ProductoVariante):
-                    formatted_items.append(f"Producto: {item.producto.nombre}, Variante: {item.nombre_variante}")
+                    formatted_items.append(
+                        f"Producto: {item.producto.nombre}, Variante: {item.nombre_variante}"
+                    )
                 elif isinstance(item, Precio):
-                    info = f"Producto: {item.variante.producto.nombre}, Variante: {item.variante.nombre_variante}"
+                    info = (
+                        f"Producto: {item.variante.producto.nombre}, Variante: {item.variante.nombre_variante}"
+                    )
                     if hasattr(item, 'precio_venta_normal'):
                         info += f", Precio de Venta: USD {item.precio_venta_normal}"
                     if hasattr(item, 'costo'):
@@ -170,7 +194,7 @@ def generate_final_response(question, query_results, user_name="Ema", chat_histo
                     formatted_items.append(info)
                 else:
                     formatted_items.append(str(item))
-             results_str = "\n".join(formatted_items)
+            results_str = "\n".join(formatted_items)
     else:
         results_str = str(query_results)
 
@@ -200,6 +224,11 @@ def generate_final_response(question, query_results, user_name="Ema", chat_histo
         return response.text.strip()
     except Exception as e:
         if "429" in str(e):
-             return f"Disculpame, {user_name}. [...]"
+            return (
+                f"Disculpame, {user_name}. Llegamos al límite de consultas a la IA. "
+                "Probá de nuevo en unos instantes."
+            )
         print(f"Error generando respuesta final: {e}")
-        return "Disculpame, Ema. Tuve un problema para formular la respuesta final."
+        return (
+            f"Disculpame, {user_name}. Tuve un problema para formular la respuesta final."
+        )

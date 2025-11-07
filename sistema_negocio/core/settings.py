@@ -49,7 +49,7 @@ INSTALLED_APPS = [
     'dashboard',
     'iphones',
     'historial',
-     'asistente_ia',
+    'asistente_ia',
 ]
 
 MIDDLEWARE = [
