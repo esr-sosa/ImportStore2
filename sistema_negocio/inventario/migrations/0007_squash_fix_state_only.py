@@ -11,17 +11,64 @@ def _create_indexes(apps, schema_editor):
     if connection.vendor != "mysql":
         return
 
-    statements = (
-        "CREATE INDEX IF NOT EXISTS idx_categoria_nombre  ON inventario_categoria (nombre);",
-        "CREATE INDEX IF NOT EXISTS idx_precio_activo     ON inventario_precio (activo);",
-        "CREATE INDEX IF NOT EXISTS idx_precio_var_tipo_mon ON inventario_precio (variante_id, tipo, moneda);",
-        "CREATE INDEX IF NOT EXISTS idx_producto_activo   ON inventario_producto (activo);",
-        "CREATE INDEX IF NOT EXISTS idx_producto_nombre   ON inventario_producto (nombre);",
-        "CREATE INDEX IF NOT EXISTS idx_var_activo        ON inventario_productovariante (activo);",
-        "CREATE INDEX IF NOT EXISTS idx_var_stock         ON inventario_productovariante (stock_actual);",
-        "CREATE INDEX IF NOT EXISTS idx_proveedor_activo  ON inventario_proveedor (activo);",
-        "CREATE INDEX IF NOT EXISTS idx_proveedor_nombre  ON inventario_proveedor (nombre);",
-    )
+    with connection.cursor() as cursor:
+        existing_tables = {
+            name.lower(): name for name in connection.introspection.table_names(cursor)
+        }
+
+    def has_column(table: str, column: str) -> bool:
+        normalized = existing_tables.get(table.lower())
+        if not normalized:
+            return False
+
+        with connection.cursor() as cursor:
+            description = connection.introspection.get_table_description(cursor, normalized)
+
+        return any(col.name.lower() == column.lower() for col in description)
+
+    statements = []
+    if has_column("inventario_categoria", "nombre"):
+        statements.append(
+            "CREATE INDEX IF NOT EXISTS idx_categoria_nombre  ON inventario_categoria (nombre);"
+        )
+    if has_column("inventario_precio", "activo"):
+        statements.append(
+            "CREATE INDEX IF NOT EXISTS idx_precio_activo     ON inventario_precio (activo);"
+        )
+    if all(
+        has_column("inventario_precio", col)
+        for col in ("variante_id", "tipo", "moneda")
+    ):
+        statements.append(
+            "CREATE INDEX IF NOT EXISTS idx_precio_var_tipo_mon ON inventario_precio (variante_id, tipo, moneda);"
+        )
+    if has_column("inventario_producto", "activo"):
+        statements.append(
+            "CREATE INDEX IF NOT EXISTS idx_producto_activo   ON inventario_producto (activo);"
+        )
+    if has_column("inventario_producto", "nombre"):
+        statements.append(
+            "CREATE INDEX IF NOT EXISTS idx_producto_nombre   ON inventario_producto (nombre);"
+        )
+    if has_column("inventario_productovariante", "activo"):
+        statements.append(
+            "CREATE INDEX IF NOT EXISTS idx_var_activo        ON inventario_productovariante (activo);"
+        )
+    if has_column("inventario_productovariante", "stock_actual"):
+        statements.append(
+            "CREATE INDEX IF NOT EXISTS idx_var_stock         ON inventario_productovariante (stock_actual);"
+        )
+    if has_column("inventario_proveedor", "activo"):
+        statements.append(
+            "CREATE INDEX IF NOT EXISTS idx_proveedor_activo  ON inventario_proveedor (activo);"
+        )
+    if has_column("inventario_proveedor", "nombre"):
+        statements.append(
+            "CREATE INDEX IF NOT EXISTS idx_proveedor_nombre  ON inventario_proveedor (nombre);"
+        )
+
+    if not statements:
+        return
 
     with connection.cursor() as cursor:
         for statement in statements:
