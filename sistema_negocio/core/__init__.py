@@ -1,4 +1,8 @@
+"""Configuración base del paquete core."""
+
 import pymysql
 
 pymysql.install_as_MySQLdb()
-# -*- coding: utf-8 -*-
+
+__all__ = ["pymysql"]
+
