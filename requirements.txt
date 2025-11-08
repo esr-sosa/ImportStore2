@@ -1,0 +1,8 @@
+Django==5.2.8
+channels==4.1.0
+daphne==4.1.2
+PyMySQL==1.1.1
+python-dotenv==1.0.1
+google-generativeai==0.8.1
+requests==2.32.3
+Pillow==10.4.0
