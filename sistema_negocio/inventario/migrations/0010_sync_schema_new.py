@@ -1,62 +1,106 @@
-"""Ensure fresh installations get the same schema expected by the ORM."""
+"""Ensure fresh installations align with the expected ORM schema."""
 
-from django.db import migrations, models
+from __future__ import annotations
+
 import django.utils.timezone
+from django.db import migrations, models
+from django.db.models import Count, Q
 
 
-def _get_columns(connection, table_name):
+def _get_columns(connection, table_name: str) -> set[str]:
     introspection = connection.introspection
     with connection.cursor() as cursor:
         try:
             description = introspection.get_table_description(cursor, table_name)
         except Exception:
             return set()
-    return {col.name for col in description}
+    return {column.name.lower() for column in description}
 
 
-def _add_field_if_missing(apps, schema_editor, model_name, field_name, field):
+def _add_field_if_missing(apps, schema_editor, model_name: str, field_name: str, field: models.Field) -> bool:
+    """Add *field_name* to *model_name* only when it doesn't exist."""
+
     model = apps.get_model("inventario", model_name)
     table_name = model._meta.db_table
-    columns = _get_columns(schema_editor.connection, table_name)
-    column_name = field.db_column or field_name
-    if column_name in columns:
-        return
-    field.set_attributes_from_name(field_name)
-    schema_editor.add_field(model, field)
+    existing_columns = _get_columns(schema_editor.connection, table_name)
+
+    working_field = field.clone()
+    if not getattr(working_field, "column", None):
+        working_field.set_attributes_from_name(field_name)
+
+    column_name = (
+        getattr(working_field, "db_column", None)
+        or getattr(working_field, "column", None)
+        or field_name
+    ).lower()
+
+    if column_name in existing_columns:
+        return False
+
+    schema_editor.add_field(model, working_field)
+    return True
 
 
-def _ensure_index(schema_editor, model, index):
+def _finalize_field(schema_editor, model, field_name: str, new_field: models.Field) -> None:
+    """Alter an existing field so the database matches the ORM definition."""
+
+    old_field = model._meta.get_field(field_name)
+    desired = new_field.clone()
+    if not getattr(desired, "column", None):
+        desired.set_attributes_from_name(field_name)
+    schema_editor.alter_field(model, old_field, desired)
+
+
+def _ensure_index(schema_editor, model, index: models.Index | models.UniqueConstraint) -> None:
     connection = schema_editor.connection
     introspection = connection.introspection
     table_name = model._meta.db_table
+
     with connection.cursor() as cursor:
         constraints = introspection.get_constraints(cursor, table_name)
+
     if index.name in constraints:
         return
+
     try:
-        schema_editor.add_index(model, index)
+        if isinstance(index, models.UniqueConstraint):
+            schema_editor.add_constraint(model, index)
+        else:
+            schema_editor.add_index(model, index)
     except Exception:
-        # Different databases may expose existing indexes with custom names.
-        # If we cannot create it (because it already exists), we safely ignore it.
+        # Different engines may expose pre-existing objects with other names.
+        # If creation fails we assume it's already there and continue.
         pass
 
 
+def _populate_missing_skus(apps) -> None:
+    ProductoVariante = apps.get_model("inventario", "ProductoVariante")
+    for variante in ProductoVariante.objects.filter(Q(sku__isnull=True) | Q(sku="")):
+        variante.sku = f"SKU-{variante.pk:06d}"
+        variante.save(update_fields=["sku"])
+
+
+def _ensure_unique_sku(schema_editor, apps) -> None:
+    ProductoVariante = apps.get_model("inventario", "ProductoVariante")
+    if ProductoVariante.objects.values("sku").filter(Q(sku__isnull=True) | Q(sku="")).exists():
+        return
+    if ProductoVariante.objects.values("sku").annotate(total=Count("id")).filter(total__gt=1).exists():
+        return
+
+    constraint = models.UniqueConstraint(fields=["sku"], name="uniq_variante_sku")
+    _ensure_index(schema_editor, ProductoVariante, constraint)
+
+
 def sync_schema(apps, schema_editor):
-    # Ensure tables exist before touching them (fresh databases use all apps).
     connection = schema_editor.connection
     with connection.cursor() as cursor:
         tables = set(connection.introspection.table_names(cursor))
 
-    inventario_tables = {
-        apps.get_model("inventario", "Categoria")._meta.db_table,
-        apps.get_model("inventario", "Proveedor")._meta.db_table,
-        apps.get_model("inventario", "Producto")._meta.db_table,
-        apps.get_model("inventario", "ProductoVariante")._meta.db_table,
-        apps.get_model("inventario", "Precio")._meta.db_table,
+    required_tables = {
+        apps.get_model("inventario", name)._meta.db_table
+        for name in ("Categoria", "Proveedor", "Producto", "ProductoVariante", "Precio")
     }
-
-    if not inventario_tables.issubset(tables):
-        # The base tables are not ready yet; nothing to do.
+    if not required_tables.issubset(tables):
         return
 
     timezone_now = django.utils.timezone.now
@@ -92,13 +136,24 @@ def sync_schema(apps, schema_editor):
         models.DateTimeField(auto_now=True, default=timezone_now),
     )
 
-    _add_field_if_missing(
+    sku_added = _add_field_if_missing(
         apps,
         schema_editor,
         "ProductoVariante",
         "sku",
-        models.CharField(max_length=64, unique=True, default=""),
+        models.CharField(max_length=64, blank=True, null=True),
     )
+    if sku_added:
+        _populate_missing_skus(apps)
+        ProductoVariante = apps.get_model("inventario", "ProductoVariante")
+        _finalize_field(
+            schema_editor,
+            ProductoVariante,
+            "sku",
+            models.CharField(max_length=64, unique=True),
+        )
+        _ensure_unique_sku(schema_editor, apps)
+
     _add_field_if_missing(
         apps,
         schema_editor,
@@ -200,63 +255,22 @@ def sync_schema(apps, schema_editor):
         models.DateTimeField(auto_now=True, default=timezone_now),
     )
 
-    # Ensure the key indexes exist so ORM queries match expectations.
     Categoria = apps.get_model("inventario", "Categoria")
     Proveedor = apps.get_model("inventario", "Proveedor")
     Producto = apps.get_model("inventario", "Producto")
     ProductoVariante = apps.get_model("inventario", "ProductoVariante")
     Precio = apps.get_model("inventario", "Precio")
 
-    _ensure_index(
-        schema_editor,
-        Categoria,
-        models.Index(fields=["nombre"], name="idx_categoria_nombre"),
-    )
-    _ensure_index(
-        schema_editor,
-        Proveedor,
-        models.Index(fields=["activo"], name="idx_proveedor_activo"),
-    )
-    _ensure_index(
-        schema_editor,
-        Proveedor,
-        models.Index(fields=["nombre"], name="idx_proveedor_nombre"),
-    )
-    _ensure_index(
-        schema_editor,
-        Producto,
-        models.Index(fields=["activo"], name="idx_producto_activo"),
-    )
-    _ensure_index(
-        schema_editor,
-        Producto,
-        models.Index(fields=["nombre"], name="idx_producto_nombre"),
-    )
-    _ensure_index(
-        schema_editor,
-        Producto,
-        models.Index(fields=["codigo_barras"], name="idx_producto_cod_barras"),
-    )
-    _ensure_index(
-        schema_editor,
-        ProductoVariante,
-        models.Index(fields=["sku"], name="idx_var_sku"),
-    )
-    _ensure_index(
-        schema_editor,
-        ProductoVariante,
-        models.Index(fields=["activo"], name="idx_var_activo"),
-    )
-    _ensure_index(
-        schema_editor,
-        ProductoVariante,
-        models.Index(fields=["stock_actual"], name="idx_var_stock"),
-    )
-    _ensure_index(
-        schema_editor,
-        Precio,
-        models.Index(fields=["activo"], name="idx_precio_activo"),
-    )
+    _ensure_index(schema_editor, Categoria, models.Index(fields=["nombre"], name="idx_categoria_nombre"))
+    _ensure_index(schema_editor, Proveedor, models.Index(fields=["activo"], name="idx_proveedor_activo"))
+    _ensure_index(schema_editor, Proveedor, models.Index(fields=["nombre"], name="idx_proveedor_nombre"))
+    _ensure_index(schema_editor, Producto, models.Index(fields=["activo"], name="idx_producto_activo"))
+    _ensure_index(schema_editor, Producto, models.Index(fields=["nombre"], name="idx_producto_nombre"))
+    _ensure_index(schema_editor, Producto, models.Index(fields=["codigo_barras"], name="idx_producto_cod_barras"))
+    _ensure_index(schema_editor, ProductoVariante, models.Index(fields=["sku"], name="idx_var_sku"))
+    _ensure_index(schema_editor, ProductoVariante, models.Index(fields=["activo"], name="idx_var_activo"))
+    _ensure_index(schema_editor, ProductoVariante, models.Index(fields=["stock_actual"], name="idx_var_stock"))
+    _ensure_index(schema_editor, Precio, models.Index(fields=["activo"], name="idx_precio_activo"))
     _ensure_index(
         schema_editor,
         Precio,
@@ -265,7 +279,6 @@ def sync_schema(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("inventario", "0009_detalleiphone_variante_bridge"),
     ]
@@ -273,3 +286,4 @@ class Migration(migrations.Migration):
     operations = [
         migrations.RunPython(sync_schema, migrations.RunPython.noop),
     ]
+

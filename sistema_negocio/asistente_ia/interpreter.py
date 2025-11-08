@@ -1,5 +1,7 @@
-import google.generativeai as genai
 import json
+import logging
+
+import google.generativeai as genai
 from django.conf import settings
 from django.db.models import Q, Count
 from inventario.models import (
@@ -12,8 +14,39 @@ from inventario.models import (
 
 from historial.models import RegistroHistorial
 
+logger = logging.getLogger(__name__)
+
 # Configurar la API de Gemini
 genai.configure(api_key=settings.GEMINI_API_KEY)
+
+
+def _invoke_gemini(prompt: str):
+    """Ejecuta una generación en Gemini con fallback de modelo."""
+
+    preferred = getattr(settings, "GEMINI_MODEL", "gemini-1.5-flash") or "gemini-1.5-flash"
+    candidates = [preferred]
+    if "gemini-1.5-flash" not in candidates:
+        candidates.append("gemini-1.5-flash")
+
+    last_error: Exception | None = None
+    for model_name in candidates:
+        try:
+            model = genai.GenerativeModel(model_name)
+            return model.generate_content(prompt)
+        except Exception as exc:  # pragma: no cover - SDK externo
+            last_error = exc
+            message = str(exc)
+            if "404" in message or "not found" in message.lower():
+                logger.warning(
+                    "Modelo Gemini '%s' no disponible (%s). Intentando fallback...",
+                    model_name,
+                    message,
+                )
+                continue
+            raise
+
+    if last_error is not None:
+        raise last_error
 
 # --- ¡NUEVO! LISTA DE SALUDOS COMUNES ---
 # Esto evita llamadas innecesarias a la IA para conversaciones simples
@@ -82,8 +115,6 @@ def generate_query_json_from_question(question, user_name="Ema", chat_history=""
         return {"model": "None", "action": "chat", "filters": []}
 
     question = question_normalized
-
-    model = genai.GenerativeModel('gemini-1.5-flash-latest')
     prompt = f"""
     Tu tarea es ser el motor de análisis de lenguaje para ISAC.
     El usuario es {user_name}, el dueño.
@@ -106,14 +137,13 @@ def generate_query_json_from_question(question, user_name="Ema", chat_history=""
     **JSON de la consulta para el último mensaje:**
     """
     try:
-        # ... (el resto de la función no cambia) ...
-        response = model.generate_content(prompt)
+        response = _invoke_gemini(prompt)
         json_text = response.text.strip().replace('```json', '').replace('```', '')
         return json.loads(json_text)
     except Exception as e:
         if "429" in str(e):
             return {"error": "RATE_LIMIT_EXCEEDED"}
-        print(f"Error generando JSON de consulta: {e}")
+        logger.exception("Error generando JSON de consulta: %s", e)
         return None
 
 def run_query_from_json(query_json):
@@ -155,12 +185,11 @@ def run_query_from_json(query_json):
             return f"Error: La acción '{action}' no es válida."
         return results
     except Exception as e:
-        print(f"Error ejecutando consulta desde JSON: {e}")
+        logger.exception("Error ejecutando consulta desde JSON: %s", e)
         return f"Error al ejecutar la consulta: {type(e).__name__} - {e}"
-# asistente_ia/interpreter.py
 
-def generate_final_response(question, query_results, user_name="Ema", chat_history=""): # <-- Argumento nuevo
-    # ... (la primera parte de la función no cambia) ...
+
+def generate_final_response(question, query_results, user_name="Ema", chat_history=""):
     if isinstance(query_results, dict):
         if query_results.get("error") == "RATE_LIMIT_EXCEEDED":
             return (
@@ -173,31 +202,29 @@ def generate_final_response(question, query_results, user_name="Ema", chat_histo
             f"{query_results.get('error', 'Error desconocido')}"
         )
 
-    model = genai.GenerativeModel('gemini-1.5-flash-latest')
     results_str = ""
-    # ... (la lógica para formatear results_str no cambia) ...
     if query_results is None:
         results_str = "Es una pregunta de chat, no una consulta de datos."
     elif isinstance(query_results, list):
         if not query_results:
             results_str = "La consulta no devolvió ningún resultado."
         else:
-            # ... (código para formatear la lista de resultados) ...
             formatted_items = []
             for item in query_results:
                 if isinstance(item, ProductoVariante):
+                    detalles = item.atributos_display or "Variante estándar"
                     formatted_items.append(
-                        f"Producto: {item.producto.nombre}, Variante: {item.nombre_variante}"
+                        f"Producto: {item.producto.nombre}, SKU {item.sku} ({detalles}) — Stock: {item.stock_actual}"
                     )
                 elif isinstance(item, Precio):
-                    info = (
-                        f"Producto: {item.variante.producto.nombre}, Variante: {item.variante.nombre_variante}"
-                    )
-                    if hasattr(item, 'precio_venta_normal'):
-                        info += f", Precio de Venta: USD {item.precio_venta_normal}"
-                    if hasattr(item, 'costo'):
-                        info += f", Costo: USD {item.costo}"
+                    info = f"Producto: {item.variante.producto.nombre}, SKU {item.variante.sku}"
+                    info += f", {item.get_tipo_display()} {item.precio} {item.moneda}"
                     formatted_items.append(info)
+                elif isinstance(item, DetalleIphone):
+                    estado = "Plan canje" if getattr(item, "es_plan_canje", False) else "Venta directa"
+                    formatted_items.append(
+                        f"IMEI {item.imei or 'sin registrar'} — {estado} — Salud batería: {item.salud_bateria or 'N/D'}%"
+                    )
                 else:
                     formatted_items.append(str(item))
             results_str = "\n".join(formatted_items)
@@ -225,8 +252,7 @@ def generate_final_response(question, query_results, user_name="Ema", chat_histo
     **Tu Respuesta Final (concisa, directa y en español de Argentina):**
     """
     try:
-        # ... (el resto de la función no cambia) ...
-        response = model.generate_content(prompt)
+        response = _invoke_gemini(prompt)
         return response.text.strip()
     except Exception as e:
         if "429" in str(e):
@@ -234,7 +260,7 @@ def generate_final_response(question, query_results, user_name="Ema", chat_histo
                 f"Disculpame, {user_name}. Llegamos al límite de consultas a la IA. "
                 "Probá de nuevo en unos instantes."
             )
-        print(f"Error generando respuesta final: {e}")
+        logger.exception("Error generando respuesta final: %s", e)
         return (
             f"Disculpame, {user_name}. Tuve un problema para formular la respuesta final."
         )
