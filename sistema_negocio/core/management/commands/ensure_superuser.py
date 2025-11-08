@@ -24,7 +24,10 @@ class Command(BaseCommand):
         parser.add_argument(
             "--noinput",
             action="store_true",
-            help="Evita cualquier prompt interactivo. Requiere que password se proporcione por argumento o variable de entorno.",
+            help=(
+                "Evita cualquier prompt interactivo. Requiere que la contraseña se "
+                "proporcione por argumento o variable de entorno."
+            ),
         )
 
     def handle(self, *args: Any, **options: Any) -> None:
@@ -38,7 +41,8 @@ class Command(BaseCommand):
         missing_fields = [name for name, value in (("username", username), ("email", email)) if not value]
         if missing_fields:
             raise CommandError(
-                "Faltan los siguientes datos del superusuario: {}. Proporcionalos mediante argumentos o variables de entorno.".format(
+                "Faltan los siguientes datos del superusuario: {}. Proporcionalos "
+                "mediante argumentos o variables de entorno.".format(
                     ", ".join(missing_fields)
                 )
             )
@@ -59,11 +63,12 @@ class Command(BaseCommand):
                 "email": email,
                 "is_staff": True,
                 "is_superuser": True,
+                "is_active": True,
             },
         )
         user.set_password(password)
         user.full_clean(exclude={"password"})
-        user.save(update_fields=["password", "email", "is_staff", "is_superuser"])
+        user.save(update_fields=["password", "email", "is_staff", "is_superuser", "is_active"])
 
         if created:
             self.stdout.write(self.style.SUCCESS(f"Superusuario '{username}' creado correctamente."))
