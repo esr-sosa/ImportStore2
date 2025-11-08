@@ -2,14 +2,13 @@ import google.generativeai as genai
 import json
 from django.conf import settings
 from django.db.models import Q, Count
-from inventario.models import Producto, ProductoVariante, Precio, Categoria
-
-# Compatibilidad: si DetalleIphone ya no existe en inventario.models,
-# mantenemos una referencia nula para que el import no explote.
-try:
-    from inventario.models import DetalleIphone  # puede no existir luego de la 0005
-except Exception:
-    DetalleIphone = None
+from inventario.models import (
+    Categoria,
+    DetalleIphone,
+    Precio,
+    Producto,
+    ProductoVariante,
+)
 
 from historial.models import RegistroHistorial
 
@@ -38,24 +37,31 @@ MODEL_MAP = {
 DATABASE_SCHEMA = """
 # Modelos de la base de datos de Django para ImportStore
 class Producto(models.Model):
-    nombre = models.CharField(max_length=200)
-    categoria = models.ForeignKey(Categoria, ...)
+    nombre = models.CharField(max_length=180)
+    categoria = models.ForeignKey(Categoria, null=True, on_delete=models.SET_NULL)
     activo = models.BooleanField(default=True)
 
 class ProductoVariante(models.Model):
-    producto = models.ForeignKey(Producto, ...)
-    nombre_variante = models.CharField(max_length=150) # Ej: "256GB / Titanio Natural"
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
+    sku = models.CharField(max_length=64, unique=True)
+    atributo_1 = models.CharField(max_length=120, blank=True)
+    atributo_2 = models.CharField(max_length=120, blank=True)
+    stock_actual = models.IntegerField(default=0)
+    stock_minimo = models.IntegerField(default=0)
 
 class DetalleIphone(models.Model):
-    variante = models.OneToOneField(ProductoVariante, ...)
-    imei = models.CharField(max_length=15, ...)
-    salud_bateria = models.PositiveIntegerField(...)
-    
+    variante = models.OneToOneField(ProductoVariante, on_delete=models.CASCADE)
+    imei = models.CharField(max_length=15, unique=True, null=True, blank=True)
+    salud_bateria = models.PositiveIntegerField(null=True, blank=True)
+    costo_usd = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    precio_venta_usd = models.DecimalField(max_digits=10, decimal_places=2)
+    precio_oferta_usd = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+
 class Precio(models.Model):
-    variante = models.ForeignKey(ProductoVariante, ...)
-    moneda = models.CharField(max_length=3, default='USD')
-    costo = models.DecimalField(max_digits=10, decimal_places=2)
-    precio_venta_normal = models.DecimalField(max_digits=10, decimal_places=2)
+    variante = models.ForeignKey(ProductoVariante, on_delete=models.CASCADE)
+    tipo = models.CharField(max_length=20, choices=[("MINORISTA", "Minorista"), ("MAYORISTA", "Mayorista")])
+    moneda = models.CharField(max_length=3, choices=[("USD", "USD"), ("ARS", "ARS")])
+    precio = models.DecimalField(max_digits=12, decimal_places=2)
 """
 
 # asistente_ia/interpreter.py

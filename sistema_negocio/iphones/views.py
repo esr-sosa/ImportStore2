@@ -1,238 +1,330 @@
-# iphones/views.py
+from decimal import Decimal
 
-from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Q
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
-from django.contrib.humanize.templatetags.humanize import intcomma
-from inventario.models import Producto, ProductoVariante, Categoria, Precio
-
-# Compatibilidad temporal: si DetalleIphone ya no existe, lo definimos como None
-try:
-    from inventario.models import DetalleIphone
-except Exception:
-    DetalleIphone = None
-
-
-
-
 
 from core.utils import obtener_valor_dolar_blue
-from .forms import AgregarIphoneForm 
-from decimal import Decimal
 from historial.models import RegistroHistorial
+from inventario.models import (
+    Categoria,
+    DetalleIphone,
+    Precio,
+    Producto,
+    ProductoVariante,
+)
+
+from .forms import AgregarIphoneForm
+
+
+def _categoria_celulares():
+    categoria, _ = Categoria.objects.get_or_create(
+        nombre="Celulares", defaults={"descripcion": "Smartphones Apple"}
+    )
+    return categoria
+
+
+def _ultimo_precio(variante, tipo, moneda):
+    return (
+        variante.precios.filter(tipo=tipo, moneda=moneda, activo=True)
+        .order_by("-actualizado")
+        .first()
+    )
+
+
+def _sincronizar_precios(variante, data):
+    combinaciones = [
+        (Precio.Tipo.MINORISTA, Precio.Moneda.USD, data.get("precio_venta_usd")),
+        (Precio.Tipo.MINORISTA, Precio.Moneda.ARS, data.get("precio_venta_ars")),
+        (Precio.Tipo.MAYORISTA, Precio.Moneda.USD, data.get("precio_mayorista_usd") or data.get("precio_venta_usd")),
+        (Precio.Tipo.MAYORISTA, Precio.Moneda.ARS, data.get("precio_mayorista_ars") or data.get("precio_venta_ars")),
+    ]
+
+    for tipo, moneda, valor in combinaciones:
+        if valor is None or valor == "":
+            variante.precios.filter(tipo=tipo, moneda=moneda).update(activo=False)
+            continue
+        variante.precios.update_or_create(
+            tipo=tipo,
+            moneda=moneda,
+            defaults={"precio": valor, "activo": True},
+        )
+
 
 @login_required
 def iphone_dashboard(request):
     valor_dolar = obtener_valor_dolar_blue()
-    
-    try:
-        categoria_iphone = Categoria.objects.get(nombre__iexact="Celulares")
-        base_query = ProductoVariante.objects.filter(producto__categoria=categoria_iphone).select_related('producto').order_by('-producto__fecha_creacion')
-    except Categoria.DoesNotExist:
-        base_query = ProductoVariante.objects.none()
 
-    # --- Lógica de KPIs (se calcula sobre el total) ---
-    total_stock = base_query.count()
-    valor_total_usd = Decimal(0)
-    for v in base_query.prefetch_related('precios'):
-        precio_obj = v.precios.filter(moneda='USD').first()
-        if precio_obj:
-            valor_total_usd += precio_obj.precio_venta_normal
-    
-    valor_total_ars = valor_total_usd * Decimal(str(valor_dolar)) if valor_dolar else Decimal(0)
+    variantes_qs = (
+        ProductoVariante.objects.select_related(
+            "producto", "producto__categoria", "detalle_iphone"
+        )
+        .prefetch_related("precios")
+        .filter(producto__categoria__nombre__iexact="Celulares")
+        .order_by("producto__nombre", "sku")
+    )
 
-    # --- Lógica de Búsqueda ---
-    search_query = request.GET.get('q', None)
+    search_query = request.GET.get("q", "").strip()
     if search_query:
-        variantes_list = base_query.filter(
-            Q(producto__nombre__icontains=search_query) |
-            Q(nombre_variante__icontains=search_query) |
-            Q(detalle_iphone__imei__icontains=search_query)
-        ).distinct()
-    else:
-        variantes_list = base_query
+        variantes_qs = variantes_qs.filter(
+            Q(producto__nombre__icontains=search_query)
+            | Q(atributo_1__icontains=search_query)
+            | Q(atributo_2__icontains=search_query)
+            | Q(sku__icontains=search_query)
+            | Q(detalle_iphone__imei__icontains=search_query)
+        )
 
-    # --- Preparación de datos para la tabla ---
-    for variante in variantes_list:
-        precio_usd_obj = variante.precios.filter(moneda='USD').first()
-        if precio_usd_obj and valor_dolar:
-            variante.precio_usd = precio_usd_obj.precio_venta_normal
-            variante.precio_ars_calculado = precio_usd_obj.precio_venta_normal * Decimal(str(valor_dolar))
+    variantes = list(variantes_qs)
+    dolar_decimal = Decimal(str(valor_dolar)) if valor_dolar else None
+
+    total_stock = sum(v.stock_actual for v in variantes)
+    total_usd = Decimal("0")
+    total_ars = Decimal("0") if dolar_decimal else None
+
+    for variante in variantes:
+        precio_minorista_usd = _ultimo_precio(
+            variante, Precio.Tipo.MINORISTA, Precio.Moneda.USD
+        )
+        precio_mayorista_usd = _ultimo_precio(
+            variante, Precio.Tipo.MAYORISTA, Precio.Moneda.USD
+        )
+        precio_minorista_ars = _ultimo_precio(
+            variante, Precio.Tipo.MINORISTA, Precio.Moneda.ARS
+        )
+        precio_mayorista_ars = _ultimo_precio(
+            variante, Precio.Tipo.MAYORISTA, Precio.Moneda.ARS
+        )
+
+        detalle = getattr(variante, "detalle_iphone", None)
+
+        variante.precio_minorista_usd = (
+            precio_minorista_usd.precio if precio_minorista_usd else None
+        )
+        variante.precio_mayorista_usd = (
+            precio_mayorista_usd.precio if precio_mayorista_usd else None
+        )
+        variante.precio_minorista_ars = (
+            precio_minorista_ars.precio if precio_minorista_ars else None
+        )
+        variante.precio_mayorista_ars = (
+            precio_mayorista_ars.precio if precio_mayorista_ars else None
+        )
+
+        if variante.precio_minorista_usd:
+            total_usd += Decimal(variante.precio_minorista_usd) * Decimal(
+                variante.stock_actual or 0
+            )
+        if total_ars is not None and variante.precio_minorista_usd:
+            total_ars += (
+                Decimal(variante.precio_minorista_usd)
+                * Decimal(variante.stock_actual or 0)
+                * dolar_decimal
+            )
+
+        if dolar_decimal and variante.precio_minorista_usd and not variante.precio_minorista_ars:
+            variante.precio_minorista_ars = (
+                Decimal(variante.precio_minorista_usd) * dolar_decimal
+            )
+        if dolar_decimal and variante.precio_mayorista_usd and not variante.precio_mayorista_ars:
+            variante.precio_mayorista_ars = (
+                Decimal(variante.precio_mayorista_usd) * dolar_decimal
+            )
+
+        if detalle:
+            if detalle.precio_venta_usd and not variante.precio_minorista_usd:
+                variante.precio_minorista_usd = detalle.precio_venta_usd
+            variante.detalle_cache = detalle
         else:
-            variante.precio_usd = None
-            variante.precio_ars_calculado = None
+            variante.detalle_cache = None
+
+    stats = {
+        "variantes": len(variantes),
+        "stock": total_stock,
+        "valor_usd": total_usd,
+        "valor_ars": total_ars,
+    }
 
     context = {
-        'variantes': variantes_list,
-        'valor_dolar': valor_dolar,
-        'total_stock': total_stock,
-        'valor_total_usd': valor_total_usd,
-        'valor_total_ars': valor_total_ars,
-        'search_query': search_query,
+        "variantes": variantes,
+        "valor_dolar": valor_dolar,
+        "search_query": search_query,
+        "stats": stats,
     }
-    return render(request, 'iphones/dashboard.html', context)
+    return render(request, "iphones/dashboard.html", context)
 
 
 @login_required
 @transaction.atomic
 def agregar_iphone(request):
-    if request.method == 'POST':
+    if request.method == "POST":
         form = AgregarIphoneForm(request.POST, request.FILES)
         if form.is_valid():
             data = form.cleaned_data
-            categoria_celulares, _ = Categoria.objects.get_or_create(nombre="Celulares")
-            
-            producto_base = Producto.objects.create(
-                nombre=data['modelo'],
-                categoria=categoria_celulares,
-                activo=data['activo'],
-                imagen=data.get('imagen')
+            categoria = _categoria_celulares()
+
+            producto, _ = Producto.objects.get_or_create(
+                nombre=data["modelo"],
+                defaults={
+                    "categoria": categoria,
+                    "activo": data["activo"],
+                },
             )
-            
-            nombre_variante = f"{data['capacidad']} / {data['color']}"
+            producto.categoria = categoria
+            producto.activo = data["activo"]
+            producto.save()
+
             variante = ProductoVariante.objects.create(
-                producto=producto_base,
-                nombre_variante=nombre_variante,
-                stock=1 
+                producto=producto,
+                sku=data["sku"],
+                atributo_1=data["capacidad"],
+                atributo_2=data["color"],
+                stock_actual=data["stock_actual"],
+                stock_minimo=data["stock_minimo"],
+                activo=data["activo"],
             )
-            
-            Precio.objects.create(
+
+            _sincronizar_precios(variante, data)
+
+            detalle = DetalleIphone.objects.create(
                 variante=variante,
-                moneda='USD',
-                tipo_precio='Minorista',
-                costo=data['costo_usd'],
-                precio_venta_normal=data['precio_venta_usd'],
-                precio_venta_minimo=data['costo_usd'],
-                precio_venta_descuento=data.get('precio_oferta_usd')
+                imei=data.get("imei"),
+                salud_bateria=data.get("salud_bateria"),
+                fallas_detectadas=data.get("fallas_observaciones"),
+                es_plan_canje=data.get("es_plan_canje", False),
+                costo_usd=data.get("costo_usd"),
+                precio_venta_usd=data.get("precio_venta_usd"),
+                precio_oferta_usd=data.get("precio_oferta_usd"),
+                notas=data.get("notas"),
             )
-            
-            if data.get('imei') or data.get('salud_bateria') or data.get('fallas_observaciones'):
-                DetalleIphone.objects.create(
-                    variante=variante,
-                    imei=data.get('imei'),
-                    salud_bateria=data.get('salud_bateria'),
-                    fallas_detectadas=data.get('fallas_observaciones'),
-                    es_plan_canje=data.get('es_plan_canje', False)
-                )
+            if data.get("foto"):
+                detalle.foto = data["foto"]
+                detalle.save(update_fields=["foto"])
 
             RegistroHistorial.objects.create(
                 usuario=request.user,
                 tipo_accion=RegistroHistorial.TipoAccion.CREACION,
-                descripcion=f"Se agregó el nuevo iPhone: {variante}."
+                descripcion=f"Alta iPhone {producto.nombre} ({variante.atributos_display})",
             )
-            return redirect('iphones:dashboard')
+            return redirect("iphones:dashboard")
     else:
         form = AgregarIphoneForm()
-        
-    context = { 'form': form }
-    return render(request, 'iphones/agregar_iphone.html', context)
+
+    return render(request, "iphones/agregar_iphone.html", {"form": form})
 
 
 @login_required
 @transaction.atomic
 def editar_iphone(request, variante_id):
-    variante = get_object_or_404(ProductoVariante, id=variante_id)
+    variante = get_object_or_404(ProductoVariante, pk=variante_id)
     producto = variante.producto
-    precio = variante.precios.filter(moneda='USD').first()
-    detalle = getattr(variante, 'detalle_iphone', None)
+    detalle = getattr(variante, "detalle_iphone", None)
 
-    if request.method == 'POST':
-        form = AgregarIphoneForm(request.POST, request.FILES, initial={'imagen': producto.imagen})
+    if request.method == "POST":
+        form = AgregarIphoneForm(request.POST, request.FILES)
         if form.is_valid():
             data = form.cleaned_data
-            
-            producto.nombre = data['modelo']
-            producto.activo = data['activo']
-            if data.get('imagen') is not None:
-                producto.imagen = data['imagen']
+            producto.nombre = data["modelo"]
+            producto.activo = data["activo"]
+            producto.categoria = _categoria_celulares()
             producto.save()
-            
-            variante.nombre_variante = f"{data['capacidad']} / {data['color']}"
+
+            variante.sku = data["sku"]
+            variante.atributo_1 = data["capacidad"]
+            variante.atributo_2 = data["color"]
+            variante.stock_actual = data["stock_actual"]
+            variante.stock_minimo = data["stock_minimo"]
+            variante.activo = data["activo"]
             variante.save()
-            
-            if precio:
-                precio.costo = data['costo_usd']
-                precio.precio_venta_normal = data['precio_venta_usd']
-                precio.precio_venta_minimo = data['costo_usd']
-                precio.precio_venta_descuento = data.get('precio_oferta_usd')
-                precio.save()
-            
-            if detalle:
-                detalle.imei = data.get('imei')
-                detalle.salud_bateria = data.get('salud_bateria')
-                detalle.fallas_detectadas = data.get('fallas_observaciones')
-                detalle.es_plan_canje = data.get('es_plan_canje', False)
-                detalle.save()
-            elif data.get('imei'):
-                DetalleIphone.objects.create(
-                    variante=variante,
-                    imei=data.get('imei'),
-                    salud_bateria=data.get('salud_bateria'),
-                    fallas_detectadas=data.get('fallas_observaciones'),
-                    es_plan_canje=data.get('es_plan_canje', False)
-                )
+
+            _sincronizar_precios(variante, data)
+
+            if detalle is None:
+                detalle = DetalleIphone(variante=variante)
+
+            detalle.imei = data.get("imei")
+            detalle.salud_bateria = data.get("salud_bateria")
+            detalle.fallas_detectadas = data.get("fallas_observaciones")
+            detalle.es_plan_canje = data.get("es_plan_canje", False)
+            detalle.costo_usd = data.get("costo_usd")
+            detalle.precio_venta_usd = data.get("precio_venta_usd")
+            detalle.precio_oferta_usd = data.get("precio_oferta_usd")
+            detalle.notas = data.get("notas")
+            if data.get("foto"):
+                detalle.foto = data["foto"]
+            detalle.save()
 
             RegistroHistorial.objects.create(
                 usuario=request.user,
                 tipo_accion=RegistroHistorial.TipoAccion.MODIFICACION,
-                descripcion=f"Se modificó el iPhone: {variante}."
+                descripcion=f"Actualización iPhone {producto.nombre} ({variante.atributos_display})",
             )
-            return redirect('iphones:dashboard')
+            return redirect("iphones:dashboard")
     else:
-        initial_data = {
-            'modelo': producto.nombre,
-            'capacidad': variante.nombre_variante.split(' / ')[0] if ' / ' in variante.nombre_variante else '',
-            'color': variante.nombre_variante.split(' / ')[1] if ' / ' in variante.nombre_variante else '',
-            'activo': producto.activo,
-            'imagen': producto.imagen,
-            'costo_usd': precio.costo if precio else 0,
-            'precio_venta_usd': precio.precio_venta_normal if precio else 0,
-            'precio_oferta_usd': precio.precio_venta_descuento if precio else None,
-            'imei': detalle.imei if detalle else '',
-            'salud_bateria': detalle.salud_bateria if detalle else None,
-            'fallas_observaciones': detalle.fallas_detectadas if detalle else '',
-            'es_plan_canje': detalle.es_plan_canje if detalle else False
-        }
-        form = AgregarIphoneForm(initial=initial_data)
-        
-    context = {
-        'form': form,
-        'variante': variante 
-    }
-    return render(request, 'iphones/editar_iphone.html', context)
+        detalle = getattr(variante, "detalle_iphone", None)
+        form = AgregarIphoneForm(
+            initial={
+                "modelo": producto.nombre,
+                "capacidad": variante.atributo_1,
+                "color": variante.atributo_2,
+                "sku": variante.sku,
+                "stock_actual": variante.stock_actual,
+                "stock_minimo": variante.stock_minimo,
+                "activo": variante.activo,
+                "costo_usd": detalle.costo_usd if detalle else None,
+                "precio_venta_usd": detalle.precio_venta_usd if detalle else None,
+                "precio_oferta_usd": detalle.precio_oferta_usd if detalle else None,
+                "precio_venta_ars": variante.precio_activo(Precio.Tipo.MINORISTA, Precio.Moneda.ARS).precio if variante.precio_activo(Precio.Tipo.MINORISTA, Precio.Moneda.ARS) else None,
+                "precio_mayorista_usd": variante.precio_activo(Precio.Tipo.MAYORISTA, Precio.Moneda.USD).precio if variante.precio_activo(Precio.Tipo.MAYORISTA, Precio.Moneda.USD) else None,
+                "precio_mayorista_ars": variante.precio_activo(Precio.Tipo.MAYORISTA, Precio.Moneda.ARS).precio if variante.precio_activo(Precio.Tipo.MAYORISTA, Precio.Moneda.ARS) else None,
+                "imei": detalle.imei if detalle else "",
+                "salud_bateria": detalle.salud_bateria if detalle else None,
+                "fallas_observaciones": detalle.fallas_detectadas if detalle else "",
+                "es_plan_canje": detalle.es_plan_canje if detalle else False,
+                "notas": detalle.notas if detalle else "",
+            }
+        )
+
+    return render(
+        request,
+        "iphones/editar_iphone.html",
+        {"form": form, "variante": variante, "detalle": detalle},
+    )
 
 
 @require_POST
 @login_required
 def eliminar_iphone(request, variante_id):
-    variante = get_object_or_404(ProductoVariante, id=variante_id)
+    variante = get_object_or_404(ProductoVariante, pk=variante_id)
     producto = variante.producto
-    
+
     RegistroHistorial.objects.create(
         usuario=request.user,
         tipo_accion=RegistroHistorial.TipoAccion.ELIMINACION,
-        descripcion=f"Se eliminó el iPhone: {variante}."
+        descripcion=f"Baja iPhone {producto.nombre} ({variante.atributos_display})",
     )
-    
-    producto.delete()
-    return redirect('iphones:dashboard')
+
+    detalle = getattr(variante, "detalle_iphone", None)
+    if detalle:
+        detalle.delete()
+    variante.delete()
+    if not producto.variantes.exists():
+        producto.delete()
+    return redirect("iphones:dashboard")
+
 
 @require_POST
 @login_required
 def toggle_iphone_status(request, producto_id):
-    producto = get_object_or_404(Producto, id=producto_id)
+    producto = get_object_or_404(Producto, pk=producto_id)
     producto.activo = not producto.activo
     producto.save()
-    
-    nuevo_estado = "Activado" if producto.activo else "Desactivado"
+
     RegistroHistorial.objects.create(
         usuario=request.user,
         tipo_accion=RegistroHistorial.TipoAccion.CAMBIO_ESTADO,
-        descripcion=f"Se cambió el estado a '{nuevo_estado}' para el producto: {producto.nombre}."
+        descripcion=f"Estado {('activo' if producto.activo else 'inactivo')} → {producto.nombre}",
     )
-    
-    return redirect('iphones:dashboard')
 
-# --- ¡NUEVAS VISTAS DE ACCIÓN AÑADIDAS AQUÍ! ---
+    return redirect("iphones:dashboard")
