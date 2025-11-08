@@ -173,6 +173,9 @@ class DetalleIphone(models.Model):
         ProductoVariante,
         on_delete=models.CASCADE,
         related_name="detalle_iphone",
+        blank=True,
+        null=True,
+        help_text="Variante asociada al equipo dentro del inventario",
     )
     imei = models.CharField(
         max_length=15,
