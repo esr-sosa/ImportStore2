@@ -69,11 +69,24 @@ def _ensure_index(schema_editor, model, index: models.Index | models.UniqueConst
         pass
 
 
-def _populate_missing_skus(apps) -> None:
+def _populate_missing_skus(apps, schema_editor) -> None:
     ProductoVariante = apps.get_model("inventario", "ProductoVariante")
-    for variante in ProductoVariante.objects.filter(Q(sku__isnull=True) | Q(sku="")):
-        variante.sku = f"SKU-{variante.pk:06d}"
-        variante.save(update_fields=["sku"])
+    table_name = ProductoVariante._meta.db_table
+    columns = _get_columns(schema_editor.connection, table_name)
+
+    if "sku" not in columns:
+        return
+
+    missing_ids = list(
+        ProductoVariante.objects.filter(Q(sku__isnull=True) | Q(sku=""))
+        .values_list("pk", flat=True)
+    )
+
+    if not missing_ids:
+        return
+
+    for pk in missing_ids:
+        ProductoVariante.objects.filter(pk=pk).update(sku=f"SKU-{pk:06d}")
 
 
 def _ensure_unique_sku(schema_editor, apps) -> None:
@@ -132,24 +145,6 @@ def sync_schema(apps, schema_editor):
         models.DateTimeField(auto_now=True, default=timezone_now),
     )
 
-    sku_added = _add_field_if_missing(
-        apps,
-        schema_editor,
-        "ProductoVariante",
-        "sku",
-        models.CharField(max_length=64, blank=True, null=True),
-    )
-    if sku_added:
-        _populate_missing_skus(apps)
-        ProductoVariante = apps.get_model("inventario", "ProductoVariante")
-        _finalize_field(
-            schema_editor,
-            ProductoVariante,
-            "sku",
-            models.CharField(max_length=64, unique=True),
-        )
-        _ensure_unique_sku(schema_editor, apps)
-
     _add_field_if_missing(
         apps,
         schema_editor,
@@ -199,6 +194,32 @@ def sync_schema(apps, schema_editor):
         "actualizado",
         models.DateTimeField(auto_now=True, default=timezone_now),
     )
+
+    sku_added = _add_field_if_missing(
+        apps,
+        schema_editor,
+        "ProductoVariante",
+        "sku",
+        models.CharField(max_length=64, blank=True, null=True),
+    )
+
+    columns = _get_columns(
+        schema_editor.connection, apps.get_model("inventario", "ProductoVariante")._meta.db_table
+    )
+    if "sku" in columns:
+        _populate_missing_skus(apps, schema_editor)
+
+    if sku_added:
+        ProductoVariante = apps.get_model("inventario", "ProductoVariante")
+        _finalize_field(
+            schema_editor,
+            ProductoVariante,
+            "sku",
+            models.CharField(max_length=64, unique=True),
+        )
+        _ensure_unique_sku(schema_editor, apps)
+    elif "sku" in columns:
+        _ensure_unique_sku(schema_editor, apps)
 
     _add_field_if_missing(
         apps,
