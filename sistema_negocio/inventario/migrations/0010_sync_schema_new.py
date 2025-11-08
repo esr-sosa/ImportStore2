@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import django.utils.timezone
 from django.db import migrations, models
-from django.db.models import Count, Q
 
 
 def _get_columns(connection, table_name: str) -> set[str]:
@@ -72,29 +71,70 @@ def _ensure_index(schema_editor, model, index: models.Index | models.UniqueConst
 def _populate_missing_skus(apps, schema_editor) -> None:
     ProductoVariante = apps.get_model("inventario", "ProductoVariante")
     table_name = ProductoVariante._meta.db_table
-    columns = _get_columns(schema_editor.connection, table_name)
+    connection = schema_editor.connection
+    columns = _get_columns(connection, table_name)
 
+    # Sin la columna ``sku`` no hay nada para normalizar.
     if "sku" not in columns:
         return
 
-    missing_ids = list(
-        ProductoVariante.objects.filter(Q(sku__isnull=True) | Q(sku=""))
-        .values_list("pk", flat=True)
+    # El ORM puede seguir apuntando a columnas todavía inexistentes durante la
+    # migración (por ejemplo ``activo`` en instalaciones legadas). En vez de
+    # usar QuerySets trabajamos con SQL crudo, limitándonos a los campos que
+    # sabemos que existen en la tabla.
+    qn = connection.ops.quote_name
+    pk_column = ProductoVariante._meta.pk.column
+
+    select_sql = (
+        f"SELECT {qn(pk_column)} FROM {qn(table_name)} "
+        f"WHERE {qn('sku')} IS NULL OR {qn('sku')} = ''"
     )
 
-    if not missing_ids:
+    with connection.cursor() as cursor:
+        cursor.execute(select_sql)
+        rows = cursor.fetchall()
+
+    if not rows:
         return
 
-    for pk in missing_ids:
-        ProductoVariante.objects.filter(pk=pk).update(sku=f"SKU-{pk:06d}")
+    update_template = (
+        f"UPDATE {qn(table_name)} SET {qn('sku')} = {{}} "
+        f"WHERE {qn(pk_column)} = {{}}"
+    )
+
+    for (pk,) in rows:
+        schema_editor.execute(
+            update_template.format(
+                schema_editor.quote_value(f"SKU-{pk:06d}"),
+                schema_editor.quote_value(pk),
+            )
+        )
 
 
 def _ensure_unique_sku(schema_editor, apps) -> None:
     ProductoVariante = apps.get_model("inventario", "ProductoVariante")
-    if ProductoVariante.objects.values("sku").filter(Q(sku__isnull=True) | Q(sku="")).exists():
+    connection = schema_editor.connection
+    table_name = ProductoVariante._meta.db_table
+    columns = _get_columns(connection, table_name)
+
+    if "sku" not in columns:
         return
-    if ProductoVariante.objects.values("sku").annotate(total=Count("id")).filter(total__gt=1).exists():
-        return
+
+    qn = connection.ops.quote_name
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"SELECT 1 FROM {qn(table_name)} "
+            f"WHERE {qn('sku')} IS NULL OR {qn('sku')} = '' LIMIT 1"
+        )
+        if cursor.fetchone():
+            return
+
+        cursor.execute(
+            f"SELECT 1 FROM {qn(table_name)} "
+            f"GROUP BY {qn('sku')} HAVING COUNT(*) > 1 LIMIT 1"
+        )
+        if cursor.fetchone():
+            return
 
     constraint = models.UniqueConstraint(fields=["sku"], name="uniq_variante_sku")
     _ensure_index(schema_editor, ProductoVariante, constraint)
