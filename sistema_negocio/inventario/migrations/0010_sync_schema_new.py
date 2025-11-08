@@ -18,7 +18,8 @@ def _add_field_if_missing(apps, schema_editor, model_name, field_name, field):
     model = apps.get_model("inventario", model_name)
     table_name = model._meta.db_table
     columns = _get_columns(schema_editor.connection, table_name)
-    if field.column in columns:
+    column_name = field.db_column or field_name
+    if column_name in columns:
         return
     field.set_attributes_from_name(field_name)
     schema_editor.add_field(model, field)
