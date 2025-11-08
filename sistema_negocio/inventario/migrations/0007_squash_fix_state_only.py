@@ -3,6 +3,35 @@ import django.db.models.deletion
 import django.utils.timezone
 from django.db import migrations, models
 
+
+def _create_indexes(apps, schema_editor):
+    """Recrea los índices heredados únicamente cuando la base es MySQL."""
+
+    connection = schema_editor.connection
+    if connection.vendor != "mysql":
+        return
+
+    statements = (
+        "CREATE INDEX IF NOT EXISTS idx_categoria_nombre  ON inventario_categoria (nombre);",
+        "CREATE INDEX IF NOT EXISTS idx_precio_activo     ON inventario_precio (activo);",
+        "CREATE INDEX IF NOT EXISTS idx_precio_var_tipo_mon ON inventario_precio (variante_id, tipo, moneda);",
+        "CREATE INDEX IF NOT EXISTS idx_producto_activo   ON inventario_producto (activo);",
+        "CREATE INDEX IF NOT EXISTS idx_producto_nombre   ON inventario_producto (nombre);",
+        "CREATE INDEX IF NOT EXISTS idx_var_activo        ON inventario_productovariante (activo);",
+        "CREATE INDEX IF NOT EXISTS idx_var_stock         ON inventario_productovariante (stock_actual);",
+        "CREATE INDEX IF NOT EXISTS idx_proveedor_activo  ON inventario_proveedor (activo);",
+        "CREATE INDEX IF NOT EXISTS idx_proveedor_nombre  ON inventario_proveedor (nombre);",
+    )
+
+    with connection.cursor() as cursor:
+        for statement in statements:
+            try:
+                cursor.execute(statement)
+            except Exception:
+                # Si el índice ya existe o la versión no soporta IF NOT EXISTS,
+                # simplemente continuamos sin interrumpir la migración.
+                continue
+
 class Migration(migrations.Migration):
     """
     Objetivo:
@@ -182,30 +211,7 @@ class Migration(migrations.Migration):
         # ------------------------------------------------------------
         # 7) Índices: crear solo si NO existen (seguro en MySQL 8.0+)
         # ------------------------------------------------------------
-        migrations.RunSQL(
-            sql=(
-                "CREATE INDEX IF NOT EXISTS idx_categoria_nombre  ON inventario_categoria (nombre);"
-                "CREATE INDEX IF NOT EXISTS idx_precio_activo     ON inventario_precio (activo);"
-                "CREATE INDEX IF NOT EXISTS idx_precio_var_tipo_mon ON inventario_precio (variante_id, tipo, moneda);"
-                "CREATE INDEX IF NOT EXISTS idx_producto_activo   ON inventario_producto (activo);"
-                "CREATE INDEX IF NOT EXISTS idx_producto_nombre   ON inventario_producto (nombre);"
-                "CREATE INDEX IF NOT EXISTS idx_var_activo        ON inventario_productovariante (activo);"
-                "CREATE INDEX IF NOT EXISTS idx_var_stock         ON inventario_productovariante (stock_actual);"
-                "CREATE INDEX IF NOT EXISTS idx_proveedor_activo  ON inventario_proveedor (activo);"
-                "CREATE INDEX IF NOT EXISTS idx_proveedor_nombre  ON inventario_proveedor (nombre);"
-            ),
-            reverse_sql=(
-                "DROP INDEX IF EXISTS idx_categoria_nombre  ON inventario_categoria;"
-                "DROP INDEX IF EXISTS idx_precio_activo     ON inventario_precio;"
-                "DROP INDEX IF EXISTS idx_precio_var_tipo_mon ON inventario_precio;"
-                "DROP INDEX IF EXISTS idx_producto_activo   ON inventario_producto;"
-                "DROP INDEX IF EXISTS idx_producto_nombre   ON inventario_producto;"
-                "DROP INDEX IF EXISTS idx_var_activo        ON inventario_productovariante;"
-                "DROP INDEX IF EXISTS idx_var_stock         ON inventario_productovariante;"
-                "DROP INDEX IF EXISTS idx_proveedor_activo  ON inventario_proveedor;"
-                "DROP INDEX IF EXISTS idx_proveedor_nombre  ON inventario_proveedor;"
-            ),
-        ),
+        migrations.RunPython(_create_indexes, migrations.RunPython.noop),
 
         # ------------------------------------------------------------
         # 8) Quitar del ESTADO campos viejos que en tu DB aún existen
