@@ -1,16 +1,17 @@
 from decimal import Decimal
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db import models
+from django.db import models, transaction
 from django.db.models import DecimalField, OuterRef, Subquery
 from django.db.models.functions import Cast
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, redirect, render
 
 from core.utils import obtener_valor_dolar_blue
 
-from .forms import InventarioFiltroForm
-from .models import Precio, ProductoVariante
+from .forms import InventarioFiltroForm, ProductoForm, ProductoVarianteForm
+from .models import Precio, Producto, ProductoVariante
 from .utils import is_detalleiphone_variante_ready
 
 
@@ -23,6 +24,27 @@ def _precio_subquery(tipo, moneda):
             activo=True,
         ).order_by("-actualizado").values("precio")[:1]
     )
+
+
+def _sincronizar_precios(variante: ProductoVariante, data: dict) -> None:
+    combinaciones = [
+        ("precio_minorista_usd", Precio.Tipo.MINORISTA, Precio.Moneda.USD),
+        ("precio_minorista_ars", Precio.Tipo.MINORISTA, Precio.Moneda.ARS),
+        ("precio_mayorista_usd", Precio.Tipo.MAYORISTA, Precio.Moneda.USD),
+        ("precio_mayorista_ars", Precio.Tipo.MAYORISTA, Precio.Moneda.ARS),
+    ]
+
+    for campo, tipo, moneda in combinaciones:
+        valor = data.get(campo)
+        if valor in (None, ""):
+            variante.precios.filter(tipo=tipo, moneda=moneda).update(activo=False)
+            continue
+        Precio.objects.update_or_create(
+            variante=variante,
+            tipo=tipo,
+            moneda=moneda,
+            defaults={"precio": valor, "activo": True},
+        )
 
 
 @login_required
@@ -140,3 +162,58 @@ def inventario_dashboard(request):
         "applied_filters": applied_filters,
     }
     return render(request, "inventario/dashboard.html", ctx)
+
+
+@login_required
+@transaction.atomic
+def producto_crear(request):
+    producto_form = ProductoForm(request.POST or None)
+    variante_form = ProductoVarianteForm(request.POST or None)
+
+    if request.method == "POST":
+        if producto_form.is_valid() and variante_form.is_valid():
+            producto = producto_form.save()
+            variante = variante_form.save(commit=False)
+            variante.producto = producto
+            variante.save()
+            _sincronizar_precios(variante, variante_form.cleaned_data)
+            messages.success(request, "Producto creado correctamente")
+            return redirect("inventario:dashboard")
+
+    context = {
+        "producto_form": producto_form,
+        "variante_form": variante_form,
+        "modo": "crear",
+    }
+    return render(request, "inventario/producto_form.html", context)
+
+
+@login_required
+@transaction.atomic
+def variante_editar(request, pk: int):
+    variante = get_object_or_404(
+        ProductoVariante.objects.select_related("producto").prefetch_related("precios"), pk=pk
+    )
+    producto = variante.producto
+
+    producto_form = ProductoForm(request.POST or None, instance=producto)
+    variante_form = ProductoVarianteForm(request.POST or None, instance=variante)
+
+    if request.method == "POST":
+        if producto_form.is_valid() and variante_form.is_valid():
+            producto_form.save()
+            variante = variante_form.save()
+            _sincronizar_precios(variante, variante_form.cleaned_data)
+            messages.success(request, "Variante actualizada correctamente")
+            return redirect("inventario:dashboard")
+    else:
+        variante_form.inicializar_precios(variante)
+
+    context = {
+        "producto_form": producto_form,
+        "variante_form": variante_form,
+        "producto": producto,
+        "variante": variante,
+        "modo": "editar",
+    }
+    return render(request, "inventario/variante_form.html", context)
