@@ -102,12 +102,10 @@
         </div>
       </form>
 
-      {% if request.GET %}
+      {% if applied_filters %}
         <div class="mt-4 flex flex-wrap gap-2 text-xs font-medium text-slate-200">
-          {% for key, value in request.GET.items %}
-            {% if value and key not in ['page', 'csrfmiddlewaretoken'] %}
-              <span class="chip rounded-full px-3 py-1">{{ key }}: {{ value }}</span>
-            {% endif %}
+          {% for filtro in applied_filters %}
+            <span class="chip rounded-full px-3 py-1">{{ filtro.key }}: {{ filtro.value }}</span>
           {% endfor %}
         </div>
       {% endif %}

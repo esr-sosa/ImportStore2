@@ -106,6 +106,22 @@ def inventario_dashboard(request):
     page_number = request.GET.get("page") or 1
     page_obj = paginator.get_page(page_number)
 
+    applied_filters = []
+    if request.GET:
+        for key, values in request.GET.lists():
+            if key in {"page", "csrfmiddlewaretoken"}:
+                continue
+            for value in values:
+                if value:
+                    applied_filters.append({"key": key, "value": value})
+
+    detalleiphone_warning = None
+    if not detalleiphone_ready:
+        detalleiphone_warning = (
+            "Debés ejecutar `python manage.py migrate` para terminar las migraciones"
+            " pendientes del módulo Inventario."
+        )
+
     ctx = {
         "form": form,
         "page_obj": page_obj,
@@ -120,9 +136,7 @@ def inventario_dashboard(request):
             "valor_total_ars": valor_total_ars,
         },
         "detalleiphone_ready": detalleiphone_ready,
-        "detalleiphone_warning": (
-            "Debés ejecutar `python manage.py migrate` para terminar las migraciones"
-            " pendientes del módulo Inventario." if not detalleiphone_ready else ""
-        ),
+        "detalleiphone_warning": detalleiphone_warning,
+        "applied_filters": applied_filters,
     }
     return render(request, "inventario/dashboard.html", ctx)
