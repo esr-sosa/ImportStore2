@@ -3,6 +3,7 @@
 import json
 
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count
 from django.http import HttpResponse, JsonResponse
@@ -15,6 +16,7 @@ import google.generativeai as genai
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from asistente_ia import interpreter
+from core.db_inspector import column_exists
 # --- Fin de Importaciones ---
 
 from .models import Cliente, Conversacion, Etiqueta, Mensaje
@@ -33,12 +35,24 @@ def panel_chat(request):
     )
 
     ahora = timezone.now()
+    sla_ready = column_exists("crm_conversacion", "sla_vencimiento")
+    if sla_ready:
+        sla_vencidos = conversaciones.filter(
+            sla_vencimiento__lt=ahora, estado__in=['Pendiente', 'En seguimiento']
+        ).count()
+    else:
+        sla_vencidos = 0
+        messages.warning(
+            request,
+            "Debés ejecutar `python manage.py migrate` para habilitar el seguimiento de SLA en el CRM.",
+        )
+
     stats = {
         'total': conversaciones.count(),
         'abiertas': conversaciones.filter(estado='Abierta').count(),
         'pendientes': conversaciones.filter(estado='Pendiente').count(),
         'seguimiento': conversaciones.filter(estado='En seguimiento').count(),
-        'sla_vencidos': conversaciones.filter(sla_vencimiento__lt=ahora, estado__in=['Pendiente', 'En seguimiento']).count(),
+        'sla_vencidos': sla_vencidos,
     }
 
     top_etiquetas = (
@@ -52,6 +66,7 @@ def panel_chat(request):
         'asesores': Conversacion.objects.exclude(asesor_asignado__isnull=True)
         .values('asesor_asignado__id', 'asesor_asignado__first_name', 'asesor_asignado__last_name')
         .distinct(),
+        'sla_ready': sla_ready,
     }
     return render(request, 'crm/panel_chat.html', context)
 

@@ -1,24 +1,50 @@
 import json
 from random import sample
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_GET
 
 from . import interpreter
+from core.db_inspector import table_exists
 from .models import AssistantKnowledgeArticle, AssistantPlaybook, AssistantQuickReply
 
 @login_required
 def chat_view(request):
     """Renderiza la experiencia completa del asistente."""
 
-    quick_replies = (
-        AssistantQuickReply.objects.filter(activo=True)
-        .order_by("categoria", "orden", "titulo")
-    )
-    knowledge = AssistantKnowledgeArticle.objects.all()[:6]
-    playbooks = AssistantPlaybook.objects.filter(es_template=True)[:6]
+    quick_replies = AssistantQuickReply.objects.none()
+    knowledge = AssistantKnowledgeArticle.objects.none()
+    playbooks = AssistantPlaybook.objects.none()
+    missing_entities: list[str] = []
+
+    if table_exists("asistente_ia_assistantquickreply"):
+        quick_replies = (
+            AssistantQuickReply.objects.filter(activo=True)
+            .order_by("categoria", "orden", "titulo")
+        )
+    else:
+        missing_entities.append("respuestas rápidas")
+
+    if table_exists("asistente_ia_assistantknowledgearticle"):
+        knowledge = AssistantKnowledgeArticle.objects.all()[:6]
+    else:
+        missing_entities.append("base de conocimiento")
+
+    if table_exists("asistente_ia_assistantplaybook"):
+        playbooks = AssistantPlaybook.objects.filter(es_template=True)[:6]
+    else:
+        missing_entities.append("playbooks")
+
+    if missing_entities:
+        messages.warning(
+            request,
+            "Faltan migraciones del asistente IA: ejecutá `python manage.py migrate` para preparar "
+            + ", ".join(missing_entities)
+            + ".",
+        )
 
     context = {
         "quick_replies": quick_replies,
@@ -79,9 +105,13 @@ def ask_question(request):
             history.append({"role": "assistant", "content": final_answer})
             request.session["assistant_history"] = history[-10:]
 
-            suggested_cards = list(
-                AssistantQuickReply.objects.filter(activo=True).exclude(id=quick_reply_id).order_by("orden")
-            )
+            suggested_cards = []
+            if table_exists("asistente_ia_assistantquickreply"):
+                suggested_cards = list(
+                    AssistantQuickReply.objects.filter(activo=True)
+                    .exclude(id=quick_reply_id)
+                    .order_by("orden")
+                )
             suggested_payload = []
             if suggested_cards:
                 # Tomamos hasta 3 sugerencias variadas
@@ -116,6 +146,9 @@ def ask_question(request):
 def quick_replies_catalogue(request):
     """Retorna la lista de respuestas rápidas agrupadas por categoría."""
 
+    if not table_exists("asistente_ia_assistantquickreply"):
+        return JsonResponse({"quick_replies": {}}, status=200)
+
     replies = AssistantQuickReply.objects.filter(activo=True)
     payload: dict[str, list[dict[str, str]]] = {}
     for reply in replies.order_by("categoria", "orden"):
@@ -133,6 +166,9 @@ def quick_replies_catalogue(request):
 @require_GET
 def playbook_detail(request, pk: int):
     """Devuelve el detalle de un playbook para poder guiar una gestión."""
+
+    if not table_exists("asistente_ia_assistantplaybook"):
+        return JsonResponse({"error": "Las migraciones del asistente IA no están aplicadas."}, status=503)
 
     try:
         playbook = AssistantPlaybook.objects.get(pk=pk)

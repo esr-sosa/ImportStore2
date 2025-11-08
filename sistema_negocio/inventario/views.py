@@ -15,6 +15,14 @@ from .models import Precio, Producto, ProductoVariante
 from .utils import is_detalleiphone_variante_ready
 
 
+PRECIO_FIELDS = (
+    "precio_minorista_usd",
+    "precio_minorista_ars",
+    "precio_mayorista_usd",
+    "precio_mayorista_ars",
+)
+
+
 def _precio_subquery(tipo, moneda):
     return Subquery(
         Precio.objects.filter(
@@ -184,6 +192,7 @@ def producto_crear(request):
         "producto_form": producto_form,
         "variante_form": variante_form,
         "modo": "crear",
+        "precio_fields": PRECIO_FIELDS,
     }
     return render(request, "inventario/producto_form.html", context)
 
@@ -215,5 +224,6 @@ def variante_editar(request, pk: int):
         "producto": producto,
         "variante": variante,
         "modo": "editar",
+        "precio_fields": PRECIO_FIELDS,
     }
     return render(request, "inventario/variante_form.html", context)
