@@ -21,7 +21,9 @@ class Migration(migrations.Migration):
     # Colócala DESPUÉS de la 0006 que ya figura aplicada en tu tabla django_migrations
     # (según tu dump): 0006_remove_producto_activo_remove_producto_codigo_barras_and_more
     dependencies = [
-        ('inventario', '0006_remove_producto_activo_remove_producto_codigo_barras_and_more'),
+        # Debe apuntar al mismo nodo que la migración reemplazada para que
+        # Django pueda trazar correctamente el grafo de dependencias.
+        ('inventario', '0005_remove_detalleiphone_fecha_compra_and_more'),
     ]
 
     operations = [
