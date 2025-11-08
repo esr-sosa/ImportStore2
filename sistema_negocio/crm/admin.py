@@ -33,9 +33,15 @@ class ConversacionAdmin(admin.ModelAdmin):
 
 # --- El registro final ---
 
+
+class EtiquetaAdmin(admin.ModelAdmin):
+    list_display = ("nombre", "color")
+    search_fields = ("nombre",)
+
+
 # Finalmente, con estas líneas, le damos la orden final a Django:
 # "¡Registra el modelo Cliente en el panel de admin, usando la vista ClienteAdmin que diseñé!"
 admin.site.register(Cliente, ClienteAdmin)
 # "¡Y registra el modelo Conversacion, usando la vista ConversacionAdmin!"
 admin.site.register(Conversacion, ConversacionAdmin)
-admin.site.register(Etiqueta)
+admin.site.register(Etiqueta, EtiquetaAdmin)
