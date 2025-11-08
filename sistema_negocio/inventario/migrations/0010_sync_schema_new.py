@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import django.utils.timezone
-from django.db import migrations, models
+from django.db import DatabaseError, migrations, models
 
 
 def _get_columns(connection, table_name: str) -> set[str]:
@@ -90,9 +90,15 @@ def _populate_missing_skus(apps, schema_editor) -> None:
         f"WHERE {qn('sku')} IS NULL OR {qn('sku')} = ''"
     )
 
-    with connection.cursor() as cursor:
-        cursor.execute(select_sql)
-        rows = cursor.fetchall()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(select_sql)
+            rows = cursor.fetchall()
+    except DatabaseError:
+        # En motores legados puede que falten columnas todavía. Si la consulta
+        # falla (por ejemplo, porque la tabla está en medio de otra migración)
+        # preferimos abortar el relleno en lugar de frenar toda la migración.
+        return
 
     if not rows:
         return
@@ -103,12 +109,17 @@ def _populate_missing_skus(apps, schema_editor) -> None:
     )
 
     for (pk,) in rows:
-        schema_editor.execute(
-            update_template.format(
-                schema_editor.quote_value(f"SKU-{pk:06d}"),
-                schema_editor.quote_value(pk),
+        try:
+            schema_editor.execute(
+                update_template.format(
+                    schema_editor.quote_value(f"SKU-{pk:06d}"),
+                    schema_editor.quote_value(pk),
+                )
             )
-        )
+        except DatabaseError:
+            # Si esta fila puntual falla continuamos con el resto; cualquier
+            # conflicto puntual se podrá normalizar manualmente más tarde.
+            continue
 
 
 def _ensure_unique_sku(schema_editor, apps) -> None:
@@ -121,20 +132,25 @@ def _ensure_unique_sku(schema_editor, apps) -> None:
         return
 
     qn = connection.ops.quote_name
-    with connection.cursor() as cursor:
-        cursor.execute(
-            f"SELECT 1 FROM {qn(table_name)} "
-            f"WHERE {qn('sku')} IS NULL OR {qn('sku')} = '' LIMIT 1"
-        )
-        if cursor.fetchone():
-            return
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"SELECT 1 FROM {qn(table_name)} "
+                f"WHERE {qn('sku')} IS NULL OR {qn('sku')} = '' LIMIT 1"
+            )
+            if cursor.fetchone():
+                return
 
-        cursor.execute(
-            f"SELECT 1 FROM {qn(table_name)} "
-            f"GROUP BY {qn('sku')} HAVING COUNT(*) > 1 LIMIT 1"
-        )
-        if cursor.fetchone():
-            return
+            cursor.execute(
+                f"SELECT 1 FROM {qn(table_name)} "
+                f"GROUP BY {qn('sku')} HAVING COUNT(*) > 1 LIMIT 1"
+            )
+            if cursor.fetchone():
+                return
+    except DatabaseError:
+        # Si la tabla no tiene aún la columna o la DB está en estado intermedio
+        # preferimos no crear la restricción y dejar que el admin la gestione.
+        return
 
     constraint = models.UniqueConstraint(fields=["sku"], name="uniq_variante_sku")
     _ensure_index(schema_editor, ProductoVariante, constraint)
