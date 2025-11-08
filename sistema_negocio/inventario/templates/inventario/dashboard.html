@@ -26,6 +26,12 @@
       </p>
     </header>
 
+    {% if detalleiphone_warning %}
+      <div class="mb-6 rounded-3xl border border-amber-300/30 bg-amber-100/10 p-4 text-sm text-amber-200">
+        {{ detalleiphone_warning }}
+      </div>
+    {% endif %}
+
     <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       <article class="glass-panel rounded-3xl p-5 text-slate-100 shadow-xl">
         <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Variantes</p>
@@ -144,8 +150,12 @@
                         ·
                         {% if v.producto.proveedor %}{{ v.producto.proveedor.nombre }}{% else %}Sin proveedor{% endif %}
                       </span>
-                      {% if v.detalle_iphone %}
-                        <span class="text-[11px] text-slate-400">IMEI {{ v.detalle_iphone.imei|default:"N/D" }} · Batería {{ v.detalle_iphone.salud_bateria|default:"—" }}%</span>
+                      {% if detalleiphone_ready %}
+                        {% with detalle=v.detalle_iphone %}
+                          {% if detalle %}
+                            <span class="text-[11px] text-slate-400">IMEI {{ detalle.imei|default:"N/D" }} · Batería {{ detalle.salud_bateria|default:"—" }}%</span>
+                          {% endif %}
+                        {% endwith %}
                       {% endif %}
                     </div>
                   </td>

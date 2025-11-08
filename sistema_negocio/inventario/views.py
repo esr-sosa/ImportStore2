@@ -11,6 +11,7 @@ from core.utils import obtener_valor_dolar_blue
 
 from .forms import InventarioFiltroForm
 from .models import Precio, ProductoVariante
+from .utils import is_detalleiphone_variante_ready
 
 
 def _precio_subquery(tipo, moneda):
@@ -28,14 +29,19 @@ def _precio_subquery(tipo, moneda):
 def inventario_dashboard(request):
     form = InventarioFiltroForm(request.GET or None)
 
+    detalleiphone_ready = is_detalleiphone_variante_ready()
+
+    qs = ProductoVariante.objects.select_related(
+        "producto",
+        "producto__categoria",
+        "producto__proveedor",
+    )
+
+    if detalleiphone_ready:
+        qs = qs.select_related("detalle_iphone")
+
     qs = (
-        ProductoVariante.objects.select_related(
-            "producto",
-            "producto__categoria",
-            "producto__proveedor",
-            "detalle_iphone",
-        )
-        .prefetch_related("precios")
+        qs.prefetch_related("precios")
         .filter(producto__activo=True)
         .order_by("producto__nombre", "sku")
     )
@@ -113,5 +119,10 @@ def inventario_dashboard(request):
             "valor_total_usd": valor_total_usd,
             "valor_total_ars": valor_total_ars,
         },
+        "detalleiphone_ready": detalleiphone_ready,
+        "detalleiphone_warning": (
+            "Debés ejecutar `python manage.py migrate` para terminar las migraciones"
+            " pendientes del módulo Inventario." if not detalleiphone_ready else ""
+        ),
     }
     return render(request, "inventario/dashboard.html", ctx)

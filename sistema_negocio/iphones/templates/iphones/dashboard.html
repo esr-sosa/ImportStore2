@@ -21,11 +21,17 @@
         <h1 class="text-4xl font-semibold tracking-tight">Colección de iPhones</h1>
         <p class="mt-2 max-w-2xl text-sm text-slate-300">Un panel inspirado en iOS 16 para administrar unidades, precios y condición de cada equipo Apple en stock.</p>
       </div>
-      <a href="{% url 'iphones:agregar_iphone' %}" class="inline-flex items-center gap-2 rounded-2xl bg-white/90 px-5 py-3 text-sm font-semibold text-slate-900 shadow-lg transition hover:bg-white">
+      <a href="{% url 'iphones:agregar_iphone' %}" class="inline-flex items-center gap-2 rounded-2xl bg-white/90 px-5 py-3 text-sm font-semibold text-slate-900 shadow-lg transition hover:bg-white {% if not detalleiphone_ready %}pointer-events-none opacity-50{% endif %}">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
         Nuevo iPhone
       </a>
     </div>
+
+    {% if not detalleiphone_ready %}
+      <div class="mb-8 rounded-3xl border border-amber-300/40 bg-amber-100/10 p-4 text-sm text-amber-100">
+        Para activar la sincronización completa con DetalleIphone ejecutá <code class="font-mono">python manage.py migrate</code> antes de continuar.
+      </div>
+    {% endif %}
 
     <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       <article class="glass rounded-3xl p-5 shadow-xl text-slate-100">
@@ -134,7 +140,13 @@
                         </div>
                       </div>
                     </td>
-                    <td class="px-5 py-4 font-mono text-xs text-slate-500">{{ detalle.imei|default:"—" }}</td>
+                    <td class="px-5 py-4 font-mono text-xs text-slate-500">
+                      {% if detalleiphone_ready %}
+                        {{ detalle.imei|default:"—" }}
+                      {% else %}
+                        —
+                      {% endif %}
+                    </td>
                     <td class="px-5 py-4">
                       <div class="text-right">
                         <span class="text-base font-semibold {{ variante.bajo_stock|yesno:'text-rose-600,text-slate-900' }}">{{ variante.stock_actual }}</span>
