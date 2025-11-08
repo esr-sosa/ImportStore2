@@ -25,14 +25,11 @@ def _add_field_if_missing(apps, schema_editor, model_name: str, field_name: str,
     existing_columns = _get_columns(schema_editor.connection, table_name)
 
     working_field = field.clone()
-    if not getattr(working_field, "column", None):
-        working_field.set_attributes_from_name(field_name)
-
-    column_name = (
-        getattr(working_field, "db_column", None)
-        or getattr(working_field, "column", None)
-        or field_name
-    ).lower()
+    # ``set_attributes_from_name`` normaliza ``attname`` y ``column`` cuando
+    # todavía no fueron definidos en el ``Field`` clonado.
+    working_field.set_attributes_from_name(field_name)
+    _, resolved_column = working_field.get_attname_column()
+    column_name = (resolved_column or field_name).lower()
 
     if column_name in existing_columns:
         return False
@@ -46,8 +43,7 @@ def _finalize_field(schema_editor, model, field_name: str, new_field: models.Fie
 
     old_field = model._meta.get_field(field_name)
     desired = new_field.clone()
-    if not getattr(desired, "column", None):
-        desired.set_attributes_from_name(field_name)
+    desired.set_attributes_from_name(field_name)
     schema_editor.alter_field(model, old_field, desired)
 
 
@@ -278,6 +274,15 @@ def sync_schema(apps, schema_editor):
     )
 
 
+def _reset_inspector_cache(apps, schema_editor) -> None:
+    try:
+        from core.db_inspector import reset_caches
+    except Exception:
+        return
+
+    reset_caches()
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ("inventario", "0009_detalleiphone_variante_bridge"),
@@ -285,5 +290,6 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RunPython(sync_schema, migrations.RunPython.noop),
+        migrations.RunPython(_reset_inspector_cache, migrations.RunPython.noop),
     ]
 

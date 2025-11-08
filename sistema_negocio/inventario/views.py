@@ -8,11 +8,22 @@ from django.db.models import DecimalField, OuterRef, Subquery
 from django.db.models.functions import Cast
 from django.shortcuts import get_object_or_404, redirect, render
 
+from core.db_inspector import column_exists
 from core.utils import obtener_valor_dolar_blue
 
 from .forms import InventarioFiltroForm, ProductoForm, ProductoVarianteForm
 from .models import Precio, Producto, ProductoVariante
 from .utils import is_detalleiphone_variante_ready
+
+
+SCHEMA_REQUIREMENTS = (
+    ("inventario_productovariante", "sku"),
+    ("inventario_productovariante", "stock_actual"),
+    ("inventario_productovariante", "stock_minimo"),
+    ("inventario_productovariante", "activo"),
+    ("inventario_producto", "activo"),
+    ("inventario_precio", "precio"),
+)
 
 
 PRECIO_FIELDS = (
@@ -58,6 +69,41 @@ def _sincronizar_precios(variante: ProductoVariante, data: dict) -> None:
 @login_required
 def inventario_dashboard(request):
     form = InventarioFiltroForm(request.GET or None)
+
+    missing_columns = [
+        f"{table}.{column}"
+        for table, column in SCHEMA_REQUIREMENTS
+        if not column_exists(table, column)
+    ]
+
+    detalleiphone_ready = False
+
+    if missing_columns:
+        messages.warning(
+            request,
+            "Faltan columnas críticas en la base de datos de Inventario. Ejecutá `python manage.py migrate` "
+            "para agregar: " + ", ".join(missing_columns),
+        )
+        paginator = Paginator([], 1)
+        context = {
+            "form": form,
+            "page_obj": paginator.get_page(1),
+            "total": 0,
+            "valor_dolar": None,
+            "stats": {
+                "total_variantes": 0,
+                "total_activos": 0,
+                "total_bajo_stock": 0,
+                "unidades_totales": 0,
+                "valor_total_usd": Decimal("0"),
+                "valor_total_ars": None,
+            },
+            "detalleiphone_ready": False,
+            "detalleiphone_warning": None,
+            "applied_filters": [],
+            "schema_missing_columns": missing_columns,
+        }
+        return render(request, "inventario/dashboard.html", context)
 
     detalleiphone_ready = is_detalleiphone_variante_ready()
 
@@ -168,6 +214,7 @@ def inventario_dashboard(request):
         "detalleiphone_ready": detalleiphone_ready,
         "detalleiphone_warning": detalleiphone_warning,
         "applied_filters": applied_filters,
+        "schema_missing_columns": [],
     }
     return render(request, "inventario/dashboard.html", ctx)
 

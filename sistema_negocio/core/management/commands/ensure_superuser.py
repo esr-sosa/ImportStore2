@@ -9,6 +9,8 @@ from django.core.management.base import BaseCommand, CommandError
 
 
 class Command(BaseCommand):
+    """Create or update a superuser pulling defaults from the environment."""
+
     help = "Crea o actualiza un superusuario usando argumentos o variables de entorno."
 
     def add_arguments(self, parser: Any) -> None:
@@ -33,15 +35,10 @@ class Command(BaseCommand):
         password = options.get("password") or getattr(settings, "DJANGO_SUPERUSER_PASSWORD", None)
         noinput = bool(options.get("noinput"))
 
-        missing_fields = [
-            name
-            for name, value in (("username", username), ("email", email))
-            if not value
-        ]
+        missing_fields = [name for name, value in (("username", username), ("email", email)) if not value]
         if missing_fields:
             raise CommandError(
-                "Faltan los siguientes datos del superusuario: {}."
-                " Proporciónalos mediante argumentos o variables de entorno.".format(
+                "Faltan los siguientes datos del superusuario: {}. Proporcionalos mediante argumentos o variables de entorno.".format(
                     ", ".join(missing_fields)
                 )
             )
@@ -51,7 +48,7 @@ class Command(BaseCommand):
                 raise CommandError(
                     "No se recibió contraseña. Usa --password o DJANGO_SUPERUSER_PASSWORD cuando se ejecuta con --noinput."
                 )
-            password = getpass.getpass("Contraseña para '{}': ".format(username))
+            password = getpass.getpass(f"Contraseña para '{username}': ")
             confirmation = getpass.getpass("Confirmar contraseña: ")
             if password != confirmation:
                 raise CommandError("Las contraseñas no coinciden. Vuelve a ejecutar el comando.")

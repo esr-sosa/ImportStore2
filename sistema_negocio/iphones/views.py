@@ -1,12 +1,13 @@
 from decimal import Decimal
 
-from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from django.contrib import messages
+from core.db_inspector import column_exists
 from core.utils import obtener_valor_dolar_blue
 from historial.models import RegistroHistorial
 from inventario.models import (
@@ -57,7 +58,35 @@ def _sincronizar_precios(variante, data):
 
 @login_required
 def iphone_dashboard(request):
+    required_columns = [
+        ("inventario_productovariante", "sku"),
+        ("inventario_productovariante", "stock_actual"),
+        ("inventario_precio", "precio"),
+    ]
+    missing_columns = [
+        f"{table}.{column}"
+        for table, column in required_columns
+        if not column_exists(table, column)
+    ]
+
     valor_dolar = obtener_valor_dolar_blue()
+    detalleiphone_ready = False
+
+    if missing_columns:
+        messages.warning(
+            request,
+            "El módulo de inventario todavía no está completamente migrado. Ejecutá `python manage.py migrate` para crear las "
+            "columnas faltantes: " + ", ".join(missing_columns),
+        )
+        context = {
+            "variantes": [],
+            "valor_dolar": valor_dolar,
+            "search_query": request.GET.get("q", "").strip(),
+            "stats": {"variantes": 0, "stock": 0, "valor_usd": Decimal("0"), "valor_ars": None},
+            "detalleiphone_ready": False,
+            "schema_missing_columns": missing_columns,
+        }
+        return render(request, "iphones/dashboard.html", context)
 
     detalleiphone_ready = is_detalleiphone_variante_ready()
 
@@ -160,6 +189,7 @@ def iphone_dashboard(request):
         "search_query": search_query,
         "stats": stats,
         "detalleiphone_ready": detalleiphone_ready,
+        "schema_missing_columns": [],
     }
     return render(request, "iphones/dashboard.html", context)
 
