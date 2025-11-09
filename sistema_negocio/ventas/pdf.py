@@ -1,16 +1,30 @@
 from __future__ import annotations
 
 from io import BytesIO
+from django.core.exceptions import ImproperlyConfigured
 from django.core.files.base import ContentFile
 from django.utils import timezone
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.units import mm
-from reportlab.pdfgen import canvas
+
+try:  # pragma: no cover - simple availability guard
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.pdfgen import canvas
+except ImportError as exc:  # pragma: no cover - executed when dependency missing
+    A4 = mm = canvas = None  # type: ignore
+    _reportlab_import_error = exc
+else:
+    _reportlab_import_error = None
 
 from configuracion.models import ConfiguracionSistema
 
 
 def generar_comprobante_pdf(venta) -> ContentFile:
+    if canvas is None:  # pragma: no cover - defensive branch
+        raise ImproperlyConfigured(
+            "La librería 'reportlab' es necesaria para generar comprobantes PDF. "
+            "Instalála ejecutando `pip install -r requirements.txt`."
+        ) from _reportlab_import_error
+
     config = ConfiguracionSistema.carga()
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
