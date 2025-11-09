@@ -1,144 +1,231 @@
-{% load static %}
-<!doctype html>
-<html lang="es" class="h-full">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Inventario — Dashboard</title>
-    <!-- Tailwind CDN (para build rápido). En prod conviene compilar. -->
-    <script src="https://cdn.tailwindcss.com"></script>
-  </head>
-  <body class="h-full bg-gray-50 text-gray-900">
-    <div class="min-h-full">
-      <header class="bg-white shadow">
-        <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-          <h1 class="text-2xl font-bold tracking-tight">Inventario</h1>
-          <p class="text-sm text-gray-500">Búsqueda, filtros y estado de stock</p>
-        </div>
-      </header>
+{% extends "base.html" %}
+{% load humanize %}
 
-      <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <!-- Filtros -->
-        <form method="get" class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-5">
-          <div class="md:col-span-2">
+{% block title %}Inventario Inteligente{% endblock %}
+
+{% block extra_head %}
+<style>
+  body { background: radial-gradient(circle at 20% 20%, #0f172a, #020617); }
+  .glass-panel { backdrop-filter: blur(18px); background: rgba(15, 23, 42, 0.72); border: 1px solid rgba(148, 163, 184, 0.18); }
+  .glass-light { backdrop-filter: blur(18px); background: rgba(248, 250, 252, 0.85); }
+  .chip { background: rgba(255, 255, 255, 0.12); }
+  .chip:hover { background: rgba(255, 255, 255, 0.2); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-transparent pb-16">
+  <div class="mx-auto max-w-7xl px-6 pt-12">
+    <header class="mb-10 flex flex-col gap-3 text-slate-100">
+      <div>
+        <p class="text-xs uppercase tracking-[0.35em] text-slate-400">Centro operativo</p>
+        <h1 class="text-4xl font-semibold tracking-tight">Inventario maestro</h1>
+      </div>
+      <p class="max-w-3xl text-sm text-slate-300">
+        Control preciso de stock, precios y estado de cada variante. Todo sincronizado con filtros inteligentes y una estética inspirada en iOS.
+      </p>
+    </header>
+
+    {% if schema_missing_columns %}
+      <div class="mb-8 rounded-3xl border border-rose-300/40 bg-rose-100/10 p-5 text-sm text-rose-100">
+        Para operar el módulo de inventario debés aplicar las migraciones pendientes. Faltan las columnas <strong>{{ schema_missing_columns|join:', ' }}</strong>.
+      </div>
+      <section class="glass-panel rounded-3xl p-6 text-sm text-slate-100">
+        <p>
+          Corré <code class="font-mono">python manage.py migrate</code> desde tu entorno con la base MySQL en ejecución. Una vez creada la estructura volveremos a habilitar las métricas, listados y acciones rápidas.
+        </p>
+      </section>
+    {% else %}
+      {% if detalleiphone_warning %}
+        <div class="mb-6 rounded-3xl border border-amber-300/30 bg-amber-100/10 p-4 text-sm text-amber-200">
+          {{ detalleiphone_warning }}
+        </div>
+      {% endif %}
+
+      <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <article class="glass-panel rounded-3xl p-5 text-slate-100 shadow-xl">
+          <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Variantes</p>
+          <div class="mt-3 flex items-baseline gap-2">
+            <span class="text-3xl font-semibold">{{ stats.total_variantes|default:0 }}</span>
+            <span class="text-sm text-slate-400">totales</span>
+          </div>
+          <p class="mt-2 text-xs text-emerald-300/80">
+            {{ stats.total_activos }} activos · {{ stats.total_bajo_stock }} con bajo stock
+          </p>
+        </article>
+        <article class="glass-panel rounded-3xl p-5 text-slate-100 shadow-xl">
+          <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Unidades</p>
+          <div class="mt-3 flex items-baseline gap-2">
+            <span class="text-3xl font-semibold">{{ stats.unidades_totales|default:0 }}</span>
+            <span class="text-sm text-slate-400">en stock</span>
+          </div>
+          <p class="mt-2 text-xs text-slate-400">Control automático de mínimos configurados</p>
+        </article>
+        <article class="glass-panel rounded-3xl p-5 text-slate-100 shadow-xl">
+          <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Valor estimado USD</p>
+          <div class="mt-3 flex items-baseline gap-2">
+            <span class="text-3xl font-semibold">US$ {{ stats.valor_total_usd|floatformat:2|intcomma }}</span>
+          </div>
+          <p class="mt-2 text-xs text-slate-400">Minorista · basado en últimos precios activos</p>
+        </article>
+        <article class="glass-panel rounded-3xl p-5 text-slate-100 shadow-xl">
+          <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Valor estimado ARS</p>
+          <div class="mt-3 flex items-baseline gap-2">
+            {% if stats.valor_total_ars %}
+              <span class="text-3xl font-semibold">$ {{ stats.valor_total_ars|floatformat:0|intcomma }}</span>
+            {% else %}
+              <span class="text-lg font-medium text-slate-400">Sin cotización</span>
+            {% endif %}
+          </div>
+          <p class="mt-2 text-xs text-slate-400">Dólar blue actual: {{ valor_dolar|default:"—" }}</p>
+        </article>
+      </section>
+
+      <section class="mt-10 glass-panel rounded-3xl p-6 shadow-xl">
+        <form method="get" class="flex flex-col gap-4 lg:flex-row lg:items-end">
+          <div class="flex-1">
+            <label class="block text-xs font-semibold uppercase tracking-widest text-slate-300">Búsqueda inteligente</label>
             {{ form.q }}
           </div>
-          <div>
-            {{ form.categoria.label_tag }} {{ form.categoria }}
+          <div class="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <label class="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-300">Categoría</label>
+              {{ form.categoria }}
+            </div>
+            <div>
+              <label class="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-300">Proveedor</label>
+              {{ form.proveedor }}
+            </div>
           </div>
-          <div>
-            {{ form.proveedor.label_tag }} {{ form.proveedor }}
-          </div>
-          <div class="flex items-center gap-4">
-            <label class="flex items-center gap-2 text-sm">
-              {{ form.solo_activos }} <span>Solo activos</span>
+          <div class="flex flex-wrap items-center gap-4">
+            <label class="flex items-center gap-2 text-sm font-medium text-slate-100">
+              {{ form.solo_activos }}
+              <span>Solo activos</span>
             </label>
-            <label class="flex items-center gap-2 text-sm">
-              {{ form.bajo_stock }} <span>Bajo stock</span>
+            <label class="flex items-center gap-2 text-sm font-medium text-slate-100">
+              {{ form.bajo_stock }}
+              <span>Bajo stock</span>
             </label>
-          </div>
-          <div class="md:col-span-5 flex justify-end">
-            <button class="rounded-lg bg-black px-4 py-2 text-white shadow hover:bg-gray-800">
-              Aplicar
+            <button class="rounded-2xl bg-white/90 px-5 py-3 text-sm font-semibold text-slate-900 shadow-md transition hover:bg-white">
+              Aplicar filtros
             </button>
           </div>
         </form>
 
-        <!-- Resumen -->
-        <div class="mb-3 text-sm text-gray-600">
-          Resultados: <span class="font-medium">{{ total }}</span>
+        {% if applied_filters %}
+          <div class="mt-4 flex flex-wrap gap-2 text-xs font-medium text-slate-200">
+            {% for filtro in applied_filters %}
+              <span class="chip rounded-full px-3 py-1">{{ filtro.key }}: {{ filtro.value }}</span>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </section>
+
+      <section class="mt-8 glass-light rounded-3xl p-6 shadow-2xl">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-semibold text-slate-900">Variantes encontradas</h2>
+            {% if total %}
+              <p class="text-xs text-slate-500">Mostrando {{ page_obj.start_index }}-{{ page_obj.end_index }} de {{ total }}</p>
+            {% else %}
+              <p class="text-xs text-slate-500">Sin resultados para los filtros aplicados</p>
+            {% endif %}
+          </div>
+          <div class="flex flex-wrap items-center gap-3">
+            <a href="{% url 'inventario:importar' %}" class="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white">Importar catálogo</a>
+            <a href="{% url 'inventario:exportar' %}" class="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white">Exportar CSV</a>
+            <a href="{% url 'inventario:producto_crear' %}" class="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:bg-slate-800">Añadir producto</a>
+          </div>
         </div>
 
-        <!-- Tabla -->
-        <div class="overflow-hidden rounded-xl bg-white shadow">
+        <div class="mt-6 overflow-hidden rounded-2xl border border-slate-200 shadow-inner">
           <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-50">
+            <table class="min-w-full divide-y divide-slate-200">
+              <thead class="bg-slate-100 text-left text-xs uppercase tracking-widest text-slate-500">
                 <tr>
-                  <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Producto</th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">SKU</th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Cód. barras</th>
-                  <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider">Stock</th>
-                  <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider">Minorista</th>
-                  <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider">Mayorista</th>
-                  <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider">Estado</th>
+                  <th class="px-5 py-4">Producto</th>
+                  <th class="px-5 py-4">SKU</th>
+                  <th class="px-5 py-4">Stock</th>
+                  <th class="px-5 py-4 text-right">Minorista</th>
+                  <th class="px-5 py-4 text-right">Mayorista</th>
+                  <th class="px-5 py-4 text-center">Estado</th>
+                  <th class="px-5 py-4 text-right">Acciones</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-gray-200 bg-white">
+              <tbody class="divide-y divide-slate-100 bg-white/80 text-sm text-slate-700">
                 {% for v in page_obj %}
-                  <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-3">
-                      <div class="flex flex-col">
-                        <span class="font-medium">{{ v.producto.nombre }}</span>
-                        <span class="text-xs text-gray-500">
+                  <tr class="hover:bg-white">
+                    <td class="px-5 py-4">
+                      <div class="flex flex-col gap-1">
+                        <span class="font-semibold text-slate-900">{{ v.producto.nombre }}</span>
+                        <span class="text-xs text-slate-500">{{ v.atributos_display }}</span>
+                        <span class="text-[11px] uppercase tracking-wider text-slate-400">
                           {% if v.producto.categoria %}{{ v.producto.categoria.nombre }}{% else %}Sin categoría{% endif %}
                           ·
                           {% if v.producto.proveedor %}{{ v.producto.proveedor.nombre }}{% else %}Sin proveedor{% endif %}
                         </span>
-                        {% if v.atributo_1 or v.atributo_2 %}
-                          <span class="text-xs text-gray-500">
-                            {{ v.atributo_1 }}{% if v.atributo_1 and v.atributo_2 %} / {% endif %}{{ v.atributo_2 }}
-                          </span>
+                        {% if detalleiphone_ready %}
+                          {% with detalle=v.detalle_iphone %}
+                            {% if detalle %}
+                              <span class="text-[11px] text-slate-400">IMEI {{ detalle.imei|default:"N/D" }} · Batería {{ detalle.salud_bateria|default:"—" }}%</span>
+                            {% endif %}
+                          {% endwith %}
                         {% endif %}
                       </div>
                     </td>
-                    <td class="px-4 py-3">
-                      <span class="font-mono text-sm">{{ v.sku }}</span>
+                    <td class="px-5 py-4 font-mono text-xs text-slate-500">{{ v.sku }}</td>
+                    <td class="px-5 py-4">
+                      <div class="text-right">
+                        <span class="text-base font-semibold {{ v.bajo_stock|yesno:'text-rose-600,text-slate-900' }}">{{ v.stock_actual }}</span>
+                        {% if v.stock_minimo %}
+                          <span class="ml-2 text-xs text-slate-400">mín. {{ v.stock_minimo }}</span>
+                        {% endif %}
+                      </div>
                     </td>
-                    <td class="px-4 py-3">
-                      <span class="font-mono text-sm">{{ v.producto.codigo_barras|default:"—" }}</span>
+                    <td class="px-5 py-4 text-right">
+                      <div class="text-xs text-slate-500">USD {{ v.precio_min_usd_cast|default:"—" }}</div>
+                      <div class="text-xs text-slate-400">ARS {{ v.precio_min_ars_cast|default:"—" }}</div>
                     </td>
-                    <td class="px-4 py-3 text-right">
-                      <span class="font-semibold {{ v.bajo_stock|yesno:'text-red-600,text-gray-900' }}">
-                        {{ v.stock_actual }}
-                      </span>
-                      {% if v.stock_minimo %}
-                        <span class="ml-1 text-xs text-gray-500">/ min {{ v.stock_minimo }}</span>
-                      {% endif %}
+                    <td class="px-5 py-4 text-right">
+                      <div class="text-xs text-slate-500">USD {{ v.precio_may_usd_cast|default:"—" }}</div>
+                      <div class="text-xs text-slate-400">ARS {{ v.precio_may_ars_cast|default:"—" }}</div>
                     </td>
-                    <td class="px-4 py-3 text-right">
-                      <div class="text-xs text-gray-500">USD {{ v.precio_min_usd_cast|default:"—" }}</div>
-                      <div class="text-xs text-gray-500">ARS {{ v.precio_min_ars_cast|default:"—" }}</div>
-                    </td>
-                    <td class="px-4 py-3 text-right">
-                      <div class="text-xs text-gray-500">USD {{ v.precio_may_usd_cast|default:"—" }}</div>
-                      <div class="text-xs text-gray-500">ARS {{ v.precio_may_ars_cast|default:"—" }}</div>
-                    </td>
-                    <td class="px-4 py-3 text-center">
+                    <td class="px-5 py-4 text-center">
                       {% if v.activo %}
-                        <span class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">Activo</span>
+                        <span class="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">Activo</span>
                       {% else %}
-                        <span class="inline-flex items-center rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-700">Inactivo</span>
+                        <span class="inline-flex items-center rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-600">Inactivo</span>
                       {% endif %}
+                    </td>
+                    <td class="px-5 py-4 text-right">
+                      <a href="{% url 'inventario:variante_editar' v.id %}" class="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:text-slate-900">Editar</a>
                     </td>
                   </tr>
                 {% empty %}
                   <tr>
-                    <td colspan="7" class="px-4 py-10 text-center text-sm text-gray-500">
-                      Sin resultados para tus filtros.
+                    <td colspan="7" class="px-5 py-12 text-center text-sm text-slate-500">
+                      No encontramos resultados que coincidan con los filtros actuales.
                     </td>
                   </tr>
                 {% endfor %}
               </tbody>
             </table>
           </div>
+        </div>
 
-          <!-- Paginación -->
-          <div class="flex items-center justify-between border-t bg-gray-50 px-4 py-3 text-sm">
-            <div>
-              Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
-            </div>
-            <div class="flex gap-2">
-              {% if page_obj.has_previous %}
-                <a href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}{% if request.GET.categoria %}categoria={{ request.GET.categoria }}&{% endif %}{% if request.GET.proveedor %}proveedor={{ request.GET.proveedor }}&{% endif %}{% if request.GET.solo_activos %}solo_activos=on&{% endif %}{% if request.GET.bajo_stock %}bajo_stock=on&{% endif %}page={{ page_obj.previous_page_number }}" class="rounded-md border px-3 py-1 hover:bg-white">Anterior</a>
-              {% endif %}
-              {% if page_obj.has_next %}
-                <a href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}{% if request.GET.categoria %}categoria={{ request.GET.categoria }}&{% endif %}{% if request.GET.proveedor %}proveedor={{ request.GET.proveedor }}&{% endif %}{% if request.GET.solo_activos %}solo_activos=on&{% endif %}{% if request.GET.bajo_stock %}bajo_stock=on&{% endif %}page={{ page_obj.next_page_number }}" class="rounded-md border px-3 py-1 hover:bg-white">Siguiente</a>
-              {% endif %}
-            </div>
+        <div class="mt-6 flex flex-col gap-4 border-t border-slate-200 pt-5 text-sm text-slate-600 md:flex-row md:items-center md:justify-between">
+          <span>Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+          <div class="flex gap-2">
+            {% if page_obj.has_previous %}
+              <a href="?{% if request.GET %}{% for key,value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value|urlencode }}&{% endif %}{% endfor %}{% endif %}page={{ page_obj.previous_page_number }}" class="rounded-full border border-slate-300 px-4 py-2 transition hover:bg-slate-100">Anterior</a>
+            {% endif %}
+            {% if page_obj.has_next %}
+              <a href="?{% if request.GET %}{% for key,value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value|urlencode }}&{% endif %}{% endfor %}{% endif %}page={{ page_obj.next_page_number }}" class="rounded-full border border-slate-300 px-4 py-2 transition hover:bg-slate-100">Siguiente</a>
+            {% endif %}
           </div>
         </div>
-      </main>
-    </div>
-  </body>
-</html>
+      </section>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db import models
 from django.utils import timezone
 
@@ -102,6 +104,24 @@ class ProductoVariante(models.Model):
     def bajo_stock(self):
         return self.stock_minimo and self.stock_actual <= self.stock_minimo
 
+    @property
+    def atributos_display(self):
+        partes = [parte for parte in [self.atributo_1, self.atributo_2] if parte]
+        return " / ".join(partes) if partes else "Sin especificar"
+
+    def precio_activo(self, tipo: str, moneda: str):
+        return (
+            self.precios.filter(tipo=tipo, moneda=moneda, activo=True)
+            .order_by("-actualizado")
+            .first()
+        )
+
+    def valor_estimado(self, tipo: str, moneda: str) -> Decimal:
+        precio = self.precio_activo(tipo=tipo, moneda=moneda)
+        if not precio:
+            return Decimal("0")
+        return Decimal(precio.precio) * Decimal(self.stock_actual or 0)
+
 
 class Precio(models.Model):
     """
@@ -146,3 +166,75 @@ class Precio(models.Model):
 
     def __str__(self):
         return f"{self.variante.sku} — {self.tipo} {self.precio} {self.moneda}"
+
+
+class DetalleIphone(models.Model):
+    variante = models.OneToOneField(
+        ProductoVariante,
+        on_delete=models.CASCADE,
+        related_name="detalle_iphone",
+        blank=True,
+        null=True,
+        help_text="Variante asociada al equipo dentro del inventario",
+    )
+    imei = models.CharField(
+        max_length=15,
+        unique=True,
+        blank=True,
+        null=True,
+        help_text="IMEI único del equipo",
+    )
+    salud_bateria = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        help_text="Porcentaje de salud de la batería (1-100)",
+    )
+    fallas_detectadas = models.TextField(
+        blank=True,
+        help_text="Observaciones o detalles a tener en cuenta",
+    )
+    es_plan_canje = models.BooleanField(
+        default=False,
+        help_text="Indica si fue recibido como parte de un plan canje",
+    )
+    costo_usd = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Costo de adquisición en USD",
+    )
+    precio_venta_usd = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="Precio minorista en USD",
+    )
+    precio_oferta_usd = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Precio promocional en USD",
+    )
+    notas = models.TextField(
+        blank=True,
+        help_text="Notas internas adicionales",
+    )
+    foto = models.ImageField(
+        upload_to="iphones/",
+        blank=True,
+        null=True,
+        help_text="Fotografía principal del equipo",
+    )
+    creado = models.DateTimeField(default=timezone.now, editable=False)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Detalle de iPhone"
+        verbose_name_plural = "Detalles de iPhone"
+        ordering = ["-actualizado"]
+
+    def __str__(self):
+        nombre = self.variante.producto.nombre if self.variante_id else "iPhone"
+        atributos = self.variante.atributos_display if self.variante_id else ""
+        return f"{nombre} {atributos}".strip()

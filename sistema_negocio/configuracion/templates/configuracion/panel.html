@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Configuración{% endblock %}
+
+{% block extra_head %}
+  <style>
+    .glass {
+      backdrop-filter: blur(16px);
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-100 py-10">
+  <div class="mx-auto max-w-6xl px-6">
+    <header class="mb-10 flex flex-col gap-2">
+      <p class="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">Centro de control</p>
+      <h1 class="text-3xl font-semibold text-slate-900">Configuración general</h1>
+      <p class="text-sm text-slate-500">Personalizá tu marca, verificá la salud del sistema y accedé rápidamente a herramientas clave.</p>
+    </header>
+
+    <div class="grid gap-6 lg:grid-cols-[3fr,2fr]">
+      <section class="glass rounded-3xl p-6 shadow-xl">
+        <h2 class="text-lg font-semibold text-slate-900">Identidad y parámetros</h2>
+        <form method="post" enctype="multipart/form-data" class="mt-6 space-y-6">
+          {% csrf_token %}
+          <div class="grid gap-5 md:grid-cols-2">
+            <div>
+              <label class="text-xs font-semibold uppercase text-slate-500">Nombre comercial</label>
+              {{ form.nombre_comercial }}
+            </div>
+            <div>
+              <label class="text-xs font-semibold uppercase text-slate-500">Lema</label>
+              {{ form.lema }}
+            </div>
+            <div>
+              <label class="text-xs font-semibold uppercase text-slate-500">Logo</label>
+              {{ form.logo }}
+              {% if configuracion.logo %}
+                <img src="{{ configuracion.logo.url }}" class="mt-2 h-12" alt="Logo actual" />
+              {% endif %}
+            </div>
+            <div>
+              <label class="text-xs font-semibold uppercase text-slate-500">Color primario</label>
+              {{ form.color_principal }}
+            </div>
+            <div class="flex items-center gap-3 pt-2">
+              {{ form.modo_oscuro_predeterminado }}
+              <span class="text-sm text-slate-600">Modo oscuro predeterminado</span>
+            </div>
+            <div class="flex items-center gap-3 pt-2">
+              {{ form.mostrar_alertas }}
+              <span class="text-sm text-slate-600">Mostrar alertas del sistema</span>
+            </div>
+            <div>
+              <label class="text-xs font-semibold uppercase text-slate-500">WhatsApp corporativo</label>
+              {{ form.whatsapp_numero }}
+            </div>
+            <div>
+              <label class="text-xs font-semibold uppercase text-slate-500">Correo de contacto</label>
+              {{ form.contacto_email }}
+            </div>
+            <div>
+              <label class="text-xs font-semibold uppercase text-slate-500">Domicilio comercial</label>
+              {{ form.domicilio_comercial }}
+            </div>
+            <div>
+              <label class="text-xs font-semibold uppercase text-slate-500">Dólar blue manual</label>
+              {{ form.dolar_blue_manual }}
+            </div>
+          </div>
+          <div>
+            <label class="text-xs font-semibold uppercase text-slate-500">Notas internas</label>
+            {{ form.notas_sistema }}
+          </div>
+
+          <fieldset class="rounded-2xl border border-slate-200 p-4">
+            <legend class="px-2 text-xs font-semibold uppercase text-slate-500">Preferencias personales</legend>
+            <div class="flex items-center gap-3">
+              {{ pref_form.usa_modo_oscuro }}
+              <span class="text-sm text-slate-600">Usar modo oscuro en este dispositivo</span>
+            </div>
+          </fieldset>
+
+          <button type="submit" class="rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-slate-800">
+            Guardar cambios
+          </button>
+        </form>
+      </section>
+
+      <aside class="space-y-6">
+        <section class="glass rounded-3xl p-6 shadow-lg">
+          <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-500">Estado del sistema</h3>
+          <div class="mt-4 space-y-3 text-sm text-slate-600">
+            <p><span class="font-semibold">Migraciones pendientes:</span> {% if pendientes %}{{ pendientes|length }}{% else %}0{% endif %}</p>
+            {% if pendientes %}
+              <ul class="list-disc pl-5 text-xs text-rose-500">
+                {% for mig in pendientes %}<li>{{ mig }}</li>{% endfor %}
+              </ul>
+            {% endif %}
+            <p><span class="font-semibold">Productos activos:</span> {{ salud_inventario.productos|default:"—" }}</p>
+            <div class="text-xs text-slate-500">
+              {% for tabla, existe in salud_inventario.tablas.items %}
+                <p>{{ tabla }}: {% if existe %}<span class="text-emerald-500 font-semibold">OK{% else %}<span class="text-rose-500 font-semibold">Falta{% endif %}</span></p>
+              {% endfor %}
+            </div>
+            {% if columnas_faltantes %}
+              <div class="mt-3 rounded-2xl bg-rose-50 p-3 text-xs text-rose-600">
+                <p class="font-semibold">Columnas faltantes detectadas:</p>
+                {% for app, columnas in columnas_faltantes.items %}
+                  <p class="mt-1">{{ app }}: {{ columnas|join:", " }}</p>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        </section>
+
+        <section class="glass rounded-3xl p-6 shadow-lg">
+          <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-500">Accesos rápidos</h3>
+          <div class="mt-4 space-y-3 text-sm">
+            <a href="{% url 'admin:index' %}" class="block rounded-2xl bg-slate-900 px-4 py-3 text-center font-semibold text-white shadow hover:bg-slate-800">Panel de Django</a>
+            <a href="{% url 'inventario:dashboard' %}" class="block rounded-2xl bg-white px-4 py-3 text-center font-semibold text-slate-900 shadow hover:bg-slate-100">Inventario</a>
+            <a href="{% url 'ventas:pos' %}" class="block rounded-2xl bg-white px-4 py-3 text-center font-semibold text-slate-900 shadow hover:bg-slate-100">Punto de venta</a>
+            <a href="{% url 'dashboard:dashboard' %}" class="block rounded-2xl bg-white px-4 py-3 text-center font-semibold text-slate-900 shadow hover:bg-slate-100">Dashboard</a>
+          </div>
+        </section>
+
+        {% if configuracion.notas_sistema %}
+          <section class="glass rounded-3xl p-6 shadow-lg">
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-500">Notas internas</h3>
+            <p class="mt-3 text-sm text-slate-600 whitespace-pre-line">{{ configuracion.notas_sistema }}</p>
+          </section>
+        {% endif %}
+      </aside>
+    </div>
+  </div>
+</div>
+{% endblock %}

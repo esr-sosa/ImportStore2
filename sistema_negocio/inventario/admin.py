@@ -1,5 +1,12 @@
 from django.contrib import admin
-from .models import Categoria, Proveedor, Producto, ProductoVariante, Precio
+from .models import (
+    Categoria,
+    DetalleIphone,
+    Precio,
+    Producto,
+    ProductoVariante,
+    Proveedor,
+)
 
 
 @admin.register(Categoria)
@@ -31,6 +38,27 @@ class VarianteInline(admin.TabularInline):
     classes = ["collapse"]
 
 
+class DetalleIphoneInline(admin.StackedInline):
+    model = DetalleIphone
+    extra = 0
+    classes = ["collapse"]
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "imei",
+                    ("salud_bateria", "es_plan_canje"),
+                    "costo_usd",
+                    ("precio_venta_usd", "precio_oferta_usd"),
+                    "notas",
+                    "foto",
+                )
+            },
+        ),
+    )
+
+
 @admin.register(Producto)
 class ProductoAdmin(admin.ModelAdmin):
     list_display = ("nombre", "categoria", "proveedor", "activo", "codigo_barras")
@@ -48,7 +76,7 @@ class ProductoVarianteAdmin(admin.ModelAdmin):
     search_fields = ("sku", "producto__nombre", "producto__codigo_barras")
     list_editable = ("stock_actual", "stock_minimo", "activo")
     autocomplete_fields = ("producto",)
-    inlines = [PrecioInline]
+    inlines = [DetalleIphoneInline, PrecioInline]
 
 
 @admin.register(Precio)

@@ -1,37 +1,80 @@
 # crm/views.py
 
-from django.shortcuts import render
-from django.http import JsonResponse, HttpResponse
-from django.views.decorators.csrf import csrf_exempt
 import json
-import requests
 
 from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db.models import Count
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import render
+from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 import google.generativeai as genai
 
 # --- Importaciones Clave para Tiempo Real e IA ---
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from asistente_ia import interpreter
+from core.db_inspector import column_exists
 # --- Fin de Importaciones ---
 
-from .models import Conversacion, Mensaje, Cliente
+from .models import Cliente, Conversacion, Etiqueta, Mensaje
 from .whatsapp_service import send_whatsapp_message
 
 genai.configure(api_key=settings.GEMINI_API_KEY)
 
 
-# ... (las otras vistas como panel_chat, get_conversacion_details, etc., no cambian) ...
+@login_required
 def panel_chat(request):
-    # ... tu código existente ...
-    conversaciones = Conversacion.objects.select_related('cliente').all().order_by('-ultima_actualizacion')
-    context = {'conversaciones': conversaciones}
+    conversaciones = (
+        Conversacion.objects.select_related('cliente', 'asesor_asignado')
+        .prefetch_related('etiquetas')
+        .annotate(total_mensajes=Count('mensajes'))
+        .order_by('-ultima_actualizacion')
+    )
+
+    ahora = timezone.now()
+    sla_ready = column_exists("crm_conversacion", "sla_vencimiento")
+    if sla_ready:
+        sla_vencidos = conversaciones.filter(
+            sla_vencimiento__lt=ahora, estado__in=['Pendiente', 'En seguimiento']
+        ).count()
+    else:
+        sla_vencidos = 0
+        messages.warning(
+            request,
+            "Debés ejecutar `python manage.py migrate` para habilitar el seguimiento de SLA en el CRM.",
+        )
+
+    stats = {
+        'total': conversaciones.count(),
+        'abiertas': conversaciones.filter(estado='Abierta').count(),
+        'pendientes': conversaciones.filter(estado='Pendiente').count(),
+        'seguimiento': conversaciones.filter(estado='En seguimiento').count(),
+        'sla_vencidos': sla_vencidos,
+    }
+
+    top_etiquetas = (
+        Etiqueta.objects.annotate(total=Count('conversaciones')).order_by('-total', 'nombre')[:8]
+    )
+
+    context = {
+        'conversaciones': conversaciones,
+        'stats': stats,
+        'etiquetas': top_etiquetas,
+        'asesores': Conversacion.objects.exclude(asesor_asignado__isnull=True)
+        .values('asesor_asignado__id', 'asesor_asignado__first_name', 'asesor_asignado__last_name')
+        .distinct(),
+        'sla_ready': sla_ready,
+    }
     return render(request, 'crm/panel_chat.html', context)
 
+@login_required
 def get_conversacion_details(request, conv_id):
     # ... tu código existente ...
     try:
-        conversacion = Conversacion.objects.select_related('cliente').get(id=conv_id)
+        conversacion = Conversacion.objects.select_related('cliente', 'asesor_asignado').prefetch_related('etiquetas').get(id=conv_id)
         mensajes = Mensaje.objects.filter(conversacion=conversacion).order_by('fecha_envio')
         cliente_data = {
             'id': conversacion.cliente.id,
@@ -43,12 +86,32 @@ def get_conversacion_details(request, conv_id):
             'fecha_creacion': conversacion.cliente.fecha_creacion.strftime('%d/%m/%Y'),
             'inicial': conversacion.cliente.nombre[0].upper() if conversacion.cliente.nombre else '?',
         }
-        mensajes_data = [{'emisor': msg.emisor, 'contenido': msg.contenido, 'fecha_envio': msg.fecha_envio.strftime('%d de %b, %H:%M')} for msg in mensajes]
-        response_data = {'cliente': cliente_data, 'mensajes': mensajes_data, 'fuente': conversacion.get_fuente_display()}
+        mensajes_data = [
+            {
+                'emisor': msg.emisor,
+                'contenido': msg.contenido,
+                'fecha_envio': msg.fecha_envio.strftime('%d de %b, %H:%M'),
+                'tipo': msg.tipo_mensaje,
+                'enviado_por_ia': msg.enviado_por_ia,
+            }
+            for msg in mensajes
+        ]
+        response_data = {
+            'cliente': cliente_data,
+            'mensajes': mensajes_data,
+            'fuente': conversacion.get_fuente_display(),
+            'estado': conversacion.estado,
+            'prioridad': conversacion.prioridad,
+            'sla': conversacion.sla_vencimiento.isoformat() if conversacion.sla_vencimiento else None,
+            'etiquetas': [{'id': tag.id, 'nombre': tag.nombre, 'color': tag.color} for tag in conversacion.etiquetas.all()],
+            'asesor': conversacion.asesor_asignado.get_full_name() if conversacion.asesor_asignado else None,
+            'resumen': conversacion.resumen,
+        }
         return JsonResponse(response_data)
     except Conversacion.DoesNotExist:
         return JsonResponse({'error': 'Conversacion no encontrada'}, status=404)
 
+@login_required
 @csrf_exempt
 def enviar_mensaje(request):
     # ... tu código existente ...
@@ -57,12 +120,19 @@ def enviar_mensaje(request):
             data = json.loads(request.body)
             conv_id = data.get('conversacion_id')
             contenido = data.get('contenido')
-            
+            metadata = data.get('metadata') or {}
+
             conversacion = Conversacion.objects.get(id=conv_id)
-            
+
             # 1. Guardar mensaje en la DB
-            nuevo_mensaje = Mensaje.objects.create(conversacion=conversacion, emisor='Sistema', contenido=contenido)
-            
+            nuevo_mensaje = Mensaje.objects.create(
+                conversacion=conversacion,
+                emisor='Sistema',
+                contenido=contenido,
+                enviado_por_ia=metadata.get('enviado_por_ia', False),
+                metadata=metadata or None,
+            )
+
             # 2. Notificar al WebSocket para que se actualice la UI en tiempo real
             channel_layer = get_channel_layer()
             async_to_sync(channel_layer.group_send)(
@@ -72,7 +142,8 @@ def enviar_mensaje(request):
                     'message': {
                         'emisor': 'Sistema',
                         'contenido': nuevo_mensaje.contenido,
-                        'fecha_envio': nuevo_mensaje.fecha_envio.strftime('%d de %b, %H:%M')
+                        'fecha_envio': nuevo_mensaje.fecha_envio.strftime('%d de %b, %H:%M'),
+                        'tipo_mensaje': nuevo_mensaje.tipo_mensaje,
                     }
                 }
             )
@@ -84,6 +155,47 @@ def enviar_mensaje(request):
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
     return JsonResponse({'error': 'Solo POST'}, status=405)
+
+
+@login_required
+@csrf_exempt
+def actualizar_conversacion(request, conv_id):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Solo POST'}, status=405)
+
+    try:
+        conversacion = Conversacion.objects.get(pk=conv_id)
+    except Conversacion.DoesNotExist:
+        return JsonResponse({'error': 'Conversación no encontrada'}, status=404)
+
+    data = json.loads(request.body or '{}')
+
+    nuevo_estado = data.get('estado')
+    prioridad = data.get('prioridad')
+    sla = data.get('sla')
+    etiquetas_ids = data.get('etiquetas', [])
+    resumen = data.get('resumen')
+
+    if nuevo_estado and nuevo_estado in dict(Conversacion.ESTADO_CHOICES):
+        conversacion.estado = nuevo_estado
+    if prioridad and prioridad in dict(Conversacion.PRIORIDAD_CHOICES):
+        conversacion.prioridad = prioridad
+    if sla:
+        try:
+            parsed = timezone.datetime.fromisoformat(sla)
+            if timezone.is_naive(parsed):
+                parsed = timezone.make_aware(parsed, timezone.get_current_timezone())
+            conversacion.sla_vencimiento = parsed
+        except ValueError:
+            pass
+    if resumen is not None:
+        conversacion.resumen = resumen
+    if etiquetas_ids:
+        conversacion.etiquetas.set(Etiqueta.objects.filter(id__in=etiquetas_ids))
+
+    conversacion.save()
+
+    return JsonResponse({'status': 'ok'})
 
 
 # --- ¡FUNCIÓN COMPLETAMENTE ACTUALIZADA! ---

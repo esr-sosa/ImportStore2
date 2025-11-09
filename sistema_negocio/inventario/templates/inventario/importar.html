@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Importar inventario{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-100 py-12">
+  <div class="mx-auto max-w-3xl rounded-3xl bg-white p-8 shadow-xl">
+    <h1 class="text-2xl font-semibold text-slate-900">Importar catálogo</h1>
+    <p class="mt-2 text-sm text-slate-500">Subí el archivo <strong>listado_de_producto</strong> exportado desde tu tienda (CSV o XLSX). El sistema creará o actualizará productos y variantes, incluyendo precios minoristas/mayoristas.</p>
+
+    <form method="post" enctype="multipart/form-data" class="mt-6 space-y-6">
+      {% csrf_token %}
+      <div>
+        <label class="text-xs font-semibold uppercase tracking-widest text-slate-500">Archivo</label>
+        {{ form.archivo }}
+        {% if form.archivo.help_text %}<p class="mt-1 text-xs text-slate-400">{{ form.archivo.help_text }}</p>{% endif %}
+        {{ form.archivo.errors }}
+      </div>
+      <div class="flex items-center gap-3">
+        {{ form.actualizar_existentes }}
+        <span class="text-sm text-slate-600">Actualizar variantes existentes cuando coincida el SKU</span>
+      </div>
+      <button type="submit" class="rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-slate-800">Procesar archivo</button>
+      <a href="{% url 'inventario:exportar' %}" class="inline-flex items-center rounded-full border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50">Descargar inventario actual</a>
+    </form>
+
+    <section class="mt-8 rounded-2xl bg-slate-50 p-5 text-sm text-slate-600">
+      <h2 class="text-sm font-semibold uppercase tracking-widest text-slate-500">Formato compatible</h2>
+      <ul class="mt-3 list-disc space-y-1 pl-5">
+        <li>Columnas requeridas: <code>Nombre</code>, <code>SKU</code>, <code>Stock</code>.</li>
+        <li>Opcionales: <code>Descripción</code>, <code>Precio minorista ARS/USD</code>, <code>Precio mayorista ARS/USD</code>, <code>Categoría</code>, <code>Proveedor</code>, <code>Código de barras</code>.</li>
+        <li>Las variantes se identifican por su <strong>SKU</strong>. Si está repetido se actualizará la misma variante.</li>
+      </ul>
+    </section>
+  </div>
+</div>
+{% endblock %}
