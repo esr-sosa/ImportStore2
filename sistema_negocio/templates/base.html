@@ -1,7 +1,7 @@
 {% load static %}
 {% load humanize %}
 <!DOCTYPE html>
-<html lang="es" data-default-theme="{{ modo_oscuro_predeterminado|yesno:'dark,light' }}" data-user-theme="{% if modo_oscuro_usuario is not None %}{{ modo_oscuro_usuario|yesno:'dark,light' }}{% else %}auto{% endif %}">
+<html lang="es" data-default-theme="{{ modo_oscuro_predeterminado|yesno:'dark,light' }}" data-user-theme="{% if modo_oscuro_usuario is not None %}{{ modo_oscuro_usuario|yesno:'dark,light' }}{% else %}auto{% endif %}" style="--accent-color: {{ configuracion_sistema.color_principal|default:'#2563eb' }};">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -47,7 +47,63 @@
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; }
+        :root {
+            color-scheme: light dark;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--surface-color, #f8fafc);
+            color: var(--text-color, #0f172a);
+        }
+        html {
+            --surface-color: #f8fafc;
+            --surface-alt-color: rgba(255, 255, 255, 0.85);
+            --surface-card: rgba(248, 250, 252, 0.85);
+            --text-color: #0f172a;
+            --text-muted: #64748b;
+        }
+        html.dark {
+            --surface-color: #0f172a;
+            --surface-alt-color: rgba(15, 23, 42, 0.82);
+            --surface-card: rgba(15, 23, 42, 0.92);
+            --text-color: #e2e8f0;
+            --text-muted: rgba(148, 163, 184, 0.85);
+        }
+        html.dark body {
+            background-color: var(--surface-color, #0f172a);
+            color: var(--text-color, #e2e8f0);
+        }
+        html.dark .text-slate-900,
+        html.dark .text-slate-800,
+        html.dark .text-gray-900,
+        html.dark .text-gray-800 {
+            color: #f1f5f9 !important;
+        }
+        html.dark .text-slate-700,
+        html.dark .text-gray-700 {
+            color: rgba(226, 232, 240, 0.88) !important;
+        }
+        html.dark .text-slate-600,
+        html.dark .text-gray-600,
+        html.dark .text-muted {
+            color: rgba(203, 213, 225, 0.85) !important;
+        }
+        html.dark .text-slate-500,
+        html.dark .text-gray-500 {
+            color: rgba(148, 163, 184, 0.85) !important;
+        }
+        html.dark .bg-white,
+        html.dark .bg-white\/80,
+        html.dark .bg-slate-100\/70,
+        html.dark .bg-slate-100\/80 {
+            background-color: rgba(30, 41, 59, 0.92) !important;
+            color: var(--text-color);
+        }
+        html.dark .border-slate-200,
+        html.dark .border-slate-200\/60,
+        html.dark .border-slate-200\/70 {
+            border-color: rgba(148, 163, 184, 0.35) !important;
+        }
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: rgba(148, 163, 184, 0.25); }
         ::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.45); border-radius: 10px; }
@@ -56,20 +112,43 @@
         .sidebar-icon:hover { transform: scale(1.05); }
         .sidebar-tooltip { visibility: hidden; opacity: 0; transition: opacity 0.2s; z-index: 50; }
         .group:hover .sidebar-tooltip { visibility: visible; opacity: 1; }
+        .accent-text { color: var(--accent-color); }
+        html.dark .accent-text { color: color-mix(in srgb, var(--accent-color) 70%, white 30%); }
+        .card-surface { background: var(--surface-card); border-color: rgba(148, 163, 184, 0.2); }
+        html.dark .card-surface { border-color: rgba(148, 163, 184, 0.25); }
+        .text-muted { color: var(--text-muted); }
+        .opacity-0 { opacity: 0 !important; }
+        .toast-container { position: fixed; top: 1.5rem; right: 1.5rem; z-index: 1000; display: flex; flex-direction: column; gap: 0.75rem; }
+        .toast { display: flex; align-items: center; gap: 0.75rem; border-radius: 9999px; padding: 0.75rem 1.25rem; box-shadow: 0 10px 35px -15px rgba(15, 23, 42, 0.4); font-weight: 600; transition: opacity 0.35s ease, transform 0.35s ease; }
+        .toast-success { background: rgba(16, 185, 129, 0.15); color: #047857; }
+        .toast-info { background: rgba(59, 130, 246, 0.15); color: #1d4ed8; }
+        .toast-warning { background: rgba(251, 191, 36, 0.18); color: #b45309; }
+        .toast-error { background: rgba(248, 113, 113, 0.2); color: #b91c1c; }
     </style>
     {% block extra_head %}{% endblock %}
 </head>
-<body class="flex min-h-screen bg-slate-100 text-slate-900 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100" data-user-authenticated="{{ request.user.is_authenticated|yesno:'true,false' }}">
+<body class="flex min-h-screen transition-colors duration-300" data-user-authenticated="{{ request.user.is_authenticated|yesno:'true,false' }}" hx-boost="true" hx-target="#app-content" hx-select="#app-content" hx-swap="outerHTML" hx-push-url="true">
 
-    <aside class="w-20 bg-gray-900 text-white flex flex-col items-center py-4 space-y-6 dark:bg-slate-900">
+    <div class="toast-container" id="app-toast-container" aria-live="polite"></div>
+
+    <aside class="w-20 bg-gray-900 text-white flex flex-col items-center py-4 space-y-6 dark:bg-slate-900" hx-boost="true" hx-target="#app-content" hx-select="#app-content" hx-push-url="true" hx-swap="outerHTML">
         <a href="{% url 'dashboard:dashboard' %}" class="group relative">
-            {% if configuracion_sistema.logo %}
-                <img src="{{ configuracion_sistema.logo.url }}" alt="Logo" class="h-10 w-10 rounded-lg object-cover shadow-lg ring-2 ring-white/20" />
-            {% else %}
-                <div class="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xl shadow-lg sidebar-icon" style="background-color: {{ configuracion_sistema.color_principal }};">
+            {% with tiene_logo=configuracion_sistema.logo %}
+                <img
+                    id="sidebar-logo"
+                    class="h-10 w-10 rounded-lg object-cover shadow-lg ring-2 ring-white/20 {% if not tiene_logo %}hidden{% endif %}"
+                    {% if tiene_logo %}src="{{ configuracion_sistema.logo.url }}"{% endif %}
+                    alt="Logo"
+                />
+                <div
+                    class="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xl shadow-lg sidebar-icon"
+                    id="sidebar-initials"
+                    style="background-color: {{ configuracion_sistema.color_principal }};"
+                    {% if tiene_logo %}hidden{% endif %}
+                >
                     {{ configuracion_sistema.nombre_comercial|default:'IS'|slice:':2'|upper }}
                 </div>
-            {% endif %}
+            {% endwith %}
             <span class="sidebar-tooltip absolute left-full ml-4 w-auto p-2 min-w-max rounded-md shadow-md text-white bg-gray-900 text-xs font-bold transition-all duration-100 scale-0 group-hover:scale-100">Dashboard</span>
         </a>
         <div class="space-y-4">
@@ -79,11 +158,15 @@
 
             <a href="{% url 'crm:panel_chat' %}" class="group relative flex justify-center"><div class="p-2 rounded-lg sidebar-icon"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg></div><span class="sidebar-tooltip absolute left-full ml-4 w-auto p-2 min-w-max rounded-md shadow-md text-white bg-gray-900 text-xs font-bold transition-all duration-100 scale-0 group-hover:scale-100">Chat</span></a>
 
+            <a href="{% url 'crm:clientes' %}" class="group relative flex justify-center"><div class="p-2 rounded-lg sidebar-icon"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7.5 7.5a3 3 0 106 0 3 3 0 00-6 0zm9 9v.75A3.75 3.75 0 0112.75 21h-1.5A3.75 3.75 0 017.5 17.25V16.5a4.5 4.5 0 119 0zm3-1.5a2.25 2.25 0 10-2.25-2.25 2.25 2.25 0 002.25 2.25zm-1.5 3.75a3.75 3.75 0 012.86 1.32.75.75 0 01-.57 1.23H17.25a.75.75 0 01-.75-.75V18.75z" /></svg></div><span class="sidebar-tooltip absolute left-full ml-4 w-auto p-2 min-w-max rounded-md shadow-md text-white bg-gray-900 text-xs font-bold transition-all duration-100 scale-0 group-hover:scale-100">Clientes</span></a>
+
             <a href="{% url 'inventario:dashboard' %}" class="group relative flex justify-center"><div class="p-2 rounded-lg sidebar-icon"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg></div><span class="sidebar-tooltip absolute left-full ml-4 w-auto p-2 min-w-max rounded-md shadow-md text-white bg-gray-900 text-xs font-bold transition-all duration-100 scale-0 group-hover:scale-100">Inventario</span></a>
 
             <a href="{% url 'iphones:dashboard' %}" class="group relative flex justify-center"><div class="p-2 rounded-lg sidebar-icon"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg></div><span class="sidebar-tooltip absolute left-full ml-4 w-auto p-2 min-w-max rounded-md shadow-md text-white bg-gray-900 text-xs font-bold transition-all duration-100 scale-0 group-hover:scale-100">iPhones</span></a>
 
             <a href="{% url 'ventas:pos' %}" class="group relative flex justify-center"><div class="p-2 rounded-lg sidebar-icon"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg></div><span class="sidebar-tooltip absolute left-full ml-4 w-auto p-2 min-w-max rounded-md shadow-md text-white bg-gray-900 text-xs font-bold transition-all duration-100 scale-0 group-hover:scale-100">Punto de Venta</span></a>
+
+            <a href="{% url 'inventario:maestros' %}" class="group relative flex justify-center"><div class="p-2 rounded-lg sidebar-icon"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5.25 6.75h13.5m-13.5 5.25h13.5m-13.5 5.25H12" /></svg></div><span class="sidebar-tooltip absolute left-full ml-4 w-auto p-2 min-w-max rounded-md shadow-md text-white bg-gray-900 text-xs font-bold transition-all duration-100 scale-0 group-hover:scale-100">Categorías &amp; Proveedores</span></a>
 
             <a href="{% url 'dashboard:tienda_preview' %}" class="group relative flex justify-center"><div class="p-2 rounded-lg sidebar-icon"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 6h18M3 12h18M3 18h18" /></svg></div><span class="sidebar-tooltip absolute left-full ml-4 w-auto p-2 min-w-max rounded-md shadow-md text-white bg-gray-900 text-xs font-bold transition-all duration-100 scale-0 group-hover:scale-100">Vista tienda</span></a>
 
@@ -92,12 +175,12 @@
             <a href="{% url 'configuracion:panel' %}" class="group relative flex justify-center"><div class="p-2 rounded-lg sidebar-icon"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9V3m0 0l-3 3m3-3l3 3m6 6h-6m0 0l3 3m-3-3l3-3M3 15h6m0 0l-3 3m3-3l-3-3" /></svg></div><span class="sidebar-tooltip absolute left-full ml-4 w-auto p-2 min-w-max rounded-md shadow-md text-white bg-gray-900 text-xs font-bold transition-all duration-100 scale-0 group-hover:scale-100">Configuración</span></a>
         </div>
     </aside>
-    <div class="flex flex-1 flex-col" hx-boost="true" hx-target="#app-content" hx-select="#app-content" hx-push-url="true">
+    <div class="flex flex-1 flex-col" hx-target="#app-content" hx-select="#app-content">
         <header class="flex flex-col gap-2 border-b border-slate-200/70 bg-white/80 px-6 py-5 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/80">
             <div class="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                    <p class="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500 dark:text-slate-400">{{ configuracion_sistema.lema|default:'Centro de mando' }}</p>
-                    <h1 class="text-2xl font-semibold" style="color: {{ configuracion_sistema.color_principal }};">
+                    <p class="text-xs font-semibold uppercase tracking-[0.35em] text-muted" id="header-tagline">{{ configuracion_sistema.lema|default:'Centro de mando' }}</p>
+                    <h1 class="text-2xl font-semibold accent-text" id="header-brand">
                         {{ configuracion_sistema.nombre_comercial|default:'ImportStore' }}
                     </h1>
                 </div>
@@ -170,7 +253,7 @@
 
             const updateToggleState = (theme) => {
                 document.querySelectorAll('[data-theme-toggle-label]').forEach((el) => {
-                    el.textContent = theme === 'dark' ? 'Modo oscuro' : 'Modo claro';
+                    el.textContent = theme === 'dark' ? 'Modo claro' : 'Modo oscuro';
                 });
                 document.querySelectorAll('.theme-icon-sun').forEach((icon) => {
                     icon.classList.toggle('hidden', theme === 'dark');
@@ -205,6 +288,79 @@
         })();
     </script>
 
+    <script>
+        (function () {
+            const toastContainer = document.getElementById('app-toast-container');
+
+            const createToast = ({ message, level }) => {
+                if (!toastContainer || !message) {
+                    return;
+                }
+                const toast = document.createElement('div');
+                const kind = level || 'info';
+                toast.className = `toast toast-${kind}`;
+                toast.setAttribute('role', 'status');
+                toast.textContent = message;
+                toastContainer.appendChild(toast);
+                setTimeout(() => {
+                    toast.classList.add('opacity-0');
+                    setTimeout(() => toast.remove(), 400);
+                }, 3600);
+            };
+
+            document.body.addEventListener('showToast', (event) => {
+                createToast(event.detail || {});
+            });
+
+            document.body.addEventListener('configuracionActualizada', (event) => {
+                const detail = event.detail || {};
+                const brand = document.getElementById('header-brand');
+                const tagline = document.getElementById('header-tagline');
+                const sidebarLogo = document.getElementById('sidebar-logo');
+                const sidebarInitials = document.getElementById('sidebar-initials');
+
+                if (detail.color) {
+                    document.documentElement.style.setProperty('--accent-color', detail.color);
+                }
+
+                if (brand && detail.nombre) {
+                    brand.textContent = detail.nombre;
+                }
+
+                if (tagline) {
+                    tagline.textContent = detail.lema || 'Centro de mando';
+                }
+
+                if (detail.nombre) {
+                    const baseTitle = document.title.split(' - ').shift() || 'Centro de Mando';
+                    document.title = `${baseTitle} - ${detail.nombre}`;
+                }
+
+                if (sidebarLogo && sidebarInitials) {
+                    if (detail.logo) {
+                        sidebarLogo.src = detail.logo;
+                        sidebarLogo.hidden = false;
+                        sidebarInitials.hidden = true;
+                    } else {
+                        sidebarLogo.hidden = true;
+                        sidebarInitials.hidden = false;
+                        sidebarInitials.textContent = (detail.nombre || 'IS').slice(0, 2).toUpperCase();
+                        sidebarInitials.style.backgroundColor = detail.color || 'var(--accent-color)';
+                    }
+                }
+            });
+
+            document.body.addEventListener('clientesActualizados', (event) => {
+                const trigger = document.getElementById('clientes-refresh-trigger');
+                if (trigger) {
+                    trigger.dispatchEvent(new CustomEvent('clientes:refresh'));
+                }
+                if (event.detail && event.detail.toast) {
+                    createToast(event.detail.toast);
+                }
+            });
+        })();
+    </script>
 </body>
 </html>
 

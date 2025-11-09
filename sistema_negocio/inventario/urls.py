@@ -3,6 +3,8 @@ from .views import (
     inventario_dashboard,
     inventario_exportar,
     inventario_importar,
+    maestros,
+    proveedor_toggle_activo,
     producto_crear,
     variante_editar,
 )
@@ -15,4 +17,6 @@ urlpatterns = [
     path("variantes/<int:pk>/editar/", variante_editar, name="variante_editar"),
     path("importar/", inventario_importar, name="importar"),
     path("exportar/", inventario_exportar, name="exportar"),
+    path("maestros/", maestros, name="maestros"),
+    path("proveedores/<int:pk>/toggle/", proveedor_toggle_activo, name="proveedor_toggle"),
 ]

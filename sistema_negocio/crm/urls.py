@@ -7,6 +7,7 @@ app_name = 'crm'
 urlpatterns = [
     # --- Rutas de la Interfaz y API ---
     path('', views.panel_chat, name='panel_chat'),
+    path('clientes/', views.clientes_panel, name='clientes'),
     path('api/conversacion/<int:conv_id>/', views.get_conversacion_details, name='get_conversacion_details'),
     path('api/conversacion/<int:conv_id>/actualizar/', views.actualizar_conversacion, name='actualizar_conversacion'),
     path('api/enviar_mensaje/', views.enviar_mensaje, name='enviar_mensaje'),

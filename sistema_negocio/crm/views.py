@@ -5,7 +5,10 @@ import json
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count
+from datetime import timedelta
+
+from django.core.paginator import Paginator
+from django.db.models import Count, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
@@ -19,6 +22,7 @@ from asistente_ia import interpreter
 from core.db_inspector import column_exists
 # --- Fin de Importaciones ---
 
+from .forms import ClienteForm
 from .models import Cliente, Conversacion, Etiqueta, Mensaje
 from .whatsapp_service import send_whatsapp_message
 
@@ -69,6 +73,88 @@ def panel_chat(request):
         'sla_ready': sla_ready,
     }
     return render(request, 'crm/panel_chat.html', context)
+
+
+def _clientes_context(request, form: ClienteForm):
+    filtros = {
+        "q": request.GET.get("q", "").strip(),
+        "tipo": request.GET.get("tipo", ""),
+        "page": request.GET.get("page", "1"),
+    }
+
+    clientes_qs = Cliente.objects.all()
+    if filtros["q"]:
+        clientes_qs = clientes_qs.filter(
+            Q(nombre__icontains=filtros["q"]) | Q(telefono__icontains=filtros["q"]) | Q(email__icontains=filtros["q"])
+        )
+    if filtros["tipo"]:
+        clientes_qs = clientes_qs.filter(tipo_cliente=filtros["tipo"])
+
+    clientes_qs = clientes_qs.order_by("-fecha_creacion")
+    paginator = Paginator(clientes_qs, 12)
+    page_obj = paginator.get_page(filtros["page"])
+
+    stats_tipo = (
+        Cliente.objects.values("tipo_cliente").annotate(total=Count("id")).order_by("-total", "tipo_cliente")
+    )
+    nuevos_semana = Cliente.objects.filter(
+        fecha_creacion__gte=timezone.now() - timedelta(days=7)
+    ).count()
+
+    try:
+        conversaciones_prioritarias = (
+            Conversacion.objects.select_related("cliente")
+            .annotate(total_mensajes=Count("mensajes"))
+            .order_by("-total_mensajes", "-ultima_actualizacion")[:5]
+        )
+    except Exception:
+        conversaciones_prioritarias = []
+
+    contexto = {
+        "form": form,
+        "page_obj": page_obj,
+        "clientes": page_obj.object_list,
+        "filtros": filtros,
+        "stats_tipo": stats_tipo,
+        "total_clientes": Cliente.objects.count(),
+        "nuevos_semana": nuevos_semana,
+        "conversaciones_prioritarias": conversaciones_prioritarias,
+    }
+    return contexto
+
+
+@login_required
+def clientes_panel(request):
+    if request.method == "POST":
+        form = ClienteForm(request.POST)
+        if form.is_valid():
+            nuevo_cliente = form.save()
+            if request.headers.get("HX-Request"):
+                form = ClienteForm()
+                contexto = _clientes_context(request, form)
+                response = render(request, "crm/clientes/_panel_content.html", contexto)
+                response["HX-Trigger"] = json.dumps(
+                    {
+                        "clientesActualizados": {
+                            "id": nuevo_cliente.id,
+                            "toast": {
+                                "message": f"Cliente {nuevo_cliente.nombre} agregado correctamente.",
+                                "level": "success",
+                            },
+                        }
+                    }
+                )
+                return response
+
+            messages.success(request, f"Cliente {nuevo_cliente.nombre} agregado correctamente.")
+            return redirect("crm:clientes")
+    else:
+        form = ClienteForm()
+
+    contexto = _clientes_context(request, form)
+
+    template = "crm/clientes/_panel_content.html" if request.headers.get("HX-Request") else "crm/clientes/panel.html"
+    return render(request, template, contexto)
 
 @login_required
 def get_conversacion_details(request, conv_id):

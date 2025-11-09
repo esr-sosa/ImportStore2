@@ -1,0 +1,310 @@
+<div class="min-h-screen bg-[var(--surface-color)] pb-16 pt-10 dark:bg-[var(--surface-color)]">
+  <div class="mx-auto flex max-w-6xl flex-col gap-10 px-6">
+    <header class="flex flex-col gap-3">
+      <span class="text-xs font-semibold uppercase tracking-[0.35em] text-muted">Centro de control</span>
+      <div class="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 class="text-3xl font-semibold text-slate-900 dark:text-white">Configuración del sistema</h1>
+          <p class="mt-1 max-w-2xl text-sm text-muted">
+            Personalizá tu marca, ajustá parámetros operativos y mantené saludable la plataforma omnicanal de ImportStore / VALNOR.
+          </p>
+        </div>
+        <div class="flex items-center gap-3 rounded-3xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-600 shadow-lg dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200">
+          <div class="flex flex-col leading-tight">
+            <span class="text-xs uppercase tracking-widest text-muted">Migraciones pendientes</span>
+            <span class="text-lg font-semibold">{{ pendientes|length }}</span>
+          </div>
+          <span class="h-10 w-px bg-slate-200/70 dark:bg-slate-700"></span>
+          <div class="flex flex-col leading-tight">
+            <span class="text-xs uppercase tracking-widest text-muted">Clientes</span>
+            <span class="text-lg font-semibold">{{ system_info.clientes|default:"—" }}</span>
+          </div>
+          <span class="h-10 w-px bg-slate-200/70 dark:bg-slate-700"></span>
+          <div class="flex flex-col leading-tight">
+            <span class="text-xs uppercase tracking-widest text-muted">Usuarios</span>
+            <span class="text-lg font-semibold">{{ system_info.usuarios|default:"—" }}</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="grid gap-6 lg:grid-cols-[3fr,2fr]">
+      <section class="glass-surface card-surface rounded-3xl border px-6 py-6 shadow-xl dark:border-slate-700/60">
+        <div class="flex flex-col gap-6 lg:flex-row">
+          <div class="flex-1">
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Identidad de marca</h2>
+            <p class="text-sm text-muted">Los cambios se aplican instantáneamente al sidebar, la cabecera, los PDF y la tienda pública.</p>
+          </div>
+          <div class="relative w-full max-w-xs overflow-hidden rounded-3xl border border-white/30 bg-gradient-to-br from-[var(--accent-color)]/95 to-slate-900/90 p-5 text-white shadow-xl" id="brand-preview" style="--accent-color: {{ configuracion.color_principal }};">
+            <div class="flex items-center gap-3">
+              <div class="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-white/10 text-xl font-semibold" id="brand-preview-logo">
+                {% if configuracion.logo %}
+                  <img src="{{ configuracion.logo.url }}" alt="Logo actual" class="h-12 w-12 object-cover" />
+                {% else %}
+                  {{ configuracion.nombre_comercial|default:'IS'|slice:':2'|upper }}
+                {% endif %}
+              </div>
+              <div class="leading-tight">
+                <p class="text-xs uppercase tracking-[0.3em] text-white/80">Vista previa</p>
+                <p class="text-lg font-semibold" id="brand-preview-name">{{ configuracion.nombre_comercial }}</p>
+                <p class="text-xs text-white/70" id="brand-preview-tagline">{{ configuracion.lema|default:"Personalizá tu slogan" }}</p>
+              </div>
+            </div>
+            <div class="mt-4 flex items-center justify-between text-xs text-white/70">
+              <span>{{ system_info.engine|default:"DB"|upper }} · {{ system_info.database|default:"—" }}</span>
+              <span>Actualizado: {{ configuracion.ultima_actualizacion|default:"—" }}</span>
+            </div>
+          </div>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" class="mt-6 space-y-8" hx-post="{% url 'configuracion:panel' %}" hx-target="#configuracion-panel" hx-swap="outerHTML" hx-encoding="multipart/form-data">
+          {% csrf_token %}
+
+          {% if form.non_field_errors %}
+            <div class="rounded-2xl border border-rose-400/50 bg-rose-100/70 px-4 py-3 text-sm font-medium text-rose-700 dark:border-rose-500/50 dark:bg-rose-500/10 dark:text-rose-200">
+              {{ form.non_field_errors }}
+            </div>
+          {% endif %}
+
+          <div class="grid gap-5 md:grid-cols-2">
+            <div>
+              <label class="text-xs font-semibold uppercase tracking-wide text-muted">Nombre comercial</label>
+              {{ form.nombre_comercial }}
+              {{ form.nombre_comercial.errors }}
+            </div>
+            <div>
+              <label class="text-xs font-semibold uppercase tracking-wide text-muted">Lema</label>
+              {{ form.lema }}
+              {{ form.lema.errors }}
+            </div>
+            <div class="md:col-span-2">
+              <label class="text-xs font-semibold uppercase tracking-wide text-muted">Logo</label>
+              {{ form.logo }}
+              {{ form.logo.errors }}
+              {% if configuracion.logo %}
+                <img src="{{ configuracion.logo.url }}" class="mt-3 h-12 rounded-2xl object-cover" alt="Logo actual" id="brand-preview-current" />
+              {% else %}
+                <img class="mt-3 h-12 rounded-2xl object-cover" id="brand-preview-current" hidden alt="Logo actual" />
+              {% endif %}
+              <img class="mt-3 h-12 rounded-2xl object-cover" id="brand-preview-upload" hidden alt="Vista previa del nuevo logo" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold uppercase tracking-wide text-muted">Color primario</label>
+              {{ form.color_principal }}
+              {{ form.color_principal.errors }}
+            </div>
+            <div class="flex items-center gap-3 pt-2">
+              {{ form.modo_oscuro_predeterminado }}
+              <span class="text-sm text-muted">Modo oscuro predeterminado</span>
+            </div>
+            <div class="flex items-center gap-3 pt-2">
+              {{ form.mostrar_alertas }}
+              <span class="text-sm text-muted">Mostrar alertas del sistema</span>
+            </div>
+            <div class="flex items-center gap-3 pt-2">
+              {{ form.acceso_admin_habilitado }}
+              <span class="text-sm text-muted">Mostrar acceso rápido al panel de Django</span>
+            </div>
+            <div>
+              <label class="text-xs font-semibold uppercase tracking-wide text-muted">WhatsApp corporativo</label>
+              {{ form.whatsapp_numero }}
+              {{ form.whatsapp_numero.errors }}
+            </div>
+            <div>
+              <label class="text-xs font-semibold uppercase tracking-wide text-muted">Correo de contacto</label>
+              {{ form.contacto_email }}
+              {{ form.contacto_email.errors }}
+            </div>
+            <div>
+              <label class="text-xs font-semibold uppercase tracking-wide text-muted">Domicilio comercial</label>
+              {{ form.domicilio_comercial }}
+              {{ form.domicilio_comercial.errors }}
+            </div>
+            <div>
+              <label class="text-xs font-semibold uppercase tracking-wide text-muted">Dólar blue manual</label>
+              {{ form.dolar_blue_manual }}
+              {{ form.dolar_blue_manual.errors }}
+            </div>
+          </div>
+
+          <div>
+            <label class="text-xs font-semibold uppercase tracking-wide text-muted">Notas internas</label>
+            {{ form.notas_sistema }}
+            {{ form.notas_sistema.errors }}
+          </div>
+
+          <fieldset class="rounded-2xl border border-slate-200/60 px-4 py-4 dark:border-slate-700/60">
+            <legend class="px-2 text-xs font-semibold uppercase tracking-wide text-muted">Preferencias personales</legend>
+            <div class="flex items-center gap-3">
+              {{ pref_form.usa_modo_oscuro }}
+              <span class="text-sm text-muted">Usar modo oscuro en este dispositivo</span>
+            </div>
+          </fieldset>
+
+          <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <p class="text-xs text-muted">Última actualización: {{ configuracion.ultima_actualizacion|default:"—" }}</p>
+            <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-300 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white/90">
+              <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+              Guardar cambios
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <aside class="space-y-6">
+        <section class="glass-surface card-surface rounded-3xl border px-6 py-6 shadow-lg dark:border-slate-700/60">
+          <h3 class="text-sm font-semibold uppercase tracking-widest text-muted">Diagnóstico rápido</h3>
+          <div class="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-200">
+            <div class="flex items-center justify-between rounded-2xl bg-slate-100/80 px-4 py-3 text-sm dark:bg-slate-800/70">
+              <span>Migraciones pendientes</span>
+              <span class="font-semibold {% if pendientes %}text-amber-500{% else %}text-emerald-500{% endif %}">{{ pendientes|length }}</span>
+            </div>
+            {% if columnas_faltantes %}
+              <div class="rounded-2xl bg-rose-500/10 px-4 py-3 text-xs text-rose-400">
+                <p class="font-semibold">Columnas faltantes detectadas</p>
+                {% for app, columnas in columnas_faltantes.items %}
+                  <p class="mt-1">{{ app }}: {{ columnas|join:", " }}</p>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p class="text-xs text-muted">¡Todo listo! No se detectaron columnas faltantes.</p>
+            {% endif %}
+            <div class="grid gap-2 rounded-2xl bg-slate-100/70 p-3 text-xs dark:bg-slate-800/60">
+              <p class="font-semibold text-slate-600 dark:text-slate-200">Inventario</p>
+              <p>Productos activos: {{ salud_inventario.productos|default:"—" }}</p>
+              {% for tabla, existe in salud_inventario.tablas.items %}
+                <p>{{ tabla }}: {% if existe %}<span class="font-semibold text-emerald-500">OK{% else %}<span class="font-semibold text-rose-500">Falta{% endif %}</span></p>
+              {% endfor %}
+            </div>
+          </div>
+        </section>
+
+        <section class="glass-surface card-surface rounded-3xl border px-6 py-6 shadow-lg dark:border-slate-700/60">
+          <h3 class="text-sm font-semibold uppercase tracking-widest text-muted">Información del entorno</h3>
+          <dl class="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-200">
+            <div class="flex items-center justify-between">
+              <dt>Motor</dt>
+              <dd class="font-semibold uppercase">{{ system_info.engine|default:"—" }}</dd>
+            </div>
+            <div class="flex items-center justify-between">
+              <dt>Base de datos</dt>
+              <dd class="font-semibold">{{ system_info.database|default:"—" }}</dd>
+            </div>
+            <div class="flex items-center justify-between">
+              <dt>Host</dt>
+              <dd class="font-semibold">{{ system_info.host|default:"—" }}</dd>
+            </div>
+            <div class="flex items-center justify-between">
+              <dt>Migraciones</dt>
+              <dd class="font-semibold">{{ system_info.pendientes }}</dd>
+            </div>
+            {% if system_info.debug is not None %}
+              <div class="flex items-center justify-between">
+                <dt>DEBUG</dt>
+                <dd class="font-semibold {% if system_info.debug %}text-amber-500{% else %}text-emerald-500{% endif %}">{{ system_info.debug|yesno:"ON,OFF" }}</dd>
+              </div>
+            {% endif %}
+          </dl>
+        </section>
+
+        <section class="glass-surface card-surface rounded-3xl border px-6 py-6 shadow-lg dark:border-slate-700/60">
+          <h3 class="text-sm font-semibold uppercase tracking-widest text-muted">Actividad reciente</h3>
+          {% if historial_reciente %}
+            <ul class="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-200">
+              {% for registro in historial_reciente %}
+                <li class="rounded-2xl bg-slate-100/70 px-4 py-3 dark:bg-slate-800/70">
+                  <p class="font-semibold">{{ registro.get_tipo_accion_display }}</p>
+                  <p class="text-xs text-muted">{{ registro.fecha|date:"d/m/Y H:i" }} · {{ registro.usuario|default:"Sistema" }}</p>
+                  <p class="mt-1 text-xs">{{ registro.descripcion }}</p>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="mt-4 text-sm text-muted">Aún no hay registros en el historial.</p>
+          {% endif %}
+        </section>
+      </aside>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const nameInput = document.getElementById('id_nombre_comercial');
+    const taglineInput = document.getElementById('id_lema');
+    const colorInput = document.getElementById('id_color_principal');
+    const logoInput = document.getElementById('id_logo');
+    const previewCard = document.getElementById('brand-preview');
+    const previewName = document.getElementById('brand-preview-name');
+    const previewTagline = document.getElementById('brand-preview-tagline');
+    const previewLogo = document.getElementById('brand-preview-logo');
+    const previewUpload = document.getElementById('brand-preview-upload');
+    const previewCurrent = document.getElementById('brand-preview-current');
+
+    if (!previewCard) {
+      return;
+    }
+
+    const updateColor = (color) => {
+      if (color) {
+        previewCard.style.setProperty('--accent-color', color);
+        if (!previewLogo.querySelector('img')) {
+          previewLogo.style.backgroundColor = color;
+        }
+      }
+    };
+
+    const updateInitials = () => {
+      if (previewLogo.querySelector('img')) {
+        return;
+      }
+      const value = (nameInput?.value || 'IS').trim();
+      previewLogo.textContent = value ? value.substring(0, 2).toUpperCase() : 'IS';
+    };
+
+    nameInput?.addEventListener('input', () => {
+      previewName.textContent = nameInput.value || 'ImportStore';
+      updateInitials();
+    });
+
+    taglineInput?.addEventListener('input', () => {
+      previewTagline.textContent = taglineInput.value || 'Personalizá tu slogan';
+    });
+
+    colorInput?.addEventListener('input', () => {
+      updateColor(colorInput.value);
+    });
+
+    logoInput?.addEventListener('change', (event) => {
+      const file = event.target.files && event.target.files[0];
+      if (!file) {
+        previewUpload.hidden = true;
+        if (previewCurrent && previewCurrent.src) {
+          previewCurrent.hidden = false;
+        } else {
+          previewLogo.innerHTML = '';
+          updateInitials();
+        }
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        previewLogo.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = reader.result;
+        img.alt = 'Nuevo logo';
+        img.className = 'h-12 w-12 object-cover';
+        previewLogo.appendChild(img);
+        previewUpload.src = reader.result;
+        previewUpload.hidden = false;
+        if (previewCurrent) {
+          previewCurrent.hidden = true;
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+
+    updateColor(colorInput?.value || previewCard.style.getPropertyValue('--accent-color'));
+    updateInitials();
+  })();
+</script>

@@ -1,0 +1,109 @@
+<div class="min-h-screen bg-[var(--surface-color)] pb-16 pt-10">
+  <div class="mx-auto flex max-w-6xl flex-col gap-10 px-6">
+    <header class="flex flex-col gap-3">
+      <span class="text-xs font-semibold uppercase tracking-[0.35em] text-muted">Inventario · Catálogos base</span>
+      <div class="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 class="text-3xl font-semibold text-slate-900 dark:text-white">Categorías y proveedores</h1>
+          <p class="mt-1 max-w-3xl text-sm text-muted">Organizá tu inventario creando categorías jerárquicas y proveedores confiables. Todo se actualiza en tiempo real.</p>
+        </div>
+      </div>
+    </header>
+
+    <div class="grid gap-6 lg:grid-cols-2">
+      <section class="glass-surface card-surface rounded-3xl border px-6 py-6 shadow-xl dark:border-slate-700/60">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Categorías</h2>
+        <p class="text-sm text-muted">Agrupá productos y variantes para acelerar filtros, reportes y la tienda online.</p>
+        <form method="post" class="mt-4 space-y-4" hx-post="{% url 'inventario:maestros' %}" hx-target="#maestros-panel" hx-swap="outerHTML">
+          {% csrf_token %}
+          <input type="hidden" name="form_tipo" value="categoria">
+          {{ categoria_form.non_field_errors }}
+          <div>
+            <label class="text-xs font-semibold uppercase tracking-wide text-muted">Nombre</label>
+            {{ categoria_form.nombre }}
+            {{ categoria_form.nombre.errors }}
+          </div>
+          <div>
+            <label class="text-xs font-semibold uppercase tracking-wide text-muted">Descripción</label>
+            {{ categoria_form.descripcion }}
+            {{ categoria_form.descripcion.errors }}
+          </div>
+          <div class="flex items-center justify-end gap-3">
+            <button type="reset" class="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Limpiar</button>
+            <button type="submit" class="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-300 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white">
+              <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+              Guardar categoría
+            </button>
+          </div>
+        </form>
+
+        <div class="mt-6 divide-y divide-slate-200/60 rounded-3xl border border-slate-200/60 bg-white shadow-sm dark:divide-slate-800/60 dark:border-slate-700/60 dark:bg-slate-900/70">
+          {% for categoria in categorias %}
+            <div class="flex items-start justify-between gap-4 px-5 py-4">
+              <div>
+                <p class="font-semibold text-slate-800 dark:text-slate-100">{{ categoria.nombre }}</p>
+                <p class="text-xs text-muted">{{ categoria.descripcion|default:"Sin descripción" }}</p>
+              </div>
+            </div>
+          {% empty %}
+            <p class="px-5 py-6 text-sm text-muted">Aún no registraste categorías.</p>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="glass-surface card-surface rounded-3xl border px-6 py-6 shadow-xl dark:border-slate-700/60">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Proveedores</h2>
+        <p class="text-sm text-muted">Administrá tus proveedores y activalos o inhabilitalos según su estado actual.</p>
+        <form method="post" class="mt-4 grid gap-4" hx-post="{% url 'inventario:maestros' %}" hx-target="#maestros-panel" hx-swap="outerHTML">
+          {% csrf_token %}
+          <input type="hidden" name="form_tipo" value="proveedor">
+          {{ proveedor_form.non_field_errors }}
+          <div>
+            <label class="text-xs font-semibold uppercase tracking-wide text-muted">Nombre</label>
+            {{ proveedor_form.nombre }}
+            {{ proveedor_form.nombre.errors }}
+          </div>
+          <div class="grid gap-4 md:grid-cols-2">
+            <div>
+              <label class="text-xs font-semibold uppercase tracking-wide text-muted">Teléfono</label>
+              {{ proveedor_form.telefono }}
+              {{ proveedor_form.telefono.errors }}
+            </div>
+            <div>
+              <label class="text-xs font-semibold uppercase tracking-wide text-muted">Email</label>
+              {{ proveedor_form.email }}
+              {{ proveedor_form.email.errors }}
+            </div>
+          </div>
+          <div class="flex items-center gap-3">
+            {{ proveedor_form.activo }}
+            <span class="text-sm text-muted">Proveedor activo</span>
+          </div>
+          <div class="flex items-center justify-end gap-3">
+            <button type="reset" class="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Limpiar</button>
+            <button type="submit" class="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-300 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white">
+              <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+              Guardar proveedor
+            </button>
+          </div>
+        </form>
+
+        <div class="mt-6 divide-y divide-slate-200/60 rounded-3xl border border-slate-200/60 bg-white shadow-sm dark:divide-slate-800/60 dark:border-slate-700/60 dark:bg-slate-900/70">
+          {% for proveedor in proveedores %}
+            <div class="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+              <div>
+                <p class="font-semibold text-slate-800 dark:text-slate-100">{{ proveedor.nombre }}</p>
+                <p class="text-xs text-muted">{{ proveedor.telefono|default:"Sin teléfono" }} · {{ proveedor.email|default:"Sin email" }}</p>
+              </div>
+              <button hx-post="{% url 'inventario:proveedor_toggle' proveedor.id %}" hx-target="#maestros-panel" hx-swap="outerHTML" hx-vals='{"csrfmiddlewaretoken": "{{ csrf_token }}"}' class="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
+                {% if proveedor.activo %}Desactivar{% else %}Activar{% endif %}
+              </button>
+            </div>
+          {% empty %}
+            <p class="px-5 py-6 text-sm text-muted">Aún no registraste proveedores.</p>
+          {% endfor %}
+        </div>
+      </section>
+    </div>
+  </div>
+</div>

@@ -1,3 +1,4 @@
+import json
 from decimal import Decimal
 
 from django.contrib import messages
@@ -13,12 +14,14 @@ from core.db_inspector import column_exists
 from core.utils import obtener_valor_dolar_blue
 
 from .forms import (
+    CategoriaForm,
     ImportacionInventarioForm,
     InventarioFiltroForm,
     ProductoForm,
     ProductoVarianteForm,
+    ProveedorForm,
 )
-from .models import Precio, Producto, ProductoVariante
+from .models import Categoria, Precio, Producto, ProductoVariante, Proveedor
 from .utils import is_detalleiphone_variante_ready
 from .importers import exportar_catalogo_a_csv, importar_catalogo_desde_archivo
 
@@ -313,3 +316,92 @@ def inventario_exportar(request):
     respuesta = HttpResponse(buffer.getvalue(), content_type="text/csv")
     respuesta["Content-Disposition"] = "attachment; filename=inventario_exportado.csv"
     return respuesta
+
+
+def _maestros_context(categoria_form=None, proveedor_form=None):
+    return {
+        "categoria_form": categoria_form or CategoriaForm(prefix="categoria"),
+        "proveedor_form": proveedor_form or ProveedorForm(prefix="proveedor"),
+        "categorias": Categoria.objects.order_by("nombre"),
+        "proveedores": Proveedor.objects.order_by("nombre"),
+    }
+
+
+@login_required
+def maestros(request):
+    categoria_form = CategoriaForm(prefix="categoria")
+    proveedor_form = ProveedorForm(prefix="proveedor")
+
+    if request.method == "POST":
+        form_tipo = request.POST.get("form_tipo")
+        if form_tipo == "categoria":
+            categoria_form = CategoriaForm(request.POST, prefix="categoria")
+            if categoria_form.is_valid():
+                categoria = categoria_form.save()
+                if request.headers.get("HX-Request"):
+                    contexto = _maestros_context()
+                    response = render(request, "inventario/maestros/_panel.html", contexto)
+                    response["HX-Trigger"] = json.dumps(
+                        {
+                            "showToast": {
+                                "message": f"Categoría {categoria.nombre} creada correctamente.",
+                                "level": "success",
+                            }
+                        }
+                    )
+                    return response
+                messages.success(request, f"Categoría {categoria.nombre} creada correctamente.")
+                return redirect("inventario:maestros")
+        elif form_tipo == "proveedor":
+            proveedor_form = ProveedorForm(request.POST, prefix="proveedor")
+            if proveedor_form.is_valid():
+                proveedor = proveedor_form.save()
+                if request.headers.get("HX-Request"):
+                    contexto = _maestros_context()
+                    response = render(request, "inventario/maestros/_panel.html", contexto)
+                    response["HX-Trigger"] = json.dumps(
+                        {
+                            "showToast": {
+                                "message": f"Proveedor {proveedor.nombre} agregado correctamente.",
+                                "level": "success",
+                            }
+                        }
+                    )
+                    return response
+                messages.success(request, f"Proveedor {proveedor.nombre} agregado correctamente.")
+                return redirect("inventario:maestros")
+
+        if request.headers.get("HX-Request"):
+            contexto = _maestros_context(categoria_form=categoria_form, proveedor_form=proveedor_form)
+            return render(request, "inventario/maestros/_panel.html", contexto)
+
+    contexto = _maestros_context(categoria_form=categoria_form, proveedor_form=proveedor_form)
+    template = "inventario/maestros/_panel.html" if request.headers.get("HX-Request") else "inventario/maestros/panel.html"
+    return render(request, template, contexto)
+
+
+@login_required
+@transaction.atomic
+def proveedor_toggle_activo(request, pk: int):
+    proveedor = get_object_or_404(Proveedor, pk=pk)
+    proveedor.activo = not proveedor.activo
+    proveedor.save(update_fields=["activo"])
+
+    if request.headers.get("HX-Request"):
+        contexto = _maestros_context()
+        response = render(request, "inventario/maestros/_panel.html", contexto)
+        response["HX-Trigger"] = json.dumps(
+            {
+                "showToast": {
+                    "message": f"Proveedor {proveedor.nombre} ahora está {'activo' if proveedor.activo else 'inactivo'}.",
+                    "level": "info",
+                }
+            }
+        )
+        return response
+
+    messages.info(
+        request,
+        f"Proveedor {proveedor.nombre} ahora está {'activo' if proveedor.activo else 'inactivo'}.",
+    )
+    return redirect("inventario:maestros")

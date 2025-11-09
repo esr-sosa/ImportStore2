@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{% block title %}Clientes{% endblock %}
+
+{% block content %}
+  <div id="clientes-panel">
+    {% include "crm/clientes/_panel_content.html" %}
+  </div>
+  <div id="clientes-refresh-trigger" hx-get="{% url 'crm:clientes' %}?{{ request.GET.urlencode }}" hx-trigger="clientes:refresh" hx-target="#clientes-panel" hx-swap="outerHTML"></div>
+{% endblock %}

@@ -1,6 +1,9 @@
 import json
+from typing import Any, Dict, Iterable
 
+from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
@@ -9,6 +12,8 @@ from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
 from core.db_inspector import column_exists, table_exists
+from crm.models import Cliente
+from historial.models import RegistroHistorial
 from inventario.models import Producto
 
 from .forms import ConfiguracionSistemaForm, PreferenciaUsuarioForm
@@ -19,11 +24,87 @@ def _pendientes_migracion() -> list[str]:
     executor = MigrationExecutor(connection)
     targets = executor.loader.graph.leaf_nodes()
     plan = executor.migration_plan(targets)
-    pendientes = []
+    pendientes: list[str] = []
     for migration, backwards in plan:
         if not backwards:
             pendientes.append(f"{migration.app_label}.{migration.name}")
     return pendientes
+
+
+def _columnas_faltantes() -> Dict[str, Iterable[str]]:
+    columnas = {
+        "inventario": [
+            "inventario_productovariante.sku"
+            if not column_exists("inventario_productovariante", "sku")
+            else None,
+            "inventario_precio.precio"
+            if not column_exists("inventario_precio", "precio")
+            else None,
+        ],
+        "ventas": [
+            "inventario_productovariante.stock_actual"
+            if not column_exists("inventario_productovariante", "stock_actual")
+            else None,
+        ],
+    }
+    return {
+        app: [col for col in valores if col]
+        for app, valores in columnas.items()
+        if any(valores)
+    }
+
+
+def _salud_inventario() -> Dict[str, Any]:
+    productos_activos = None
+    if table_exists("inventario_producto"):
+        try:
+            productos_activos = Producto.objects.filter(activo=True).count()
+        except Exception:
+            productos_activos = None
+
+    return {
+        "productos": productos_activos,
+        "tablas": {
+            "inventario_producto": table_exists("inventario_producto"),
+            "inventario_productovariante": table_exists("inventario_productovariante"),
+            "inventario_precio": table_exists("inventario_precio"),
+        },
+    }
+
+
+def _system_info(configuracion: ConfiguracionSistema, pendientes: int) -> Dict[str, Any]:
+    db_settings = connection.settings_dict
+    info = {
+        "engine": connection.vendor,
+        "database": db_settings.get("NAME", "—"),
+        "host": db_settings.get("HOST", "local"),
+        "usuarios": get_user_model().objects.count() if table_exists("auth_user") else None,
+        "clientes": Cliente.objects.count() if table_exists("crm_cliente") else None,
+        "pendientes": pendientes,
+    }
+    info["debug"] = settings.DEBUG
+    return info
+
+
+def _historial_reciente() -> Iterable[RegistroHistorial]:
+    try:
+        return RegistroHistorial.objects.select_related("usuario").order_by("-fecha")[:5]
+    except Exception:
+        return []
+
+
+def _contexto_panel(configuracion, form, pref_form) -> Dict[str, Any]:
+    pendientes = _pendientes_migracion()
+    return {
+        "form": form,
+        "pref_form": pref_form,
+        "configuracion": configuracion,
+        "pendientes": pendientes,
+        "columnas_faltantes": _columnas_faltantes(),
+        "salud_inventario": _salud_inventario(),
+        "system_info": _system_info(configuracion, len(pendientes)),
+        "historial_reciente": _historial_reciente(),
+    }
 
 
 @login_required
@@ -37,62 +118,39 @@ def panel_configuracion(request):
         if form.is_valid() and pref_form.is_valid():
             instancia = form.save()
             pref_form.save()
-            messages.success(request, "Configuración actualizada correctamente.")
+
+            mensaje = "Configuración actualizada correctamente."
             if instancia.dolar_blue_manual:
-                messages.info(
-                    request,
-                    "El valor manual del dólar blue se utilizará como fallback cuando no haya conexión.",
+                mensaje += " Valor manual del dólar blue activo como respaldo."
+
+            if request.headers.get("HX-Request"):
+                form = ConfiguracionSistemaForm(instance=instancia)
+                pref_form = PreferenciaUsuarioForm(instance=preferencias)
+                contexto = _contexto_panel(instancia, form, pref_form)
+                response = render(request, "configuracion/_panel_content.html", contexto)
+                logo_url = instancia.logo.url if instancia.logo else ""
+                response["HX-Trigger-After-Swap"] = json.dumps(
+                    {
+                        "configuracionActualizada": {
+                            "nombre": instancia.nombre_comercial,
+                            "lema": instancia.lema,
+                            "color": instancia.color_principal,
+                            "logo": logo_url,
+                        },
+                        "showToast": {"message": mensaje, "level": "success"},
+                    }
                 )
+                return response
+
+            messages.success(request, mensaje)
             return redirect("configuracion:panel")
     else:
         form = ConfiguracionSistemaForm(instance=configuracion)
         pref_form = PreferenciaUsuarioForm(instance=preferencias)
 
-    pendientes = _pendientes_migracion()
-    columnas_faltantes = {
-        "inventario": [
-            "inventario_productovariante.sku" if not column_exists("inventario_productovariante", "sku") else None,
-            "inventario_precio.precio" if not column_exists("inventario_precio", "precio") else None,
-        ],
-        "ventas": [
-            "inventario_productovariante.stock_actual" if not column_exists("inventario_productovariante", "stock_actual") else None,
-        ],
-    }
-
-    columnas_faltantes = {
-        app: [col for col in cols if col]
-        for app, cols in columnas_faltantes.items()
-        if any(cols)
-    }
-
-    productos_activos = None
-    if table_exists("inventario_producto"):
-        try:
-            productos_activos = Producto.objects.filter(activo=True).count()
-        except Exception:
-            productos_activos = None
-
-    salud_inventario = {
-        "productos": productos_activos,
-        "tablas": {
-            "inventario_producto": table_exists("inventario_producto"),
-            "inventario_productovariante": table_exists("inventario_productovariante"),
-            "inventario_precio": table_exists("inventario_precio"),
-        },
-    }
-
-    return render(
-        request,
-        "configuracion/panel.html",
-        {
-            "form": form,
-            "pref_form": pref_form,
-            "configuracion": configuracion,
-            "pendientes": pendientes,
-            "columnas_faltantes": columnas_faltantes,
-            "salud_inventario": salud_inventario,
-        },
-    )
+    contexto = _contexto_panel(configuracion, form, pref_form)
+    template = "configuracion/_panel_content.html" if request.headers.get("HX-Request") else "configuracion/panel.html"
+    return render(request, template, contexto)
 
 
 @login_required
