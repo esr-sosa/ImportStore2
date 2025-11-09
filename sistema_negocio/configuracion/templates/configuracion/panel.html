@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Configuración{% endblock %}
+
+{% block extra_head %}
+  <style>
+    .glass {
+      backdrop-filter: blur(16px);
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-100 py-10 dark:bg-slate-950">
+  <div class="mx-auto max-w-6xl px-6">
+    <header class="mb-10 flex flex-col gap-2">
+      <p class="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500 dark:text-slate-400">Centro de control</p>
+      <h1 class="text-3xl font-semibold text-slate-900 dark:text-white">Configuración general</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400">Personalizá tu marca, verificá la salud del sistema y accedé rápidamente a herramientas clave.</p>
+    </header>
+
+    <div class="grid gap-6 lg:grid-cols-[3fr,2fr]">
+      <section class="glass rounded-3xl p-6 shadow-xl dark:bg-slate-900/80 dark:text-slate-100">
+        <div class="flex flex-col gap-6 lg:flex-row">
+          <div class="flex-1">
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Identidad y parámetros</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Los cambios se reflejan en el sidebar, los comprobantes PDF y la web pública.</p>
+          </div>
+          <div class="w-full max-w-xs rounded-3xl border border-slate-200/60 bg-white px-5 py-4 shadow-lg dark:border-slate-700 dark:bg-slate-900" id="brand-preview" style="--accent-color: {{ configuracion.color_principal }};">
+            <div class="flex items-center gap-3">
+              <div class="h-12 w-12 rounded-2xl bg-[var(--accent-color)] text-white shadow-inner shadow-black/20 flex items-center justify-center text-xl font-semibold overflow-hidden" id="brand-preview-logo">
+                {% if configuracion.logo %}
+                  <img src="{{ configuracion.logo.url }}" alt="Logo actual" class="h-12 w-12 rounded-2xl object-cover" />
+                {% else %}
+                  {{ configuracion.nombre_comercial|default:'IS'|slice:':2'|upper }}
+                {% endif %}
+              </div>
+              <div>
+                <p class="text-sm text-slate-500 uppercase tracking-[0.25em] dark:text-slate-400">Vista previa</p>
+                <h3 class="text-lg font-semibold text-slate-900 dark:text-white" id="brand-preview-name">{{ configuracion.nombre_comercial }}</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400" id="brand-preview-tagline">{{ configuracion.lema|default:"Personalizá tu slogan" }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" class="mt-6 space-y-6">
+          {% csrf_token %}
+
+          {% if form.non_field_errors %}
+            <div class="rounded-2xl border border-rose-300/60 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/60 dark:bg-rose-500/10 dark:text-rose-200">
+              {{ form.non_field_errors }}
+            </div>
+          {% endif %}
+
+          <div class="grid gap-5 md:grid-cols-2">
+            <div>
+              <label class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Nombre comercial</label>
+              {{ form.nombre_comercial }}
+              {{ form.nombre_comercial.errors }}
+            </div>
+            <div>
+              <label class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Lema</label>
+              {{ form.lema }}
+              {{ form.lema.errors }}
+            </div>
+            <div>
+              <label class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Logo</label>
+              {{ form.logo }}
+              {{ form.logo.errors }}
+              <img src="{{ configuracion.logo.url }}" class="mt-3 h-12" alt="Logo actual" id="brand-preview-current" {% if not configuracion.logo %}hidden{% endif %} />
+              <img class="mt-3 h-12 rounded-2xl object-cover" id="brand-preview-upload" hidden alt="Vista previa del nuevo logo" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Color primario</label>
+              {{ form.color_principal }}
+              {{ form.color_principal.errors }}
+            </div>
+            <div class="flex items-center gap-3 pt-2">
+              {{ form.modo_oscuro_predeterminado }}
+              <span class="text-sm text-slate-600 dark:text-slate-300">Modo oscuro predeterminado</span>
+            </div>
+            <div class="flex items-center gap-3 pt-2">
+              {{ form.mostrar_alertas }}
+              <span class="text-sm text-slate-600 dark:text-slate-300">Mostrar alertas del sistema</span>
+            </div>
+            <div>
+              <label class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">WhatsApp corporativo</label>
+              {{ form.whatsapp_numero }}
+              {{ form.whatsapp_numero.errors }}
+            </div>
+            <div>
+              <label class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Correo de contacto</label>
+              {{ form.contacto_email }}
+              {{ form.contacto_email.errors }}
+            </div>
+            <div>
+              <label class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Domicilio comercial</label>
+              {{ form.domicilio_comercial }}
+              {{ form.domicilio_comercial.errors }}
+            </div>
+            <div>
+              <label class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Dólar blue manual</label>
+              {{ form.dolar_blue_manual }}
+              {{ form.dolar_blue_manual.errors }}
+            </div>
+          </div>
+          <div>
+            <label class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Notas internas</label>
+            {{ form.notas_sistema }}
+            {{ form.notas_sistema.errors }}
+          </div>
+
+          <fieldset class="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+            <legend class="px-2 text-xs font-semibold uppercase text-slate-500 dark:text-slate-300">Preferencias personales</legend>
+            <div class="flex items-center gap-3">
+              {{ pref_form.usa_modo_oscuro }}
+              <span class="text-sm text-slate-600 dark:text-slate-300">Usar modo oscuro en este dispositivo</span>
+            </div>
+          </fieldset>
+
+          <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div class="text-xs text-slate-500 dark:text-slate-400">
+              Última actualización: {{ configuracion.ultima_actualizacion|default:"—" }}
+            </div>
+            <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-300 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white/90">
+              <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+              Guardar cambios
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <aside class="space-y-6">
+        <section class="glass rounded-3xl p-6 shadow-lg dark:bg-slate-900/80">
+          <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Estado del sistema</h3>
+          <div class="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-300">
+            <p><span class="font-semibold">Migraciones pendientes:</span> {% if pendientes %}{{ pendientes|length }}{% else %}0{% endif %}</p>
+            {% if pendientes %}
+              <ul class="list-disc pl-5 text-xs text-rose-500 dark:text-rose-300">
+                {% for mig in pendientes %}<li>{{ mig }}</li>{% endfor %}
+              </ul>
+            {% endif %}
+            <div class="grid gap-2 rounded-2xl bg-slate-100/70 p-3 text-xs dark:bg-slate-800/60">
+              <p class="font-semibold text-slate-600 dark:text-slate-200">Inventario</p>
+              <p>Productos activos: {{ salud_inventario.productos|default:"—" }}</p>
+              {% for tabla, existe in salud_inventario.tablas.items %}
+                <p>{{ tabla }}: {% if existe %}<span class="text-emerald-500 font-semibold">OK{% else %}<span class="text-rose-500 font-semibold">Falta{% endif %}</span></p>
+              {% endfor %}
+            </div>
+            {% if columnas_faltantes %}
+              <div class="rounded-2xl bg-rose-50 p-3 text-xs text-rose-600 dark:bg-rose-500/10 dark:text-rose-200">
+                <p class="font-semibold">Columnas faltantes detectadas:</p>
+                {% for app, columnas in columnas_faltantes.items %}
+                  <p class="mt-1">{{ app }}: {{ columnas|join:", " }}</p>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        </section>
+
+        <section class="glass rounded-3xl p-6 shadow-lg dark:bg-slate-900/80">
+          <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Accesos rápidos</h3>
+          <div class="mt-4 space-y-3 text-sm">
+            <a href="{% url 'inventario:dashboard' %}" class="block rounded-2xl bg-white px-4 py-3 text-center font-semibold text-slate-900 shadow hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700">Inventario</a>
+            <a href="{% url 'ventas:pos' %}" class="block rounded-2xl bg-white px-4 py-3 text-center font-semibold text-slate-900 shadow hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700">Punto de venta</a>
+            <a href="{% url 'dashboard:dashboard' %}" class="block rounded-2xl bg-white px-4 py-3 text-center font-semibold text-slate-900 shadow hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700">Dashboard</a>
+            <a href="{% url 'asistente_ia:chat' %}" class="block rounded-2xl bg-white px-4 py-3 text-center font-semibold text-slate-900 shadow hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700">Asistente IA</a>
+            {% if configuracion.acceso_admin_habilitado %}
+              <a href="{% url 'admin:index' %}" class="block rounded-2xl bg-slate-900 px-4 py-3 text-center font-semibold text-white shadow hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white">Panel de Django</a>
+            {% endif %}
+          </div>
+        </section>
+
+        <section class="glass rounded-3xl p-6 shadow-lg dark:bg-slate-900/80">
+          <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Resumen operativo</h3>
+          <ul class="mt-4 space-y-2 text-sm text-slate-600 dark:text-slate-300">
+            <li>• WhatsApp configurado: {% if configuracion.whatsapp_numero %}<span class="text-emerald-500">Sí{% else %}<span class="text-rose-500">No{% endif %}</span></li>
+            <li>• Alertas activas: {% if configuracion.mostrar_alertas %}<span class="text-emerald-500">Sí{% else %}<span class="text-rose-500">No{% endif %}</span></li>
+            <li>• Email de contacto: {{ configuracion.contacto_email|default:"No definido" }}</li>
+            <li>• Valor dólar manual: {{ configuracion.dolar_blue_manual|default:"No definido" }}</li>
+          </ul>
+        </section>
+
+        {% if configuracion.notas_sistema %}
+          <section class="glass rounded-3xl p-6 shadow-lg dark:bg-slate-900/80">
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Notas internas</h3>
+            <p class="mt-3 whitespace-pre-line text-sm text-slate-600 dark:text-slate-200">{{ configuracion.notas_sistema }}</p>
+          </section>
+        {% endif %}
+      </aside>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const nameInput = document.getElementById('id_nombre_comercial');
+    const taglineInput = document.getElementById('id_lema');
+    const colorInput = document.getElementById('id_color_principal');
+    const logoInput = document.getElementById('id_logo');
+    const previewCard = document.getElementById('brand-preview');
+    const previewName = document.getElementById('brand-preview-name');
+    const previewTagline = document.getElementById('brand-preview-tagline');
+    const previewLogo = document.getElementById('brand-preview-logo');
+    const previewUpload = document.getElementById('brand-preview-upload');
+    const previewCurrent = document.getElementById('brand-preview-current');
+
+    if (!previewCard) {
+      return;
+    }
+
+    const updateColor = (color) => {
+      if (color) {
+        previewCard.style.setProperty('--accent-color', color);
+        if (!previewLogo.querySelector('img')) {
+          previewLogo.style.backgroundColor = color;
+        }
+      }
+    };
+
+    const updateLogoInitials = () => {
+      if (previewLogo.querySelector('img')) {
+        return;
+      }
+      const value = (nameInput?.value || 'IS').trim();
+      previewLogo.textContent = value ? value.substring(0, 2).toUpperCase() : 'IS';
+    };
+
+    nameInput?.addEventListener('input', () => {
+      previewName.textContent = nameInput.value || 'ImportStore';
+      updateLogoInitials();
+    });
+
+    taglineInput?.addEventListener('input', () => {
+      previewTagline.textContent = taglineInput.value || 'Personalizá tu slogan';
+    });
+
+    colorInput?.addEventListener('input', () => {
+      updateColor(colorInput.value);
+    });
+
+    logoInput?.addEventListener('change', (event) => {
+      const file = event.target.files && event.target.files[0];
+      if (!file) {
+        previewUpload.hidden = true;
+        if (previewCurrent) {
+          previewCurrent.hidden = !previewCurrent.src;
+        }
+        if (!previewCurrent?.src) {
+          previewLogo.innerHTML = '';
+          updateLogoInitials();
+        }
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        previewLogo.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = reader.result;
+        img.alt = 'Nuevo logo';
+        img.className = 'h-12 w-12 rounded-2xl object-cover';
+        previewLogo.appendChild(img);
+        previewUpload.src = reader.result;
+        previewUpload.hidden = false;
+        if (previewCurrent) {
+          previewCurrent.hidden = true;
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+
+    updateColor(colorInput?.value || previewCard.style.getPropertyValue('--accent-color'));
+    updateLogoInitials();
+  })();
+</script>
+{% endblock %}

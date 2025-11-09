@@ -1,90 +1,147 @@
-# iphones/forms.py
-
 from django import forms
-from .constants import IPHONE_MODELS, CAPACITIES, COLORS
+
+from .constants import CAPACITIES, COLORS, IPHONE_MODELS
+
+
+IOS_INPUT = "w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-sm font-medium text-slate-900 shadow-sm placeholder-slate-400 focus:border-black focus:outline-none focus:ring-2 focus:ring-black/10"
+IOS_SELECT = f"{IOS_INPUT} appearance-none"
+IOS_TEXTAREA = IOS_INPUT + " min-h-[120px]"
+IOS_NUMBER = IOS_INPUT + " text-right"
+IOS_CHECK = "h-5 w-5 rounded-full border-slate-300 text-black focus:ring-black"
+
 
 class AgregarIphoneForm(forms.Form):
-    # --- Sección 1: Información General ---
     modelo = forms.ChoiceField(
         choices=[(m, m) for m in IPHONE_MODELS],
-        label="Modelo del iPhone",
-        widget=forms.Select(attrs={'class': 'w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:border-black focus:ring-black'})
+        label="Modelo",
+        widget=forms.Select(attrs={"class": IOS_SELECT}),
     )
     capacidad = forms.ChoiceField(
         choices=[(c, c) for c in CAPACITIES],
-        label="Capacidad de Almacenamiento",
-        widget=forms.Select(attrs={'class': 'w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:border-black focus:ring-black'})
+        label="Capacidad",
+        widget=forms.Select(attrs={"class": IOS_SELECT}),
     )
     color = forms.ChoiceField(
         choices=[(c, c) for c in COLORS],
-        label="Color del Equipo",
-        widget=forms.Select(attrs={'class': 'w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:border-black focus:ring-black'})
+        label="Color",
+        widget=forms.Select(attrs={"class": IOS_SELECT}),
     )
-    
-    # --- Sección 2: Detalles del Equipo ---
+    sku = forms.CharField(
+        label="SKU interno",
+        max_length=64,
+        widget=forms.TextInput(
+            attrs={"class": IOS_INPUT, "placeholder": "Ej: IPH-16PM-256-NAT"}
+        ),
+    )
+    stock_actual = forms.IntegerField(
+        label="Unidades",
+        min_value=0,
+        initial=1,
+        widget=forms.NumberInput(attrs={"class": IOS_NUMBER}),
+    )
+    stock_minimo = forms.IntegerField(
+        label="Stock mínimo",
+        min_value=0,
+        initial=0,
+        widget=forms.NumberInput(attrs={"class": IOS_NUMBER}),
+    )
+
     imei = forms.CharField(
         max_length=15,
         required=False,
-        label="IMEI (Opcional)",
-        help_text="Debe ser un número de 15 dígitos.",
-        widget=forms.TextInput(attrs={'class': 'w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:border-black focus:ring-black', 'placeholder': 'Ej: 358...'})
+        label="IMEI",
+        widget=forms.TextInput(
+            attrs={"class": IOS_INPUT, "placeholder": "15 dígitos"}
+        ),
     )
     salud_bateria = forms.IntegerField(
         min_value=1,
         max_value=100,
         required=False,
-        label="Salud de la Batería (%)",
-        widget=forms.NumberInput(attrs={'class': 'w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:border-black focus:ring-black', 'placeholder': 'Ej: 98'})
+        label="Salud batería (%)",
+        widget=forms.NumberInput(attrs={"class": IOS_NUMBER}),
     )
     fallas_observaciones = forms.CharField(
         required=False,
-        label="Fallas u Observaciones (Opcional)",
-        widget=forms.Textarea(attrs={'class': 'w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:border-black focus:ring-black', 'rows': 4, 'placeholder': 'Ej: Pequeña marca en la esquina superior derecha.'})
+        label="Condición / fallas",
+        widget=forms.Textarea(attrs={"class": IOS_TEXTAREA, "placeholder": "Ej: Micro rayón en esquina."}),
     )
-    
-    # --- Sección 3: Precio y Estado ---
+    notas = forms.CharField(
+        required=False,
+        label="Notas internas",
+        widget=forms.Textarea(attrs={"class": IOS_TEXTAREA, "placeholder": "Observaciones para el equipo de ventas."}),
+    )
+
     costo_usd = forms.DecimalField(
         max_digits=10,
         decimal_places=2,
-        label="Precio de Costo (USD)",
-        widget=forms.NumberInput(attrs={'class': 'w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:border-black focus:ring-black', 'placeholder': 'Ej: 950.00'})
+        label="Costo USD",
+        widget=forms.NumberInput(attrs={"class": IOS_NUMBER, "placeholder": "Ej: 900.00"}),
     )
     precio_venta_usd = forms.DecimalField(
         max_digits=10,
         decimal_places=2,
-        label="Precio de Venta (USD)",
-        widget=forms.NumberInput(attrs={'class': 'w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:border-black focus:ring-black', 'placeholder': 'Ej: 1200.00'})
+        label="Precio minorista USD",
+        widget=forms.NumberInput(attrs={"class": IOS_NUMBER, "placeholder": "Ej: 1199.00"}),
     )
     precio_oferta_usd = forms.DecimalField(
         max_digits=10,
         decimal_places=2,
         required=False,
-        label="Precio de Oferta (USD, Opcional)",
-        widget=forms.NumberInput(attrs={'class': 'w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:border-black focus:ring-black', 'placeholder': 'Ej: 1150.00'})
+        label="Precio oferta USD",
+        widget=forms.NumberInput(attrs={"class": IOS_NUMBER, "placeholder": "Opcional"}),
     )
-    
-    # --- Sección 4: Origen y Visibilidad ---
+    precio_venta_ars = forms.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        required=False,
+        label="Precio minorista ARS",
+        widget=forms.NumberInput(attrs={"class": IOS_NUMBER, "placeholder": "Opcional"}),
+    )
+    precio_mayorista_usd = forms.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        required=False,
+        label="Precio mayorista USD",
+        widget=forms.NumberInput(attrs={"class": IOS_NUMBER, "placeholder": "Opcional"}),
+    )
+    precio_mayorista_ars = forms.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        required=False,
+        label="Precio mayorista ARS",
+        widget=forms.NumberInput(attrs={"class": IOS_NUMBER, "placeholder": "Opcional"}),
+    )
+
     es_plan_canje = forms.BooleanField(
         required=False,
-        label="Recibido por Plan Canje",
-        widget=forms.CheckboxInput(attrs={'class': 'h-5 w-5 rounded border-gray-300 text-black focus:ring-black'})
+        initial=False,
+        label="Recibido por plan canje",
+        widget=forms.CheckboxInput(attrs={"class": IOS_CHECK}),
     )
     activo = forms.BooleanField(
         required=False,
         initial=True,
-        label="Activo para la venta",
-        widget=forms.CheckboxInput(attrs={'class': 'h-5 w-5 rounded border-gray-300 text-black focus:ring-black'})
+        label="Disponible para la venta",
+        widget=forms.CheckboxInput(attrs={"class": IOS_CHECK}),
     )
-    
-    # --- Sección 5: Imágenes ---
-    imagen = forms.ImageField(
+
+    foto = forms.ImageField(
         required=False,
-        label="Foto Principal del Equipo",
-        widget=forms.ClearableFileInput(attrs={'class': 'w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-200 file:text-gray-800 hover:file:bg-gray-300'})
+        label="Fotografía principal",
+        widget=forms.ClearableFileInput(
+            attrs={
+                "class": "w-full text-sm text-slate-500 file:mr-4 file:rounded-xl file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-slate-700",
+            }
+        ),
     )
 
     def clean_imei(self):
-        imei = self.cleaned_data.get('imei')
+        imei = self.cleaned_data.get("imei")
         if imei and (not imei.isdigit() or len(imei) != 15):
-            raise forms.ValidationError("El IMEI debe ser un número de 15 dígitos.")
+            raise forms.ValidationError("El IMEI debe contener 15 dígitos numéricos.")
         return imei
+
+    def clean_sku(self):
+        sku = self.cleaned_data.get("sku", "")
+        return sku.strip().upper()

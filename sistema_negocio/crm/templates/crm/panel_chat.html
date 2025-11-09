@@ -1,204 +1,374 @@
 {% extends "base.html" %}
 
-{% block title %}Chat | ImportStore Command Center{% endblock %}
+{% block title %}Inbox Omnicanal{% endblock %}
 
 {% block extra_head %}
 <style>
-    /* === CORE LAYOUT & RESPONSIVENESS === */
-    :root {
-        --system-font: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        --background-color: #f9fafb; /* Un gris muy claro */
-        --sidebar-width: 340px;
-        --details-width: 360px;
+    main { background: linear-gradient(135deg, #f5f3ff 0%, #eef2ff 100%); }
+    .glass-card { backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); background: rgba(255, 255, 255, 0.7); }
+    .filter-chip {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 9999px;
+        border: 1px solid rgba(148, 163, 184, 0.6);
+        background-color: rgba(255, 255, 255, 0.9);
+        padding: 0.35rem 0.9rem;
+        font-size: 0.75rem;
+        color: #64748b;
+        transition: all 0.2s ease;
     }
-
-    body {
-        font-family: var(--system-font);
-        background-color: var(--background-color);
+    .filter-chip:hover { border-color: #0f172a; color: #0f172a; }
+    .filter-chip.active {
+        border-color: #0f172a;
+        background-color: #0f172a;
+        color: #fff;
+        box-shadow: 0 10px 20px -15px rgba(15, 23, 42, 0.5);
     }
-
-    main { 
-        padding: 0 !important; 
-        height: 100vh;
-        overflow-y: hidden;
-    }
-    
-    .chat-container {
-        display: grid;
-        height: 100%;
-        grid-template-columns: var(--sidebar-width) 1fr var(--details-width);
-        transition: grid-template-columns 0.3s ease-in-out;
-    }
-
-    /* === APPLE-STYLE & GLASSMORPHISM === */
-    .glass-panel {
-        background-color: rgba(255, 255, 255, 0.6);
-        -webkit-backdrop-filter: blur(20px);
-        backdrop-filter: blur(20px);
-        border-color: rgba(230, 230, 230, 0.8);
-    }
-    
-    /* === MOBILE & RESPONSIVE BEHAVIOR === */
     @media (max-width: 1024px) {
-        .chat-container {
-            grid-template-columns: var(--sidebar-width) 1fr;
-        }
-        #cliente-info-panel { display: none; }
+        #chat-grid { grid-template-columns: minmax(0, 1fr); }
+        #detail-panel { display: none; }
     }
-
     @media (max-width: 768px) {
-        .chat-container {
-            display: block; 
-        }
-        #conversation-list-panel {
-            width: 100%;
-            height: 100%;
-            transition: transform 0.3s ease-in-out;
-            transform: translateX(0);
-        }
-        #main-chat-panel {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            transition: transform 0.3s ease-in-out;
-            transform: translateX(100%);
-            z-index: 20;
-        }
-        .chat-container.is-chat-active #conversation-list-panel {
-            transform: translateX(-100%);
-        }
-        .chat-container.is-chat-active #main-chat-panel {
-            transform: translateX(0);
-        }
-    }
-
-    /* === MESSAGE BUBBLES & MULTIMEDIA === */
-    .chat-message-content { word-break: break-word; }
-    .message-bubble img { max-width: 300px; border-radius: 12px; cursor: pointer; }
-    
-    /* === MODALS & UTILITIES === */
-    .modal-backdrop { display: none; }
-    .modal-backdrop.is-active { display: flex; }
-    .reply-preview {
-        display: none;
-        padding: 8px 12px;
-        background-color: #f1f1f1;
-        border-radius: 8px;
-        margin-bottom: 8px;
-        font-size: 0.8rem;
-        border-left: 3px solid #007aff;
+        #conversation-panel { position: relative; }
+        #chat-panel { position: fixed; inset: 0; transform: translateX(100%); transition: transform 0.3s ease; z-index: 30; }
+        #chat-panel.active { transform: translateX(0); }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div id="chat-container-root" class="chat-container w-full bg-gray-50">
-    
-    <!-- PANEL 1: LISTA DE CONVERSACIONES -->
-    <div id="conversation-list-panel" class="glass-panel border-r flex flex-col flex-shrink-0">
-        <div class="p-4 border-b border-gray-200/80 flex justify-between items-center">
-            <h2 class="text-xl font-bold text-gray-800">Bandeja de Entrada</h2>
+<div class="min-h-screen w-full px-4 py-8 sm:px-6 lg:px-10">
+    <header class="mb-6 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+            <p class="text-xs font-semibold uppercase tracking-wide text-indigo-500">CRM · WhatsApp &amp; Instagram</p>
+            <h1 class="mt-2 text-3xl font-bold text-slate-900 sm:text-4xl">Bandeja de entrada omnicanal</h1>
+            <p class="mt-2 max-w-3xl text-sm text-slate-600">Gestioná conversaciones, etiquetá clientes, aplicá playbooks y pedí resúmenes con IA sin abandonar el panel.</p>
         </div>
-        <div id="conversation-list" class="flex-grow overflow-y-auto">
-            {% for conv in conversaciones %}
-            <div class="conversation-item p-4 flex gap-4 cursor-pointer hover:bg-gray-200/50 transition-colors duration-200 border-b border-gray-100/80 relative" data-conv-id="{{ conv.id }}">
-                <div class="w-12 h-12 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center font-bold text-xl flex-shrink-0">{{ conv.cliente.nombre|first|upper }}</div>
-                <div class="w-full overflow-hidden">
-                    <div class="flex justify-between items-center">
-                        <p class="font-semibold text-gray-900 truncate">{{ conv.cliente.nombre }}</p>
-                        <p class="text-xs text-gray-500 flex-shrink-0">{{ conv.ultima_actualizacion|date:"P" }}</p>
+        <div class="flex flex-wrap gap-3">
+            <button id="toggle-analytics" class="rounded-full border border-slate-200 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900">Ver métricas</button>
+            <a href="{% url 'asistente_ia:chat' %}" class="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 hover:bg-slate-800">Abrir ISAC</a>
+        </div>
+    </header>
+
+    <section id="analytics-bar" class="glass-card hidden rounded-3xl border border-white/60 p-6 shadow-xl">
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <article class="rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-sm">
+                <p class="text-xs uppercase tracking-wide text-slate-500">Conversaciones activas</p>
+                <p class="mt-2 text-3xl font-semibold text-slate-900">{{ stats.total }}</p>
+                <p class="text-xs text-slate-500">{{ stats.abiertas }} abiertas · {{ stats.pendientes }} pendientes</p>
+            </article>
+            <article class="rounded-2xl border border-blue-200/70 bg-blue-50/70 p-4 shadow-sm">
+                <p class="text-xs uppercase tracking-wide text-blue-500">Seguimiento</p>
+                <p class="mt-2 text-3xl font-semibold text-blue-900">{{ stats.seguimiento }}</p>
+                <p class="text-xs text-blue-600">SLA vencidos: {{ stats.sla_vencidos }}</p>
+            </article>
+            <article class="rounded-2xl border border-emerald-200/70 bg-emerald-50/80 p-4 shadow-sm">
+                <p class="text-xs uppercase tracking-wide text-emerald-600">Tiempo real</p>
+                <p class="mt-2 text-3xl font-semibold text-emerald-900" id="real-time-metric">1m 52s</p>
+                <p class="text-xs text-emerald-600">Tiempo promedio de primera respuesta</p>
+            </article>
+            <article class="rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-sm">
+                <p class="text-xs uppercase tracking-wide text-slate-500">Etiquetas destacadas</p>
+                <div class="mt-2 flex flex-wrap gap-2 text-xs font-semibold">
+                    {% for etiqueta in etiquetas %}
+                        <span class="inline-flex items-center gap-2 rounded-full px-3 py-1" style="background: {{ etiqueta.color }}1a; color: {{ etiqueta.color }};">
+                            <span class="h-2 w-2 rounded-full" style="background: {{ etiqueta.color }};"></span>
+                            {{ etiqueta.nombre }} · {{ etiqueta.total }}
+                        </span>
+                    {% empty %}
+                        <span class="text-slate-500">Sin etiquetas registradas todavía.</span>
+                    {% endfor %}
+                </div>
+            </article>
+        </div>
+    </section>
+
+    <div id="chat-grid" class="mt-8 grid gap-6 lg:grid-cols-[380px_minmax(0,1fr)_360px] xl:grid-cols-[420px_minmax(0,1fr)_380px]">
+        <!-- Conversaciones -->
+        <aside id="conversation-panel" class="glass-card flex h-[calc(100vh-14rem)] flex-col overflow-hidden rounded-3xl border border-white/60 shadow-xl">
+            <div class="border-b border-slate-200/70 p-6">
+                <div class="relative">
+                    <input id="conversation-search" type="search" placeholder="Buscar por cliente, teléfono o etiqueta" class="w-full rounded-2xl border border-transparent bg-white/80 px-4 py-3 text-sm text-slate-900 shadow-inner focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-500/20">
+                    <svg class="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 1116.65 6.65a7.5 7.5 0 010 10.6z"/></svg>
+                </div>
+                <div class="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
+                    <button class="filter-chip active" data-filter="todos">Todos</button>
+                    <button class="filter-chip" data-filter="Abierta">Abiertas</button>
+                    <button class="filter-chip" data-filter="Pendiente">Pendientes</button>
+                    <button class="filter-chip" data-filter="En seguimiento">Seguimiento</button>
+                    <button class="filter-chip" data-filter="urgent">Urgentes</button>
+                </div>
+            </div>
+            <div id="conversation-list" class="flex-1 overflow-y-auto p-4">
+                {% for conversacion in conversaciones %}
+                    <article class="conversation-card mb-3 rounded-2xl border border-transparent bg-white/80 p-4 shadow-sm transition hover:border-slate-200" data-conv-id="{{ conversacion.id }}" data-estado="{{ conversacion.estado }}" data-prioridad="{{ conversacion.prioridad }}" data-nombre="{{ conversacion.cliente.nombre }}" data-telefono="{{ conversacion.cliente.telefono }}">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-sm font-semibold text-white">{{ conversacion.cliente.nombre|first|upper }}</div>
+                                <div>
+                                    <p class="text-sm font-semibold text-slate-900">{{ conversacion.cliente.nombre }}</p>
+                                    <p class="text-xs text-slate-500">{{ conversacion.cliente.telefono }}</p>
+                                </div>
+                            </div>
+                            <span class="rounded-full px-2 py-1 text-[11px] font-semibold" data-priority-pill>{{ conversacion.get_prioridad_display }}</span>
+                        </div>
+                        <div class="mt-3 flex items-center justify-between text-xs text-slate-500">
+                            <span>{{ conversacion.get_fuente_display }}</span>
+                            <span>{{ conversacion.ultima_actualizacion|date:"d/m H:i" }}</span>
+                        </div>
+                        <div class="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold">
+                            {% for tag in conversacion.etiquetas.all %}
+                                <span class="rounded-full px-2 py-1" style="background: {{ tag.color }}1a; color: {{ tag.color }};">#{{ tag.nombre }}</span>
+                            {% empty %}
+                                <span class="rounded-full bg-slate-100 px-2 py-1 text-slate-500">Sin etiquetas</span>
+                            {% endfor %}
+                        </div>
+                    </article>
+                {% empty %}
+                    <p class="text-sm text-slate-500">No hay conversaciones todavía.</p>
+                {% endfor %}
+            </div>
+        </aside>
+
+        <!-- Chat -->
+        <section id="chat-panel" class="glass-card flex h-[calc(100vh-14rem)] flex-col overflow-hidden rounded-3xl border border-white/60 shadow-xl">
+            <div class="flex items-center justify-between border-b border-slate-200/70 p-5">
+                <div class="flex items-center gap-3">
+                    <button id="back-to-list" class="rounded-full border border-slate-200 bg-white/70 p-2 text-slate-500 hover:text-slate-900 lg:hidden">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 18l-6-6 6-6"/></svg>
+                    </button>
+                    <div>
+                        <p id="chat-customer-name" class="text-lg font-semibold text-slate-900">Seleccioná una conversación</p>
+                        <div class="flex flex-wrap gap-2 text-xs text-slate-500">
+                            <span id="chat-customer-phone"></span>
+                            <span id="chat-source"></span>
+                        </div>
                     </div>
-                    <p class="text-sm text-gray-600 truncate">Último mensaje de la conversación...</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 text-xs font-semibold">
+                    <button id="sla-badge" class="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-amber-700 hidden"></button>
+                    <button id="summarize-chat" class="rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-slate-600 transition hover:text-slate-900" disabled>Resumir</button>
+                    <button id="quick-note" class="rounded-full bg-slate-900 px-3 py-1 text-white shadow hover:bg-slate-800" disabled>Guardar nota</button>
                 </div>
             </div>
-            {% empty %}
-            <div class="p-8 text-center text-gray-500"><p>No hay conversaciones activas.</p></div>
-            {% endfor %}
-        </div>
+
+            <div id="chat-window" class="flex-1 overflow-y-auto bg-gradient-to-b from-white/80 to-white/40 p-6">
+                <p class="text-sm text-slate-500">Elegí una conversación de la izquierda para ver el historial.</p>
+            </div>
+
+            <div class="border-t border-slate-200/70 p-5">
+                <div class="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+                    <textarea id="message-box" class="h-24 w-full resize-none rounded-xl border border-transparent bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-500/20" placeholder="Escribí un mensaje o pedile a la IA que proponga una respuesta" disabled></textarea>
+                    <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold">
+                        <div class="flex flex-wrap gap-2">
+                            <button id="ai-suggest" class="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-2 text-indigo-600 transition hover:border-indigo-300 hover:text-indigo-700" disabled>✨ Sugerir con IA</button>
+                            <button id="attach-file" class="rounded-full border border-slate-200 bg-white px-3 py-2 text-slate-600 hover:text-slate-900" disabled>Adjuntar archivo</button>
+                        </div>
+                        <button id="send-message" class="rounded-full bg-slate-900 px-4 py-2 text-white shadow hover:bg-slate-800" disabled>Enviar</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Detalle -->
+        <aside id="detail-panel" class="glass-card hidden h-[calc(100vh-14rem)] flex-col overflow-hidden rounded-3xl border border-white/60 shadow-xl lg:flex">
+            <div class="border-b border-slate-200/70 p-6">
+                <h2 class="text-base font-semibold text-slate-900">Ficha del cliente</h2>
+                <p class="text-xs text-slate-500">Datos de contacto, etiquetas y notas internas</p>
+            </div>
+            <div id="client-summary" class="flex-1 overflow-y-auto p-6 text-sm text-slate-600">
+                <p>Seleccioná una conversación para ver los detalles.</p>
+            </div>
+            <div class="border-t border-slate-200/70 p-6">
+                <h3 class="text-sm font-semibold text-slate-900">Acciones rápidas</h3>
+                <div class="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
+                    <button class="quick-action" data-status="Abierta">Reabrir</button>
+                    <button class="quick-action" data-status="Pendiente">Marcar pendiente</button>
+                    <button class="quick-action" data-status="En seguimiento">Seguimiento</button>
+                    <button class="quick-action" data-status="Cerrada">Cerrar</button>
+                </div>
+            </div>
+        </aside>
     </div>
 
-    <!-- PANEL 2: VENTANA DE CHAT PRINCIPAL -->
-    <div id="main-chat-panel" class="flex-1 flex flex-col bg-white">
-        <!-- HEADER DEL CHAT -->
-        <div class="p-3 border-b border-gray-200 flex justify-between items-center bg-white/80 z-10">
-            <div class="flex items-center gap-3">
-                <button id="back-to-list-btn" class="text-gray-500 hover:text-blue-600 md:hidden">
-                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
-                </button>
-                <div id="chat-header-avatar" class="w-10 h-10 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center font-bold text-lg flex-shrink-0">?</div>
+    <template id="message-template">
+        <div class="flex items-start gap-3">
+            <div class="avatar h-10 w-10 rounded-2xl bg-slate-900 text-sm font-semibold text-white"></div>
+            <div class="bubble max-w-xl rounded-2xl bg-white/90 p-4 shadow-sm">
+                <p class="text-sm text-slate-700"></p>
+                <time class="mt-2 block text-[11px] font-semibold uppercase tracking-wide text-slate-400"></time>
+            </div>
+        </div>
+    </template>
+</div>
+
+<script>
+    const conversationCards = document.querySelectorAll('.conversation-card');
+    const chatPanel = document.getElementById('chat-panel');
+    const chatWindow = document.getElementById('chat-window');
+    const messageTemplate = document.getElementById('message-template');
+    const messageBox = document.getElementById('message-box');
+    const sendButton = document.getElementById('send-message');
+    const aiSuggestButton = document.getElementById('ai-suggest');
+    const summarizeButton = document.getElementById('summarize-chat');
+    const detailPanel = document.getElementById('client-summary');
+    const slaBadge = document.getElementById('sla-badge');
+    const quickActions = document.querySelectorAll('.quick-action');
+    const filterChips = document.querySelectorAll('.filter-chip');
+    const searchInput = document.getElementById('conversation-search');
+    let currentConversation = null;
+
+    function formatPriority(pill, priority) {
+        const map = {
+            low: ['bg-emerald-50 text-emerald-600 border border-emerald-200', 'Baja'],
+            medium: ['bg-blue-50 text-blue-600 border border-blue-200', 'Media'],
+            high: ['bg-amber-50 text-amber-600 border border-amber-200', 'Alta'],
+            urgent: ['bg-rose-50 text-rose-600 border border-rose-200', 'Urgente'],
+        };
+        const [cls, label] = map[priority] || map.medium;
+        pill.className = `rounded-full px-2 py-1 text-[11px] font-semibold ${cls}`;
+        pill.textContent = label;
+    }
+
+    conversationCards.forEach(card => {
+        formatPriority(card.querySelector('[data-priority-pill]'), card.dataset.prioridad);
+        card.addEventListener('click', async () => {
+            conversationCards.forEach(c => c.classList.remove('ring-2', 'ring-slate-900/20'));
+            card.classList.add('ring-2', 'ring-slate-900/20');
+            chatPanel.classList.add('active');
+            await loadConversation(card.dataset.convId);
+        });
+    });
+
+    async function loadConversation(id) {
+        currentConversation = id;
+        messageBox.disabled = false;
+        sendButton.disabled = false;
+        aiSuggestButton.disabled = false;
+        summarizeButton.disabled = false;
+
+        const response = await fetch(`/chat/api/conversacion/${id}/`);
+        if (!response.ok) {
+            chatWindow.innerHTML = '<p class="text-sm text-rose-500">No se pudo cargar la conversación.</p>';
+            return;
+        }
+        const data = await response.json();
+        renderConversation(data);
+    }
+
+    function renderConversation(data) {
+        document.getElementById('chat-customer-name').textContent = data.cliente.nombre;
+        document.getElementById('chat-customer-phone').textContent = data.cliente.telefono;
+        document.getElementById('chat-source').textContent = data.fuente;
+
+        chatWindow.innerHTML = '';
+        data.mensajes.forEach(msg => {
+            const clone = messageTemplate.content.cloneNode(true);
+            const wrapper = clone.querySelector('div');
+            const bubble = clone.querySelector('.bubble');
+            const avatar = clone.querySelector('.avatar');
+            const text = clone.querySelector('p');
+            const time = clone.querySelector('time');
+
+            text.textContent = msg.contenido;
+            time.textContent = msg.fecha_envio;
+
+            if (msg.emisor === 'Cliente') {
+                avatar.textContent = data.cliente.inicial;
+            } else {
+                wrapper.classList.add('flex-row-reverse');
+                avatar.textContent = 'IS';
+                bubble.classList.add('bg-slate-900', 'text-white');
+            }
+            chatWindow.appendChild(clone);
+        });
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+
+        detailPanel.innerHTML = `
+            <div class="flex items-center gap-4">
+                <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900 text-lg font-semibold text-white">${data.cliente.inicial}</div>
                 <div>
-                    <p id="chat-header-nombre" class="font-bold text-gray-800">Selecciona una conversación</p>
-                    <div id="chat-header-fuente" class="flex items-center gap-1.5"><p class="text-xs text-gray-500">...</p></div>
+                    <p class="text-base font-semibold text-slate-900">${data.cliente.nombre}</p>
+                    <p class="text-xs text-slate-500">${data.cliente.email}</p>
                 </div>
             </div>
-            <div class="flex items-center gap-4 text-gray-400">
-                 <button id="summarize-button" title="✨ Resumir Chat con IA" class="hover:text-blue-600" disabled>
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                </button>
-                <button id="delete-conversation-btn" title="Eliminar Conversación" class="hover:text-red-500" disabled>
-                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                </button>
-            </div>
-        </div>
-        
-        <!-- VENTANA DE MENSAJES -->
-        <div id="chat-window" class="flex-grow p-6 overflow-y-auto flex flex-col">
-             <div class="m-auto text-center text-gray-500"><p>Selecciona una conversación de la izquierda.</p></div>
-        </div>
+            <dl class="mt-6 space-y-3 text-xs text-slate-600">
+                <div class="flex justify-between"><dt class="font-semibold text-slate-500">Teléfono</dt><dd>${data.cliente.telefono}</dd></div>
+                <div class="flex justify-between"><dt class="font-semibold text-slate-500">Tipo</dt><dd>${data.cliente.tipo_cliente}</dd></div>
+                <div><dt class="font-semibold text-slate-500">Etiquetas</dt><dd class="mt-2 flex flex-wrap gap-2">${data.etiquetas.map(tag => `<span class='rounded-full px-2 py-1 text-[11px]' style='background:${tag.color}1a;color:${tag.color};'>#${tag.nombre}</span>`).join('') || '<span class="text-slate-400">Sin etiquetas</span>'}</dd></div>
+                <div><dt class="font-semibold text-slate-500">Notas</dt><dd class="mt-2 whitespace-pre-line rounded-xl bg-white/70 p-3 text-[13px]">${data.resumen || 'Sin notas registradas.'}</dd></div>
+            </dl>`;
 
-        <!-- ÁREA DE COMPOSICIÓN DE MENSAJE -->
-        <div class="p-4 bg-white border-t border-gray-200">
-            <div id="reply-preview" class="reply-preview">
-                <!-- Content filled by JS -->
-            </div>
-            <div class="relative">
-                <textarea id="message-input" placeholder="Escribe tu mensaje..." class="w-full pl-12 pr-28 py-3 bg-gray-100 border border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow resize-none" rows="1"></textarea>
-                <div class="absolute left-4 top-1/2 -translate-y-1/2 flex items-center">
-                    <button id="attach-file-btn" title="Adjuntar Archivo" class="text-gray-400 hover:text-blue-600">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 008.486 8.486L20.5 13"></path></svg>
-                    </button>
-                    <input type="file" id="file-input" class="hidden" multiple>
-                </div>
-                <div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                    <button id="suggest-reply-button" title="✨ Sugerir Respuesta con IA" class="text-gray-400 hover:text-blue-600 z-10" disabled>
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.898 20.572L16.5 21.75l-.398-1.178a3.375 3.375 0 00-2.455-2.456L12.75 18l1.178-.398a3.375 3.375 0 002.455-2.456L16.5 14.25l.398 1.178a3.375 3.375 0 002.456 2.456L20.25 18l-1.178.398a3.375 3.375 0 00-2.456 2.456z" /></svg>
-                    </button>
-                    <button id="send-button" class="text-white bg-blue-600 hover:bg-blue-700 rounded-full p-2.5 transition-colors disabled:bg-blue-300 disabled:cursor-not-allowed">
-                        <svg class="w-5 h-5" viewBox="0 0 24 24"><path fill="currentColor" d="M3.4 20.4l17.4-8.7c.9-.4.9-1.6 0-2L3.4 1c-.9-.5-1.9.4-1.5 1.4L4 9.8l8.6.4c.5 0 .5.8 0 .8L4 11.4l-2.1 7.5c-.4 1 .6 1.9 1.5 1.5z"></path></svg>
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
+        if (data.sla) {
+            slaBadge.textContent = `SLA ${new Date(data.sla).toLocaleString('es-AR')}`;
+            slaBadge.classList.remove('hidden');
+        } else {
+            slaBadge.classList.add('hidden');
+        }
+    }
 
-    <!-- PANEL 3: DETALLES DEL CLIENTE -->
-    <div id="cliente-info-panel" class="glass-panel border-l flex-col flex-shrink-0 hidden lg:flex">
-        <div id="cliente-info-content">
-            <div class="p-6 text-center border-b border-gray-200/80">
-                 <div id="cliente-avatar" class="w-24 h-24 rounded-full mx-auto bg-gray-200 flex items-center justify-center text-3xl font-bold text-gray-600">?</div>
-                 <h3 id="cliente-nombre" class="text-xl font-bold mt-4 text-gray-800">Sin Cliente</h3>
-            </div>
-            <div id="cliente-detalles" class="flex-grow overflow-y-auto p-6 text-sm space-y-4">
-                <div class="text-center text-gray-500">Selecciona una conversación para ver los detalles del cliente.</div>
-            </div>
-        </div>
-    </div>
-</div>
+    sendButton.addEventListener('click', async () => {
+        const message = messageBox.value.trim();
+        if (!message || !currentConversation) return;
 
-<!-- MODALS -->
-<div id="ai-summary-modal" class="modal-backdrop fixed inset-0 bg-gray-900 bg-opacity-50 items-center justify-center z-50">
-    <!-- Content filled by JS -->
-</div>
-<div id="delete-confirm-modal" class="modal-backdrop fixed inset-0 bg-gray-900 bg-opacity-60 items-center justify-center z-50">
-    <div class="bg-white rounded-lg shadow-2xl w-full max-w-md mx-4 p-6 text-center">
-        <h3 class="text-xl font-bold text-gray-900">¿Estás seguro?</h3>
-        <p class="text-gray-600 my-4">Estás a punto de eliminar esta conversación. Esta acción no se puede deshacer.</p>
-        <div class="flex justify-center gap-4 mt-6">
-            <button id="cancel-delete-btn" class="py-2 px-6 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300">Cancelar</button>
-            <button id="confirm-delete-btn" class="py-2 px-6 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700">Sí, eliminar</button>
-        </div>
-    </div>
-</div>
+        const response = await fetch('{% url "crm:enviar_mensaje" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ conversacion_id: currentConversation, contenido: message })
+        });
+
+        if (response.ok) {
+            messageBox.value = '';
+            await loadConversation(currentConversation);
+        }
+    });
+
+    quickActions.forEach(btn => btn.addEventListener('click', async () => {
+        if (!currentConversation) return;
+        const response = await fetch(`/chat/api/conversacion/${currentConversation}/actualizar/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ estado: btn.dataset.status })
+        });
+        if (response.ok) {
+            await loadConversation(currentConversation);
+        }
+    }));
+
+    filterChips.forEach(chip => {
+        chip.addEventListener('click', () => {
+            filterChips.forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            const filter = chip.dataset.filter;
+            conversationCards.forEach(card => {
+                const matchEstado = filter === 'todos' || card.dataset.estado === filter;
+                const matchPrioridad = ['low', 'medium', 'high', 'urgent'].includes(filter) ? card.dataset.prioridad === filter : true;
+                card.classList.toggle('hidden', !(matchEstado && matchPrioridad));
+            });
+        });
+    });
+
+    searchInput.addEventListener('input', () => {
+        const term = searchInput.value.toLowerCase();
+        conversationCards.forEach(card => {
+            const matches = card.dataset.nombre.toLowerCase().includes(term) || card.dataset.telefono.includes(term);
+            card.classList.toggle('hidden', !matches);
+        });
+    });
+
+    document.getElementById('toggle-analytics').addEventListener('click', () => {
+        document.getElementById('analytics-bar').classList.toggle('hidden');
+    });
+
+    document.getElementById('back-to-list').addEventListener('click', () => {
+        chatPanel.classList.remove('active');
+    });
+</script>
 {% endblock %}
+

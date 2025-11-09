@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Cliente, Conversacion, Mensaje
+from .models import Cliente, Conversacion, Etiqueta, Mensaje
 
 # Primero le decimos a este archivo que "importe" o "traiga" los modelos que creamos.
 
@@ -20,18 +20,28 @@ class ClienteAdmin(admin.ModelAdmin):
 class MensajeInline(admin.TabularInline):
     model = Mensaje
     extra = 0  # No muestra formularios extra para añadir mensajes nuevos
-    readonly_fields = ('emisor', 'contenido', 'fecha_envio', 'enviado_por_ia') # Campos que no se pueden editar
+    readonly_fields = ('emisor', 'contenido', 'fecha_envio', 'enviado_por_ia', 'metadata')  # Campos que no se pueden editar
 
 # Y aquí, la vista personalizada para las Conversaciones.
 class ConversacionAdmin(admin.ModelAdmin):
-    list_display = ('cliente', 'fuente', 'estado', 'asesor_asignado')
-    list_filter = ('fuente', 'estado', 'asesor_asignado')
-    inlines = [MensajeInline] # Aquí conectamos los mensajes con la conversación
+    list_display = ('cliente', 'fuente', 'estado', 'prioridad', 'asesor_asignado', 'sla_vencimiento')
+    list_filter = ('fuente', 'estado', 'prioridad', 'asesor_asignado', 'etiquetas')
+    search_fields = ('cliente__nombre', 'cliente__telefono', 'resumen')
+    autocomplete_fields = ('cliente', 'asesor_asignado', 'etiquetas')
+    date_hierarchy = 'fecha_inicio'
+    inlines = [MensajeInline]  # Aquí conectamos los mensajes con la conversación
 
 # --- El registro final ---
+
+
+class EtiquetaAdmin(admin.ModelAdmin):
+    list_display = ("nombre", "color")
+    search_fields = ("nombre",)
+
 
 # Finalmente, con estas líneas, le damos la orden final a Django:
 # "¡Registra el modelo Cliente en el panel de admin, usando la vista ClienteAdmin que diseñé!"
 admin.site.register(Cliente, ClienteAdmin)
 # "¡Y registra el modelo Conversacion, usando la vista ConversacionAdmin!"
 admin.site.register(Conversacion, ConversacionAdmin)
+admin.site.register(Etiqueta, EtiquetaAdmin)

@@ -1,430 +1,80 @@
 {% extends "base.html" %}
 
-{% block title %}Agregar Producto{% endblock %}
+{% block title %}{% if modo == "crear" %}Nuevo producto{% else %}Editar producto{% endif %}{% endblock %}
 
 {% block extra_head %}
 <style>
-    /* Estilos para ocultar y mostrar secciones */
-    .seccion-simple, .seccion-variantes {
-        transition: all 0.3s ease-in-out;
-    }
-    
-    .seccion-simple.hidden, .seccion-variantes.hidden, .variante-form.hidden {
-        opacity: 0;
-        max-height: 0;
-        overflow: hidden;
-        margin: 0 !important; /* Forzar a que no ocupe espacio */
-        padding-top: 0 !important;
-        padding-bottom: 0 !important;
-        border: none !important;
-    }
-    
-    .seccion-simple, .seccion-variantes, .variante-form {
-        opacity: 1;
-        max-height: 9999px; /* Altura suficiente */
-    }
-    
-    /* Estilos para los tabs de precios */
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
-    .tab-button.active { 
-        background-color: #ffffff;
-        border-bottom-color: transparent;
-        border-left-width: 1px;
-        border-right-width: 1px;
-        border-top-width: 2px;
-        border-top-color: #3b82f6; /* blue-500 */
-        font-weight: 600;
-    }
-    .tab-button {
-        background-color: #f3f4f6; /* gray-100 */
-        border-bottom: 1px solid #d1d5db; /* gray-300 */
-    }
+    main { background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%); }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="p-4 sm:p-6 lg:p-8">
-    <div class="max-w-4xl mx-auto">
-        <div class="flex items-center mb-6">
-            <a href="{% url 'inventario:dashboard' %}" class="text-gray-500 hover:text-gray-700">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
+<div class="min-h-screen w-full px-4 py-8 sm:px-6 lg:px-10">
+    <div class="mx-auto w-full max-w-5xl">
+        <header class="mb-8">
+            <a href="{% url 'inventario:dashboard' %}" class="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-900">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                Volver al inventario
             </a>
-            <h1 class="text-3xl font-bold text-gray-900 ml-4">Agregar Nuevo Producto</h1>
-        </div>
-        
-        <form method="post" enctype="multipart/form-data" class="space-y-6" id="producto-form">
+            <h1 class="mt-3 text-3xl font-bold text-slate-900">{% if modo == "crear" %}Alta de producto{% else %}Editar producto{% endif %}</h1>
+            <p class="mt-2 text-sm text-slate-600">Definí la ficha base y la variante principal con precios en USD/ARS.</p>
+        </header>
+
+        <form method="post" class="space-y-8 rounded-3xl border border-white/60 bg-white/90 p-8 shadow-xl">
             {% csrf_token %}
-            
-            <div class="bg-white p-6 rounded-lg shadow-sm space-y-6">
-                <h2 class="text-xl font-semibold text-gray-800 border-b pb-4">Datos Principales</h2>
+            <section class="grid gap-6 lg:grid-cols-2">
                 <div>
-                    <label for="{{ form.nombre.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Nombre del Producto</label>
-                    {{ form.nombre }}
-                    {{ form.nombre.errors }}
-                </div>
-                <div>
-                    <label for="{{ form.descripcion.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Descripción (Opcional)</label>
-                    {{ form.descripcion }}
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label for="{{ form.categoria.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
-                        {{ form.categoria }}
-                        {{ form.categoria.errors }}
-                    </div>
-                    <div>
-                        <label for="{{ form.proveedor.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Proveedor</label>
-                        {{ form.proveedor }}
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Imagen Principal</label>
-                    {{ form.imagen }}
-                </div>
-                <div class="flex items-center pt-4">
-                    {{ form.activo }}
-                    <label for="{{ form.activo.id_for_label }}" class="ml-3 block text-sm font-medium text-gray-900">Producto activo para la venta</label>
-                </div>
-            </div>
-
-            <div class="bg-white p-6 rounded-lg shadow-sm">
-                <h2 class="text-xl font-semibold text-gray-800 border-b pb-4 mb-4">Variantes</h2>
-                <div class="flex items-center">
-                    <input type="checkbox" id="tiene_variantes_toggle" name="tiene_variantes" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" {% if tiene_variantes %}checked{% endif %}>
-                    <label for="tiene_variantes_toggle" class="ml-3 block text-sm font-medium text-gray-900">Este producto tiene variantes (ej: Talle, Color)</label>
-                </div>
-            </div>
-
-            <div id="seccion-producto-simple" class="bg-white p-6 rounded-lg shadow-sm space-y-6 seccion-simple {% if tiene_variantes %}hidden{% endif %}">
-                <h2 class="text-xl font-semibold text-gray-800 border-b pb-4">Precio y Stock</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label for="{{ form.stock.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Stock</label>
-                        {{ form.stock }}
-                    </div>
-                </div>
-
-                <div class="mt-4" data-price-section="simple">
-                    <div class="border-b border-gray-300">
-                        <nav class="-mb-px flex space-x-4" aria-label="Tabs">
-                            <button type="button" class="tab-button active py-3 px-4 text-sm font-medium text-gray-700 rounded-t-lg border-t-2 border-l border-r border-transparent" data-tab="ars">
-                                Precios en Pesos (ARS)
-                            </button>
-                            <button type="button" class="tab-button py-3 px-4 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-t-lg border-t-2 border-l border-r border-transparent" data-tab="usd">
-                                Precios en Dólares (USD)
-                            </button>
-                        </nav>
-                    </div>
-                    <div class="border border-t-0 rounded-b-lg p-4">
-                        <div id="tab-content-ars" class="tab-content active space-y-4">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label for="{{ form.costo_ars.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Costo (ARS)</label>
-                                    {{ form.costo_ars }}
-                                </div>
-                                <div>
-                                    <label for="{{ form.precio_ars.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Precio de Venta (ARS)</label>
-                                    {{ form.precio_ars }}
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Descuento (%)</label>
-                                    <input type="number" step="0.01" class="form-input-simple w-full border-gray-300 rounded-lg shadow-sm" placeholder="Ej: 10" data-discount-pc-for="precio_ars">
-                                </div>
-                                <div>
-                                    <span class="block text-sm font-medium text-gray-700 mb-1">Precio Final (con desc.)</span>
-                                    <span class="text-2xl font-bold text-gray-800" data-final-price-for="precio_ars">$ 0.00</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div id="tab-content-usd" class="tab-content space-y-4">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label for="{{ form.costo_usd.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Costo (USD)</label>
-                                    {{ form.costo_usd }}
-                                </div>
-                                <div>
-                                    <label for="{{ form.precio_usd.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Precio de Venta (USD)</label>
-                                    {{ form.precio_usd }}
-                                </div>
-                            </div>
-                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Descuento (%)</label>
-                                    <input type="number" step="0.01" class="form-input-simple w-full border-gray-300 rounded-lg shadow-sm" placeholder="Ej: 10" data-discount-pc-for="precio_usd">
-                                </div>
-                                <div>
-                                    <span class="block text-sm font-medium text-gray-700 mb-1">Precio Final (con desc.)</span>
-                                    <span class="text-2xl font-bold text-gray-800" data-final-price-for="precio_usd">USD 0.00</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div id="seccion-producto-variantes" class="bg-white p-6 rounded-lg shadow-sm space-y-6 seccion-variantes {% if not tiene_variantes %}hidden{% endif %}">
-                <h2 class="text-xl font-semibold text-gray-800 border-b pb-4">Configuración de Variantes</h2>
-                
-                {{ variante_formset.management_form }}
-                {{ variante_formset.non_form_errors }}
-
-                <div id="variante-forms-container" class="space-y-6">
-                    {% for v_form in variante_formset %}
-                    <div class="variante-form p-4 border rounded-lg bg-gray-50/50 relative">
-                        <button type="button" class="remove-variante-btn absolute top-2 right-2 text-gray-400 hover:text-red-600" title="Eliminar Variante">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
-                        </button>
-                        
-                        {{ v_form.management_form }}
-                        <h3 class="font-semibold text-lg text-gray-700 mb-3">Variante</h3>
-                        
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Datos del producto</h2>
+                    <div class="mt-4 space-y-4 text-sm">
+                        {{ producto_form.non_field_errors }}
+                        {% for field in producto_form %}
                             <div>
-                                <label for="{{ v_form.nombre_variante.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Nombre de Variante</label>
-                                {{ v_form.nombre_variante }}
-                                {{ v_form.nombre_variante.errors }}
+                                <label class="mb-1 block font-semibold text-slate-600">{{ field.label }}</label>
+                                {{ field }}
+                                {% if field.help_text %}<p class="mt-1 text-xs text-slate-400">{{ field.help_text }}</p>{% endif %}
+                                {{ field.errors }}
                             </div>
-                            <div>
-                                <label for="{{ v_form.stock.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Stock</label>
-                                {{ v_form.stock }}
-                                {{ v_form.stock.errors }}
-                            </div>
-                        </div>
-
-                        <div class="mt-4 pt-4 border-t">
-                            <h4 class="font-semibold text-md text-gray-600 mb-2">Precios de esta Variante</h4>
-                            {{ v_form.precio_formset.management_form }}
-                            {{ v_form.precio_formset.non_form_errors }}
-                            
-                            <div class="precio-forms-container space-y-3">
-                                {% for p_form in v_form.precio_formset %}
-                                <div class="precio-form grid grid-cols-2 md:grid-cols-7 gap-2 items-end">
-                                    {{ p_form.id }}
-                                    <div class="col-span-1"><label class="block text-xs font-medium text-gray-600">Moneda</label>{{ p_form.moneda }}</div>
-                                    <div class="col-span-1"><label class="block text-xs font-medium text-gray-600">Tipo</label>{{ p_form.tipo_precio }}</div>
-                                    <div class="col-span-1"><label class="block text-xs font-medium text-gray-600">Costo</label>{{ p_form.costo }}</div>
-                                    <div class="col-span-1"><label class="block text-xs font-medium text-gray-600">P. Venta</label>{{ p_form.precio_venta_normal }}</div>
-                                    <div class="col-span-1"><label class="block text-xs font-medium text-gray-600">P. Oferta</label>{{ p_form.precio_venta_descuento }}</div>
-                                    <div class="col-span-1"><label class="block text-xs font-medium text-gray-600">P. Mínimo</label>{{ p_form.precio_venta_minimo }}</div>
-                                    <div class="col-span-1 flex items-end">
-                                        {% if p_form.DELETE.field.widget.attrs.disabled %}
-                                            {% else %}
-                                            <div class="flex items-center h-10">{{ p_form.DELETE }} <label for="{{ p_form.DELETE.id_for_label }}" class="ml-1 text-xs text-gray-500">Borrar</label></div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                {{ p_form.errors }}
-                                {% endfor %}
-                            </div>
-                            </div>
-                        
-                        {% if v_form.non_field_errors %}
-                        <div class="text-red-500 text-sm mt-2">{{ v_form.non_field_errors }}</div>
-                        {% endif %}
-                        {{ v_form.id }}
-                        {{ v_form.DELETE }} </div>
-                    {% endfor %}
-                </div>
-                
-                <button type="button" id="add-variante-btn" class="mt-4 bg-blue-100 text-blue-700 font-semibold py-2 px-4 rounded-lg border border-blue-200 hover:bg-blue-200">
-                    + Agregar otra Variante
-                </button>
-            </div>
-
-            <div class="pt-6 flex justify-end gap-3">
-                <a href="{% url 'inventario:dashboard' %}" class="bg-gray-100 text-gray-700 font-semibold py-2 px-4 rounded-lg border hover:bg-gray-200">Cancelar</a>
-                <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 shadow-sm">Guardar Producto</button>
-            </div>
-        </form>
-
-        <div id="variante-template" class="hidden">
-            <div class="variante-form p-4 border rounded-lg bg-gray-50/50 relative">
-                <button type="button" class="remove-variante-btn absolute top-2 right-2 text-gray-400 hover:text-red-600" title="Eliminar Variante">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
-                </button>
-
-                {{ variante_formset.empty_form.management_form }}
-                <h3 class="font-semibold text-lg text-gray-700 mb-3">Nueva Variante</h3>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label for="{{ variante_formset.empty_form.nombre_variante.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Nombre de Variante</label>
-                        {{ variante_formset.empty_form.nombre_variante }}
-                    </div>
-                    <div>
-                        <label for="{{ variante_formset.empty_form.stock.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Stock</label>
-                        {{ variante_formset.empty_form.stock }}
-                    </div>
-                </div>
-
-                <div class="mt-4 pt-4 border-t">
-                    <h4 class="font-semibold text-md text-gray-600 mb-2">Precios de esta Variante</h4>
-                    {{ variante_formset.empty_form.precio_formset.management_form }}
-                    <div class="precio-forms-container space-y-3">
-                        {% for p_form in variante_formset.empty_form.precio_formset %}
-                        <div class="precio-form grid grid-cols-2 md:grid-cols-7 gap-2 items-end">
-                            {{ p_form.id }}
-                            <div class="col-span-1"><label class="block text-xs font-medium text-gray-600">Moneda</label>{{ p_form.moneda }}</div>
-                            <div class="col-span-1"><label class="block text-xs font-medium text-gray-600">Tipo</label>{{ p_form.tipo_precio }}</div>
-                            <div class="col-span-1"><label class="block text-xs font-medium text-gray-600">Costo</label>{{ p_form.costo }}</div>
-                            <div class="col-span-1"><label class="block text-xs font-medium text-gray-600">P. Venta</label>{{ p_form.precio_venta_normal }}</div>
-                            <div class="col-span-1"><label class="block text-xs font-medium text-gray-600">P. Oferta</label>{{ p_form.precio_venta_descuento }}</div>
-                            <div class="col-span-1"><label class="block text-xs font-medium text-gray-600">P. Mínimo</label>{{ p_form.precio_venta_minimo }}</div>
-                            <div class="col-span-1 flex items-end">{{ p_form.DELETE }} <label for="{{ p_form.DELETE.id_for_label }}" class="ml-1 text-xs text-gray-500">Borrar</label></div>
-                        </div>
                         {% endfor %}
                     </div>
                 </div>
-                {{ variante_formset.empty_form.id }}
-                {{ variante_formset.empty_form.DELETE }} </div>
-        </div>
+                <div>
+                    <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Variante inicial</h2>
+                    <div class="mt-4 space-y-4 text-sm">
+                        {{ variante_form.non_field_errors }}
+                        {% for field in variante_form.visible_fields %}
+                            {% if field.name not in precio_fields %}
+                                <div>
+                                    <label class="mb-1 block font-semibold text-slate-600">{{ field.label }}</label>
+                                    {{ field }}
+                                    {{ field.errors }}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </section>
 
+            <section>
+                <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Precios sugeridos</h2>
+                <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {% for field in variante_form %}
+                        {% if field.name in precio_fields %}
+                            <div>
+                                <label class="mb-1 block text-xs font-semibold text-slate-500">{{ field.label }}</label>
+                                {{ field }}
+                                {{ field.errors }}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </section>
+
+            <div class="flex justify-end gap-3">
+                <a href="{% url 'inventario:dashboard' %}" class="rounded-full border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-500 hover:text-slate-900">Cancelar</a>
+                <button type="submit" class="rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-lg hover:bg-slate-800">Guardar</button>
+            </div>
+        </form>
     </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    const form = document.getElementById('producto-form');
-    
-    // --- LÓGICA DEL TOGGLE DE VARIANTES ---
-    const toggle = document.getElementById('tiene_variantes_toggle');
-    const seccionSimple = document.getElementById('seccion-producto-simple');
-    const seccionVariantes = document.getElementById('seccion-producto-variantes');
-    
-    function toggleSecciones() {
-        if (toggle.checked) {
-            seccionSimple.classList.add('hidden');
-            seccionVariantes.classList.remove('hidden');
-            // Deshabilitamos los inputs del form simple para que no se envíen
-            seccionSimple.querySelectorAll('.form-input-simple').forEach(input => input.disabled = true);
-            // Habilitamos los del formset
-            seccionVariantes.querySelectorAll('input, select').forEach(input => input.disabled = false);
-        } else {
-            seccionSimple.classList.remove('hidden');
-            seccionVariantes.classList.add('hidden');
-            // Habilitamos los inputs del form simple
-            seccionSimple.querySelectorAll('.form-input-simple').forEach(input => input.disabled = false);
-            // Deshabilitamos los del formset (excepto los de management)
-            seccionVariantes.querySelectorAll('input, select').forEach(input => {
-                if (!input.name.includes('MANAGEMENT')) {
-                    input.disabled = true;
-                }
-            });
-        }
-    }
-    toggle.addEventListener('change', toggleSecciones);
-    toggleSecciones(); // Ejecutar al inicio
-
-    // --- LÓGICA DE TABS DE PRECIOS SIMPLES ---
-    const priceSectionSimple = document.querySelector('[data-price-section="simple"]');
-    priceSectionSimple.querySelectorAll('.tab-button').forEach(button => {
-        button.addEventListener('click', (e) => {
-            e.preventDefault(); // Prevenir que el form se envíe
-            const tabId = button.dataset.tab;
-            priceSectionSimple.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-            button.classList.add('active');
-            
-            priceSectionSimple.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.toggle('active', content.id === `tab-content-${tabId}`);
-            });
-        });
-    });
-
-    // --- LÓGICA DE CÁLCULO DE DESCUENTO (%) ---
-    function setupDiscountCalculator(context) {
-        context.querySelectorAll('[data-discount-pc-for]').forEach(pcInput => {
-            const priceFieldName = pcInput.dataset.discountPcFor;
-            const priceInput = context.querySelector(`[name$="${priceFieldName}"]`);
-            const finalPriceDisplay = context.querySelector(`[data-final-price-for="${priceFieldName}"]`);
-            
-            function calculate() {
-                if (!priceInput || !finalPriceDisplay) return; // Si no existen los elementos
-                
-                const price = parseFloat(priceInput.value) || 0;
-                const percent = parseFloat(pcInput.value) || 0;
-                let finalPrice = price;
-                
-                if (price > 0 && percent > 0) {
-                    finalPrice = price * (1 - (percent / 100));
-                }
-                
-                const currency = priceFieldName.includes('usd') ? 'USD' : '$';
-                finalPriceDisplay.textContent = `${currency} ${finalPrice.toFixed(2)}`;
-            }
-            
-            if (priceInput) {
-                priceInput.addEventListener('input', calculate);
-                pcInput.addEventListener('input', calculate);
-                calculate(); // Calcular al inicio
-            }
-        });
-    }
-    
-    // Aplicar la lógica de descuento a la sección simple
-    setupDiscountCalculator(seccionSimple);
-
-    // --- LÓGICA DEL FORMSET DE VARIANTES ---
-    const container = document.getElementById('variante-forms-container');
-    const templateNode = document.getElementById('variante-template'); // Get the template *node*
-    const addButton = document.getElementById('add-variante-btn');
-    const totalFormsInput = document.querySelector('input[name="variantes-TOTAL_FORMS"]');
-
-    addButton.addEventListener('click', () => {
-        let formIdx = parseInt(totalFormsInput.value);
-        
-        // 1. Clonar el NODO de la plantilla (esto clona también los campos de precio)
-        let newForm = templateNode.firstElementChild.cloneNode(true);
-        newForm.classList.remove('hidden');
-
-        // 2. Obtener el HTML del clon para reemplazar prefijos
-        let newFormHTML = newForm.innerHTML;
-
-        // 3. Reemplazar el prefijo de la variante
-        newFormHTML = newFormHTML.replace(/__prefix__/g, formIdx);
-        
-        // 4. Asignar el HTML modificado de vuelta al clon
-        newForm.innerHTML = newFormHTML;
-
-        // 5. Añadir al contenedor
-        container.appendChild(newForm);
-        
-        // Habilitamos los inputs (por si el toggle los deshabilitó)
-        newForm.querySelectorAll('input, select').forEach(input => input.disabled = false);
-
-        // Incrementar el contador
-        totalFormsInput.value = formIdx + 1;
-        
-        // Vincular el botón de eliminar
-        addRemoveButtonListener(newForm);
-        
-        // (Aún no se aplica el descuento % a variantes, lo vemos después si es necesario)
-    });
-    
-    // --- LÓGICA PARA BOTÓN DE SACAR VARIANTE ---
-    function addRemoveButtonListener(formElement) {
-        formElement.querySelector('.remove-variante-btn').addEventListener('click', (e) => {
-            e.preventDefault();
-            // Marcamos el checkbox DELETE
-            const deleteInput = formElement.querySelector('input[id$="-DELETE"]');
-            if (deleteInput) {
-                deleteInput.checked = true;
-            }
-            // Ocultamos el formulario
-            formElement.classList.add('hidden');
-        });
-    }
-    
-    // Vinculamos el listener a los formularios que ya existen (en caso de error de form)
-    document.querySelectorAll('#variante-forms-container .variante-form').forEach(form => {
-        addRemoveButtonListener(form);
-    });
-
-});
-</script>
-
 {% endblock %}
+

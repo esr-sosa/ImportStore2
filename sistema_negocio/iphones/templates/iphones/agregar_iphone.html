@@ -1,151 +1,162 @@
 {% extends "base.html" %}
 
-{% block title %}Agregar Nuevo iPhone{% endblock %}
+{% block title %}Nuevo iPhone{% endblock %}
 
 {% block extra_head %}
 <style>
-    /* Estilo inspirado en Apple: limpio, con enfoque y profesional */
-    .form-section {
-        background-color: #f9f9f9; /* Un gris muy claro, casi blanco */
-        border: 1px solid #e5e5e5;
-        border-radius: 12px;
-        padding: 2rem;
-        margin-bottom: 2rem;
-    }
-    .form-section-title {
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: #1d1d1f; /* Negro de Apple */
-        margin-bottom: 1.5rem;
-        border-bottom: 1px solid #d2d2d7;
-        padding-bottom: 1rem;
-    }
-    label {
-        font-weight: 500;
-        color: #515154;
-        margin-bottom: 0.5rem;
-        display: block;
-    }
+  body { background: linear-gradient(135deg, #0f172a 0%, #0b1120 45%, #020617 100%); }
+  .glass { backdrop-filter: blur(22px); background: rgba(15, 23, 42, 0.72); border: 1px solid rgba(148, 163, 184, 0.18); }
+  label { font-size: 0.75rem; letter-spacing: 0.28em; text-transform: uppercase; color: rgba(148, 163, 184, 0.9); font-weight: 600; }
 </style>
 {% endblock %}
 
-
 {% block content %}
-<div class="p-4 sm:p-6 lg:p-8 bg-white min-h-full">
-    <div class="max-w-4xl mx-auto">
-        
-        <!-- Cabecera -->
-        <div class="flex items-center mb-8">
-            <a href="{% url 'iphones:dashboard' %}" class="text-gray-500 hover:text-gray-900 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
-                </svg>
-            </a>
-            <h1 class="text-4xl font-bold text-gray-900 ml-4">Agregar Nuevo iPhone</h1>
-        </div>
-
-        <form method="post" enctype="multipart/form-data">
-            {% csrf_token %}
-            
-            <!-- Sección 1: Información General del Equipo -->
-            <div class="form-section">
-                <h2 class="form-section-title">1. Información General</h2>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                        <label for="{{ form.modelo.id_for_label }}">{{ form.modelo.label }}</label>
-                        {{ form.modelo }}
-                    </div>
-                    <div>
-                        <label for="{{ form.capacidad.id_for_label }}">{{ form.capacidad.label }}</label>
-                        {{ form.capacidad }}
-                    </div>
-                    <div>
-                        <label for="{{ form.color.id_for_label }}">{{ form.color.label }}</label>
-                        {{ form.color }}
-                    </div>
-                </div>
-            </div>
-
-            <!-- Sección 2: Detalles y Condición -->
-            <div class="form-section">
-                <h2 class="form-section-title">2. Detalles y Condición</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label for="{{ form.imei.id_for_label }}">{{ form.imei.label }}</label>
-                        {{ form.imei }}
-                        <p class="text-xs text-gray-500 mt-1">{{ form.imei.help_text }}</p>
-                    </div>
-                    <div>
-                        <label for="{{ form.salud_bateria.id_for_label }}">{{ form.salud_bateria.label }}</label>
-                        {{ form.salud_bateria }}
-                    </div>
-                </div>
-                <div class="mt-6">
-                    <label for="{{ form.fallas_observaciones.id_for_label }}">{{ form.fallas_observaciones.label }}</label>
-                    {{ form.fallas_observaciones }}
-                </div>
-            </div>
-
-            <!-- Sección 3: Precios en USD -->
-            <div class="form-section">
-                <h2 class="form-section-title">3. Precios (en Dólares)</h2>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                        <label for="{{ form.costo_usd.id_for_label }}">{{ form.costo_usd.label }}</label>
-                        {{ form.costo_usd }}
-                    </div>
-                    <div>
-                        <label for="{{ form.precio_venta_usd.id_for_label }}">{{ form.precio_venta_usd.label }}</label>
-                        {{ form.precio_venta_usd }}
-                    </div>
-                    <div>
-                        <label for="{{ form.precio_oferta_usd.id_for_label }}">{{ form.precio_oferta_usd.label }}</label>
-                        {{ form.precio_oferta_usd }}
-                    </div>
-                </div>
-            </div>
-
-            <!-- Sección 4: Origen, Visibilidad y Fotos -->
-            <div class="form-section">
-                <h2 class="form-section-title">4. Trazabilidad y Archivos</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div>
-                        <label>{{ form.imagen.label }}</label>
-                        {{ form.imagen }}
-                    </div>
-                    <div class="space-y-6 pt-2">
-                        <div class="flex items-center">
-                            {{ form.es_plan_canje }}
-                            <label for="{{ form.es_plan_canje.id_for_label }}" class="ml-3">{{ form.es_plan_canje.label }}</label>
-                        </div>
-                        <div class="flex items-center">
-                            {{ form.activo }}
-                            <label for="{{ form.activo.id_for_label }}" class="ml-3">{{ form.activo.label }}</label>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Errores y Botones de Acción -->
-            {% if form.errors %}
-                <div class="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg mb-6">
-                    <p class="font-bold mb-2">Por favor, corrige los siguientes errores:</p>
-                    <ul class="list-disc list-inside">
-                        {% for field, errors in form.errors.items %}
-                            {% for error in errors %}
-                                <li><strong>{{ field|title }}:</strong> {{ error }}</li>
-                            {% endfor %}
-                        {% endfor %}
-                    </ul>
-                </div>
-            {% endif %}
-
-            <div class="pt-2 pb-8 flex justify-end gap-4">
-                <a href="{% url 'iphones:dashboard' %}" class="bg-gray-100 text-gray-800 font-semibold py-3 px-6 rounded-lg border hover:bg-gray-200 transition-colors">Cancelar</a>
-                <button type="submit" class="bg-black text-white font-semibold py-3 px-8 rounded-lg hover:bg-gray-800 transition-colors shadow-sm">Guardar iPhone</button>
-            </div>
-        </form>
+<div class="min-h-screen bg-transparent pb-16">
+  <div class="mx-auto max-w-5xl px-6 pt-10 text-slate-100">
+    <div class="mb-10 flex items-center gap-4">
+      <a href="{% url 'iphones:dashboard' %}" class="flex h-10 w-10 items-center justify-center rounded-full border border-slate-500/50 text-slate-300 transition hover:border-white/60 hover:text-white">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
+      </a>
+      <div>
+        <p class="text-xs uppercase tracking-[0.35em] text-slate-400">Alta premium</p>
+        <h1 class="text-4xl font-semibold tracking-tight">Agregar iPhone</h1>
+        <p class="mt-2 text-sm text-slate-300">Completa los detalles para incorporar un nuevo equipo al catálogo.</p>
+      </div>
     </div>
+
+    <form method="post" enctype="multipart/form-data" class="space-y-10">
+      {% csrf_token %}
+
+      <section class="glass rounded-3xl p-6 shadow-xl">
+        <h2 class="text-xl font-semibold text-white">1. Identidad del equipo</h2>
+        <div class="mt-6 grid gap-6 md:grid-cols-2">
+          <div>
+            <label for="{{ form.modelo.id_for_label }}">{{ form.modelo.label }}</label>
+            <div class="mt-2">{{ form.modelo }}</div>
+          </div>
+          <div>
+            <label for="{{ form.sku.id_for_label }}">{{ form.sku.label }}</label>
+            <div class="mt-2">{{ form.sku }}</div>
+          </div>
+          <div>
+            <label for="{{ form.capacidad.id_for_label }}">{{ form.capacidad.label }}</label>
+            <div class="mt-2">{{ form.capacidad }}</div>
+          </div>
+          <div>
+            <label for="{{ form.color.id_for_label }}">{{ form.color.label }}</label>
+            <div class="mt-2">{{ form.color }}</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="glass rounded-3xl p-6 shadow-xl">
+        <h2 class="text-xl font-semibold text-white">2. Stock y estado</h2>
+        <div class="mt-6 grid gap-6 md:grid-cols-2">
+          <div>
+            <label for="{{ form.stock_actual.id_for_label }}">{{ form.stock_actual.label }}</label>
+            <div class="mt-2">{{ form.stock_actual }}</div>
+          </div>
+          <div>
+            <label for="{{ form.stock_minimo.id_for_label }}">{{ form.stock_minimo.label }}</label>
+            <div class="mt-2">{{ form.stock_minimo }}</div>
+          </div>
+          <div>
+            <label for="{{ form.activo.id_for_label }}">{{ form.activo.label }}</label>
+            <div class="mt-3 flex items-center gap-3 text-sm text-slate-200">
+              {{ form.activo }} <span>Disponible inmediatamente</span>
+            </div>
+          </div>
+          <div>
+            <label for="{{ form.es_plan_canje.id_for_label }}">{{ form.es_plan_canje.label }}</label>
+            <div class="mt-3 flex items-center gap-3 text-sm text-slate-200">
+              {{ form.es_plan_canje }} <span>Marcar si proviene de canje</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="glass rounded-3xl p-6 shadow-xl">
+        <h2 class="text-xl font-semibold text-white">3. Condición técnica</h2>
+        <div class="mt-6 grid gap-6 md:grid-cols-2">
+          <div>
+            <label for="{{ form.imei.id_for_label }}">{{ form.imei.label }}</label>
+            <div class="mt-2">{{ form.imei }}</div>
+          </div>
+          <div>
+            <label for="{{ form.salud_bateria.id_for_label }}">{{ form.salud_bateria.label }}</label>
+            <div class="mt-2">{{ form.salud_bateria }}</div>
+          </div>
+        </div>
+        <div class="mt-6 grid gap-6 md:grid-cols-2">
+          <div>
+            <label for="{{ form.fallas_observaciones.id_for_label }}">{{ form.fallas_observaciones.label }}</label>
+            <div class="mt-2">{{ form.fallas_observaciones }}</div>
+          </div>
+          <div>
+            <label for="{{ form.notas.id_for_label }}">{{ form.notas.label }}</label>
+            <div class="mt-2">{{ form.notas }}</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="glass rounded-3xl p-6 shadow-xl">
+        <h2 class="text-xl font-semibold text-white">4. Estrategia de precios</h2>
+        <div class="mt-6 grid gap-6 md:grid-cols-3">
+          <div>
+            <label for="{{ form.costo_usd.id_for_label }}">{{ form.costo_usd.label }}</label>
+            <div class="mt-2">{{ form.costo_usd }}</div>
+          </div>
+          <div>
+            <label for="{{ form.precio_venta_usd.id_for_label }}">{{ form.precio_venta_usd.label }}</label>
+            <div class="mt-2">{{ form.precio_venta_usd }}</div>
+          </div>
+          <div>
+            <label for="{{ form.precio_oferta_usd.id_for_label }}">{{ form.precio_oferta_usd.label }}</label>
+            <div class="mt-2">{{ form.precio_oferta_usd }}</div>
+          </div>
+        </div>
+        <div class="mt-6 grid gap-6 md:grid-cols-3">
+          <div>
+            <label for="{{ form.precio_venta_ars.id_for_label }}">{{ form.precio_venta_ars.label }}</label>
+            <div class="mt-2">{{ form.precio_venta_ars }}</div>
+          </div>
+          <div>
+            <label for="{{ form.precio_mayorista_usd.id_for_label }}">{{ form.precio_mayorista_usd.label }}</label>
+            <div class="mt-2">{{ form.precio_mayorista_usd }}</div>
+          </div>
+          <div>
+            <label for="{{ form.precio_mayorista_ars.id_for_label }}">{{ form.precio_mayorista_ars.label }}</label>
+            <div class="mt-2">{{ form.precio_mayorista_ars }}</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="glass rounded-3xl p-6 shadow-xl">
+        <h2 class="text-xl font-semibold text-white">5. Imagen</h2>
+        <div class="mt-6">
+          <label for="{{ form.foto.id_for_label }}">{{ form.foto.label }}</label>
+          <div class="mt-2">{{ form.foto }}</div>
+        </div>
+      </section>
+
+      {% if form.errors %}
+        <div class="rounded-3xl border border-rose-500/40 bg-rose-500/20 p-6 text-sm text-rose-100">
+          <p class="font-semibold uppercase tracking-[0.2em]">Corrige los siguientes campos:</p>
+          <ul class="mt-3 space-y-1">
+            {% for field, errors in form.errors.items %}
+              {% for error in errors %}
+                <li><strong>{{ field|capfirst }}:</strong> {{ error }}</li>
+              {% endfor %}
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      <div class="flex justify-end gap-4">
+        <a href="{% url 'iphones:dashboard' %}" class="rounded-2xl border border-slate-400/60 px-6 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/10">Cancelar</a>
+        <button type="submit" class="rounded-2xl bg-white px-6 py-3 text-sm font-semibold text-slate-900 shadow-lg transition hover:bg-slate-100">Guardar iPhone</button>
+      </div>
+    </form>
+  </div>
 </div>
 {% endblock %}
-
