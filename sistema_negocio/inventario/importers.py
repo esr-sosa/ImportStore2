@@ -14,9 +14,9 @@ from .models import Categoria, Precio, Producto, ProductoVariante, Proveedor
 
 
 HEADER_ALIASES = {
-    "nombre": {"nombre", "name", "titulo", "producto"},
-    "descripcion": {"descripcion", "description", "detalle"},
-    "sku": {"sku", "codigo", "codigo sku", "sku principal"},
+    "nombre": {"nombre", "name", "titulo", "producto", "nombre del producto"},
+    "descripcion": {"descripcion", "description", "detalle", "descripción"},
+    "sku": {"sku", "codigo", "codigo sku", "sku principal", "sku (obligatorio)", "sku obligatorio"},
     "stock": {"stock", "stock_actual", "inventario"},
     "stock_minimo": {"stock_minimo", "stock minimo", "minimo"},
     "costo": {"costo", "costo_usd", "costo unitario"},
@@ -24,11 +24,14 @@ HEADER_ALIASES = {
     "precio_minorista_usd": {"precio_minorista_usd", "precio usd"},
     "precio_mayorista_ars": {"precio_mayorista_ars", "mayorista ars"},
     "precio_mayorista_usd": {"precio_mayorista_usd", "mayorista usd"},
-    "categoria": {"categoria", "category"},
-    "proveedor": {"proveedor", "supplier"},
+    "precio_oferta_ars": {"oferta", "precio oferta", "precio promocional"},
+    "categoria": {"categoria", "category", "categorias", "categorías > subcategorías > … > subcategorías", "categorías > subcategorías > … > subcategorías"},
+    "proveedor": {"proveedor", "supplier", "proveedores", "vendor", "fabricante", "marca"},
     "codigo_barras": {"codigo barras", "barcode", "codigo_de_barras"},
-    "atributo_1": {"opcion 1 valor", "opcion1", "atributo1", "color"},
-    "atributo_2": {"opcion 2 valor", "opcion2", "atributo2", "talle", "capacidad"},
+    "atributo_1": {"opcion 1 valor", "opcion1", "atributo1", "color", "opción de variante #1", "opción variante 1", "opción de variante #1", "nombre de variante #1"},
+    "atributo_2": {"opcion 2 valor", "opcion2", "atributo2", "talle", "capacidad", "opción de variante #2", "opción variante 2", "opción de variante #2", "nombre de variante #2"},
+    "atributo_3": {"opcion 3 valor", "opcion3", "atributo3", "opción de variante #3", "opción variante 3", "nombre de variante #3"},
+    "visibilidad": {"visibilidad", "visibilidad (visible o oculto)", "estado", "publicación", "visibilidad visible o oculto"},
 }
 
 
@@ -130,19 +133,43 @@ def importar_catalogo_desde_archivo(archivo, actualizar: bool = True) -> ImportR
 
     resultado = ImportResult()
 
-    for fila in filas:
+    for idx, fila in enumerate(filas, start=2):  # encabezado es la fila 1
         data = {k: fila.get(k, "") for k in HEADER_ALIASES}
-        sku = data.get("sku") or slugify(f"{data.get('nombre')}-{data.get('atributo_1')}-{data.get('atributo_2')}")
+        # Para MercadoLibre: SKU es obligatorio, si no está, generamos desde nombre + variantes
+        sku = data.get("sku") or ""
         if not sku:
-            resultado.errores.append("Fila ignorada por no contar con SKU ni nombre.")
+            nombre = data.get("nombre", "")
+            attr1 = data.get("atributo_1", "")
+            attr2 = data.get("atributo_2", "")
+            attr3 = data.get("atributo_3", "")
+            sku = slugify(f"{nombre}-{attr1}-{attr2}-{attr3}".strip("-"))
+        if not sku:
+            resultado.errores.append(f"Fila {idx}: sin SKU ni nombre.")
             continue
+
+        # Validaciones básicas de stock
+        try:
+            stock_val = int(data.get("stock") or 0)
+            stock_min_val = int(data.get("stock_minimo") or 0)
+            if stock_val < 0 or stock_min_val < 0:
+                resultado.errores.append(f"Fila {idx}: stock o stock mínimo negativo.")
+                continue
+        except Exception:
+            resultado.errores.append(f"Fila {idx}: stock inválido.")
+            continue
+
+        visibilidad = (data.get("visibilidad") or "").strip().lower()
+        is_visible = True
+        if visibilidad:
+            if any(term in visibilidad for term in ["ocult", "hidden", "no", "desactiv", "draft", "inactivo", "0"]):
+                is_visible = False
 
         producto_defaults = {
             "descripcion": data.get("descripcion", ""),
             "categoria": _obtener_categoria(data.get("categoria")),
             "proveedor": _obtener_proveedor(data.get("proveedor")),
             "codigo_barras": data.get("codigo_barras", ""),
-            "activo": True,
+            "activo": is_visible,
         }
 
         producto, _ = Producto.objects.get_or_create(nombre=data.get("nombre") or sku, defaults=producto_defaults)
@@ -155,10 +182,16 @@ def importar_catalogo_desde_archivo(archivo, actualizar: bool = True) -> ImportR
         defaults_variante = {
             "atributo_1": data.get("atributo_1", ""),
             "atributo_2": data.get("atributo_2", ""),
-            "stock_actual": int(data.get("stock") or 0),
-            "stock_minimo": int(data.get("stock_minimo") or 0),
-            "activo": True,
+            "stock_actual": stock_val,
+            "stock_minimo": stock_min_val,
+            "activo": is_visible,
         }
+        # Si hay atributo_3, lo agregamos a atributo_2 o creamos un campo combinado
+        if data.get("atributo_3"):
+            if defaults_variante["atributo_2"]:
+                defaults_variante["atributo_2"] = f"{defaults_variante['atributo_2']} / {data.get('atributo_3')}"
+            else:
+                defaults_variante["atributo_2"] = data.get("atributo_3", "")
 
         variante, creada = ProductoVariante.objects.get_or_create(sku=sku, defaults={"producto": producto, **defaults_variante})
         if creada:
@@ -168,16 +201,20 @@ def importar_catalogo_desde_archivo(archivo, actualizar: bool = True) -> ImportR
                 for campo, valor in defaults_variante.items():
                     setattr(variante, campo, valor)
                 if variante.producto_id != producto.id:
-                    resultado.errores.append(f"El SKU {sku} ya está asociado a otro producto.")
+                    resultado.errores.append(f"Fila {idx}: el SKU {sku} ya está asociado a otro producto.")
                     continue
                 variante.save()
                 resultado.actualizados += 1
             else:
-                resultado.errores.append(f"El SKU {sku} ya existe y no se actualizó.")
+                resultado.errores.append(f"Fila {idx}: el SKU {sku} ya existe y no se actualizó.")
                 continue
 
+        precio_minorista = _parse_decimal(data.get("precio_minorista_ars"))
+        if precio_minorista is None:
+            precio_minorista = _parse_decimal(data.get("precio_oferta_ars"))
+
         precios = {
-            (Precio.Tipo.MINORISTA, Precio.Moneda.ARS): _parse_decimal(data.get("precio_minorista_ars")),
+            (Precio.Tipo.MINORISTA, Precio.Moneda.ARS): precio_minorista,
             (Precio.Tipo.MINORISTA, Precio.Moneda.USD): _parse_decimal(data.get("precio_minorista_usd")),
             (Precio.Tipo.MAYORISTA, Precio.Moneda.ARS): _parse_decimal(data.get("precio_mayorista_ars")),
             (Precio.Tipo.MAYORISTA, Precio.Moneda.USD): _parse_decimal(data.get("precio_mayorista_usd")),
@@ -196,25 +233,118 @@ def importar_catalogo_desde_archivo(archivo, actualizar: bool = True) -> ImportR
     return resultado
 
 
+def exportar_catalogo_a_excel() -> io.BytesIO:
+    """Exporta el catálogo en formato Excel compatible con MercadoLibre."""
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, Alignment, PatternFill
+    except ImportError:
+        raise RuntimeError("openpyxl es requerido para exportar a Excel")
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Catálogo"
+    
+    # Headers estilo MercadoLibre
+    headers = [
+        "SKU (OBLIGATORIO)",
+        "Nombre del producto",
+        "Precio",
+        "Oferta",
+        "Stock",
+        "Visibilidad (Visible o Oculto)",
+        "Descripción",
+        "Peso en KG",
+        "Alto en CM",
+        "Ancho en CM",
+        "Profundidad en CM",
+        "Nombre de variante #1",
+        "Opción de variante #1",
+        "Nombre de variante #2",
+        "Opción de variante #2",
+        "Nombre de variante #3",
+        "Opción de variante #3",
+        "Categorías > Subcategorías > … > Subcategorías",
+    ]
+    
+    # Estilo de headers
+    header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF")
+    
+    for col_idx, header in enumerate(headers, start=1):
+        cell = ws.cell(row=1, column=col_idx, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+    
+    variantes = ProductoVariante.objects.select_related("producto", "producto__categoria", "producto__proveedor").prefetch_related("precios")
+    
+    row = 2
+    for variante in variantes:
+        def precio(tipo, moneda):
+            registro = variante.precios.filter(tipo=tipo, moneda=moneda, activo=True).order_by("-actualizado").first()
+            return registro.precio if registro else ""
+        precio_minorista_ars = precio(Precio.Tipo.MINORISTA, Precio.Moneda.ARS)
+        precio_oferta = precio(Precio.Tipo.MINORISTA, Precio.Moneda.ARS)  # Puedes ajustar esto
+        visibilidad = "Visible" if variante.activo and variante.producto.activo else "Oculto"
+        categoria = variante.producto.categoria.nombre if variante.producto.categoria else ""
+        
+        ws.cell(row=row, column=1, value=variante.sku)
+        ws.cell(row=row, column=2, value=variante.producto.nombre)
+        ws.cell(row=row, column=3, value=precio_minorista_ars)
+        ws.cell(row=row, column=4, value=precio_oferta)
+        ws.cell(row=row, column=5, value=variante.stock_actual)
+        ws.cell(row=row, column=6, value=visibilidad)
+        ws.cell(row=row, column=7, value=variante.producto.descripcion or "")
+        ws.cell(row=row, column=12, value=variante.atributo_1 or "")
+        ws.cell(row=row, column=13, value=variante.atributo_1 or "")
+        ws.cell(row=row, column=14, value=variante.atributo_2 or "")
+        ws.cell(row=row, column=15, value=variante.atributo_2 or "")
+        ws.cell(row=row, column=18, value=categoria)
+        row += 1
+    
+    # Ajustar ancho de columnas
+    for col in ws.columns:
+        max_length = 0
+        col_letter = col[0].column_letter
+        for cell in col:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 50)
+        ws.column_dimensions[col_letter].width = adjusted_width
+    
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    return buffer
+
+
 def exportar_catalogo_a_csv() -> io.BytesIO:
     buffer = io.StringIO()
     writer = csv.writer(buffer)
     writer.writerow(
         [
-            "Nombre",
-            "Descripción",
-            "SKU",
-            "Atributo 1",
-            "Atributo 2",
+            "SKU (OBLIGATORIO)",
+            "Nombre del producto",
+            "Precio",
+            "Oferta",
             "Stock",
-            "Stock mínimo",
-            "Precio minorista ARS",
-            "Precio minorista USD",
-            "Precio mayorista ARS",
-            "Precio mayorista USD",
-            "Categoría",
-            "Proveedor",
-            "Código de barras",
+            "Visibilidad (Visible o Oculto)",
+            "Descripción",
+            "Peso en KG",
+            "Alto en CM",
+            "Ancho en CM",
+            "Profundidad en CM",
+            "Nombre de variante #1",
+            "Opción de variante #1",
+            "Nombre de variante #2",
+            "Opción de variante #2",
+            "Nombre de variante #3",
+            "Opción de variante #3",
+            "Categorías > Subcategorías > … > Subcategorías",
         ]
     )
 
@@ -224,22 +354,31 @@ def exportar_catalogo_a_csv() -> io.BytesIO:
             registro = variante.precios.filter(tipo=tipo, moneda=moneda, activo=True).order_by("-actualizado").first()
             return registro.precio if registro else ""
 
+        precio_minorista_ars = precio(Precio.Tipo.MINORISTA, Precio.Moneda.ARS)
+        precio_oferta = precio(Precio.Tipo.MINORISTA, Precio.Moneda.ARS)  # Ajustar según necesidad
+        visibilidad = "Visible" if variante.activo and variante.producto.activo else "Oculto"
+        categoria = variante.producto.categoria.nombre if variante.producto.categoria else ""
+        
         writer.writerow(
             [
-                variante.producto.nombre,
-                variante.producto.descripcion,
                 variante.sku,
-                variante.atributo_1,
-                variante.atributo_2,
+                variante.producto.nombre,
+                precio_minorista_ars,
+                precio_oferta,
                 variante.stock_actual,
-                variante.stock_minimo,
-                precio(Precio.Tipo.MINORISTA, Precio.Moneda.ARS),
-                precio(Precio.Tipo.MINORISTA, Precio.Moneda.USD),
-                precio(Precio.Tipo.MAYORISTA, Precio.Moneda.ARS),
-                precio(Precio.Tipo.MAYORISTA, Precio.Moneda.USD),
-                variante.producto.categoria.nombre if variante.producto.categoria else "",
-                variante.producto.proveedor.nombre if variante.producto.proveedor else "",
-                variante.producto.codigo_barras or "",
+                visibilidad,
+                variante.producto.descripcion or "",
+                "",  # Peso en KG
+                "",  # Alto en CM
+                "",  # Ancho en CM
+                "",  # Profundidad en CM
+                variante.atributo_1 or "",
+                variante.atributo_1 or "",
+                variante.atributo_2 or "",
+                variante.atributo_2 or "",
+                "",  # Variante #3
+                "",  # Opción variante #3
+                categoria,
             ]
         )
 

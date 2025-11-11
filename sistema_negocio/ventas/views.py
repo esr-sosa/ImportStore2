@@ -2,11 +2,15 @@ from decimal import Decimal
 import json
 from uuid import uuid4
 
+from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import F, Q
+from django.db.models import F, Q, Sum, Count
 from django.http import HttpResponseBadRequest, JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
+from django.utils import timezone
+from datetime import timedelta
 
 from inventario.models import Precio, ProductoVariante
 from historial.models import RegistroHistorial
@@ -199,3 +203,75 @@ def crear_venta_api(request):
         return JsonResponse({"error": "Algún producto seleccionado ya no existe"}, status=404)
     except Exception as exc:
         return JsonResponse({"error": str(exc)}, status=400)
+
+
+@login_required
+def listado_ventas(request):
+    """Vista de listado de ventas con filtros y paginación."""
+    # Filtros
+    fecha_desde = request.GET.get("fecha_desde", "")
+    fecha_hasta = request.GET.get("fecha_hasta", "")
+    estado = request.GET.get("estado", "")
+    metodo_pago = request.GET.get("metodo_pago", "")
+    q = request.GET.get("q", "").strip()
+    
+    ventas_qs = Venta.objects.select_related("vendedor").prefetch_related("lineas").all()
+    
+    if fecha_desde:
+        try:
+            desde = timezone.datetime.strptime(fecha_desde, "%Y-%m-%d").date()
+            ventas_qs = ventas_qs.filter(fecha__gte=desde)
+        except:
+            pass
+    
+    if fecha_hasta:
+        try:
+            hasta = timezone.datetime.strptime(fecha_hasta, "%Y-%m-%d").date()
+            ventas_qs = ventas_qs.filter(fecha__lte=hasta)
+        except:
+            pass
+    
+    if estado:
+        ventas_qs = ventas_qs.filter(estado=estado)
+    
+    if metodo_pago:
+        ventas_qs = ventas_qs.filter(metodo_pago=metodo_pago)
+    
+    if q:
+        ventas_qs = ventas_qs.filter(
+            Q(numero__icontains=q) |
+            Q(cliente_nombre__icontains=q) |
+            Q(cliente_documento__icontains=q)
+        )
+    
+    ventas_qs = ventas_qs.order_by("-fecha", "-id")
+    
+    # Estadísticas
+    total_ventas = ventas_qs.count()
+    total_facturado = ventas_qs.aggregate(total=Sum("total"))["total"] or 0
+    promedio_ticket = total_facturado / total_ventas if total_ventas > 0 else 0
+    
+    # Paginación
+    paginator = Paginator(ventas_qs, 20)
+    page = request.GET.get("page", 1)
+    page_obj = paginator.get_page(page)
+    
+    context = {
+        "ventas": page_obj.object_list,
+        "page_obj": page_obj,
+        "total_ventas": total_ventas,
+        "total_facturado": total_facturado,
+        "promedio_ticket": promedio_ticket,
+        "filtros": {
+            "fecha_desde": fecha_desde,
+            "fecha_hasta": fecha_hasta,
+            "estado": estado,
+            "metodo_pago": metodo_pago,
+            "q": q,
+        },
+        "estados": Venta.Estado.choices,
+        "metodos_pago": Venta.MetodoPago.choices,
+    }
+    
+    template = "ventas/listado.html" if request.headers.get("HX-Request") else "ventas/listado.html"
+    return render(request, template, context)

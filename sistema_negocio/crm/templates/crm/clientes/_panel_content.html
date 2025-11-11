@@ -120,13 +120,11 @@
                       <span class="rounded-full bg-slate-900/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-700 dark:bg-slate-100/10 dark:text-slate-200">{{ cliente.get_tipo_cliente_display }}</span>
                     </td>
                     <td class="px-4 py-3 text-xs text-muted">
-                      {% with convo=cliente.conversaciones.order_by('-ultima_actualizacion').first %}
-                        {% if convo %}
-                          {{ convo.ultima_actualizacion|timesince }} atrás
-                        {% else %}
-                          Sin conversaciones
-                        {% endif %}
-                      {% endwith %}
+                      {% if cliente.ultima_actividad %}
+                        {{ cliente.ultima_actividad|timesince }} atrás
+                      {% else %}
+                        Sin conversaciones
+                      {% endif %}
                     </td>
                   </tr>
                 {% empty %}

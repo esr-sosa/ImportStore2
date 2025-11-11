@@ -1,80 +1,557 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}{% if modo == "crear" %}Nuevo producto{% else %}Editar producto{% endif %}{% endblock %}
 
 {% block extra_head %}
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
-    main { background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%); }
+    .glass-input {
+        background: linear-gradient(145deg, rgba(17, 24, 39, 0.75), rgba(14, 19, 30, 0.55));
+        border: 1px solid rgba(111, 134, 214, 0.25);
+        backdrop-filter: blur(20px);
+        color: #edf2ff;
+    }
+    .glass-input::placeholder {
+        color: rgba(168, 182, 214, 0.5);
+    }
+    .glass-card {
+        background: linear-gradient(155deg, rgba(17, 24, 39, 0.72), rgba(17, 24, 39, 0.45));
+        border: 1px solid rgba(111, 134, 214, 0.25);
+        backdrop-filter: blur(26px) saturate(180%);
+        box-shadow: 0 25px 65px -40px rgba(8, 12, 24, 0.85);
+    }
+    .switch-container {
+        position: relative;
+        display: inline-block;
+        width: 60px;
+        height: 32px;
+    }
+    .switch-container input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    .switch-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(71, 85, 105, 0.5);
+        transition: .3s;
+        border-radius: 32px;
+    }
+    .switch-slider:before {
+        position: absolute;
+        content: "";
+        height: 24px;
+        width: 24px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: .3s;
+        border-radius: 50%;
+    }
+    input:checked + .switch-slider {
+        background-color: var(--accent-color, #4f64ff);
+    }
+    input:checked + .switch-slider:before {
+        transform: translateX(28px);
+    }
+    #camera-container {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        background: rgba(4, 7, 17, 0.95);
+        backdrop-filter: blur(8px);
+    }
+    #camera-container.active {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    #qr-reader {
+        max-width: 90vw;
+        max-height: 90vh;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="min-h-screen w-full px-4 py-8 sm:px-6 lg:px-10">
-    <div class="mx-auto w-full max-w-5xl">
+    <div class="mx-auto w-full max-w-6xl">
         <header class="mb-8">
-            <a href="{% url 'inventario:dashboard' %}" class="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-900">
+            <a href="{% url 'inventario:dashboard' %}" class="inline-flex items-center gap-2 text-sm font-semibold text-muted hover:text-slate-100">
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
                 Volver al inventario
             </a>
-            <h1 class="mt-3 text-3xl font-bold text-slate-900">{% if modo == "crear" %}Alta de producto{% else %}Editar producto{% endif %}</h1>
-            <p class="mt-2 text-sm text-slate-600">Definí la ficha base y la variante principal con precios en USD/ARS.</p>
+            <h1 class="mt-3 text-3xl font-bold text-slate-100">{% if modo == "crear" %}Alta de producto{% else %}Editar producto{% endif %}</h1>
+            <p class="mt-2 text-sm text-muted">Definí la ficha base y la variante principal con precios en USD/ARS.</p>
         </header>
 
-        <form method="post" class="space-y-8 rounded-3xl border border-white/60 bg-white/90 p-8 shadow-xl">
+        <form method="post" class="space-y-8 glass-card rounded-3xl p-8" id="producto-form">
             {% csrf_token %}
+            
             <section class="grid gap-6 lg:grid-cols-2">
-                <div>
-                    <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Datos del producto</h2>
-                    <div class="mt-4 space-y-4 text-sm">
+                <div class="glass-card rounded-2xl p-6">
+                    <h2 class="text-sm font-semibold uppercase tracking-wide text-muted mb-4">Datos del producto</h2>
+                    <div class="space-y-4 text-sm">
                         {{ producto_form.non_field_errors }}
-                        {% for field in producto_form %}
+                        <div>
+                            <label class="mb-1 block font-semibold text-slate-100">{{ producto_form.nombre.label }}</label>
+                            {{ producto_form.nombre }}
+                            {{ producto_form.nombre.errors }}
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="mb-1 block font-semibold text-slate-600">{{ field.label }}</label>
-                                {{ field }}
-                                {% if field.help_text %}<p class="mt-1 text-xs text-slate-400">{{ field.help_text }}</p>{% endif %}
-                                {{ field.errors }}
+                                <label class="mb-1 block font-semibold text-slate-100">{{ producto_form.categoria.label }}</label>
+                                {{ producto_form.categoria }}
+                                {{ producto_form.categoria.errors }}
                             </div>
-                        {% endfor %}
+                            <div>
+                                <label class="mb-1 block font-semibold text-slate-100">{{ producto_form.proveedor.label }}</label>
+                                {{ producto_form.proveedor }}
+                                {{ producto_form.proveedor.errors }}
+                            </div>
+                        </div>
+                        <div>
+                            <label class="mb-1 block font-semibold text-slate-100">{{ producto_form.descripcion.label }}</label>
+                            {{ producto_form.descripcion }}
+                            {{ producto_form.descripcion.errors }}
+                        </div>
+                        <div>
+                            <label class="mb-1 block font-semibold text-slate-100">{{ producto_form.codigo_barras.label }}</label>
+                            <div class="flex gap-2">
+                                {{ producto_form.codigo_barras }}
+                                <button type="button" id="scan-barcode-btn" class="glass-input rounded-2xl border border-white/20 px-4 py-3 text-sm text-slate-100 hover:bg-white/10 transition">
+                                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
+                                </button>
+                                <button type="button" id="generate-barcode-btn" class="glass-input rounded-2xl border border-white/20 px-4 py-3 text-sm text-slate-100 hover:bg-white/10 transition">
+                                    Generar
+                                </button>
+                            </div>
+                            {{ producto_form.codigo_barras.errors }}
+                            <div class="mt-2 flex gap-4">
+                                <label class="flex items-center gap-2 text-xs text-muted">
+                                    {{ producto_form.generar_codigo_barras }}
+                                    {{ producto_form.generar_codigo_barras.label }}
+                                </label>
+                                <label class="flex items-center gap-2 text-xs text-muted">
+                                    {{ producto_form.generar_qr }}
+                                    {{ producto_form.generar_qr.label }}
+                                </label>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="flex items-center gap-2 text-slate-100">
+                                {{ producto_form.activo }}
+                                <span class="font-semibold">{{ producto_form.activo.label }}</span>
+                            </label>
+                        </div>
                     </div>
                 </div>
-                <div>
-                    <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Variante inicial</h2>
-                    <div class="mt-4 space-y-4 text-sm">
+
+                <div class="glass-card rounded-2xl p-6">
+                    <h2 class="text-sm font-semibold uppercase tracking-wide text-muted mb-4">Variante inicial</h2>
+                    <div class="space-y-4 text-sm">
                         {{ variante_form.non_field_errors }}
-                        {% for field in variante_form.visible_fields %}
-                            {% if field.name not in precio_fields %}
-                                <div>
-                                    <label class="mb-1 block font-semibold text-slate-600">{{ field.label }}</label>
-                                    {{ field }}
-                                    {{ field.errors }}
-                                </div>
-                            {% endif %}
-                        {% endfor %}
+                        <div>
+                            <label class="mb-1 block font-semibold text-slate-100">{{ variante_form.sku.label }}</label>
+                            <div class="flex items-center gap-3">
+                                {{ variante_form.sku }}
+                                <label class="flex items-center gap-2 text-xs text-muted whitespace-nowrap">
+                                    {{ variante_form.sku_auto }}
+                                    <span>Auto</span>
+                                </label>
+                            </div>
+                            {{ variante_form.sku.errors }}
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="mb-1 block font-semibold text-slate-100">{{ variante_form.atributo_1.label }}</label>
+                                {{ variante_form.atributo_1 }}
+                                {{ variante_form.atributo_1.errors }}
+                            </div>
+                            <div>
+                                <label class="mb-1 block font-semibold text-slate-100">{{ variante_form.atributo_2.label }}</label>
+                                {{ variante_form.atributo_2 }}
+                                {{ variante_form.atributo_2.errors }}
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="mb-1 block font-semibold text-slate-100">{{ variante_form.stock_actual.label }}</label>
+                                {{ variante_form.stock_actual }}
+                                {{ variante_form.stock_actual.errors }}
+                            </div>
+                            <div>
+                                <label class="mb-1 block font-semibold text-slate-100">{{ variante_form.stock_minimo.label }}</label>
+                                {{ variante_form.stock_minimo }}
+                                {{ variante_form.stock_minimo.errors }}
+                            </div>
+                        </div>
+                        <div>
+                            <label class="flex items-center gap-2 text-slate-100">
+                                {{ variante_form.activo }}
+                                <span class="font-semibold">{{ variante_form.activo.label }}</span>
+                            </label>
+                        </div>
                     </div>
                 </div>
             </section>
 
-            <section>
-                <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Precios sugeridos</h2>
-                <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    {% for field in variante_form %}
-                        {% if field.name in precio_fields %}
-                            <div>
-                                <label class="mb-1 block text-xs font-semibold text-slate-500">{{ field.label }}</label>
-                                {{ field }}
-                                {{ field.errors }}
-                            </div>
-                        {% endif %}
-                    {% endfor %}
+            <section class="glass-card rounded-2xl p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-sm font-semibold uppercase tracking-wide text-muted">Precios y costos</h2>
+                    <button type="button" id="abrir-modal-precios" class="glass-input rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-white/20 transition">
+                        <svg class="h-4 w-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        Configurar precios
+                    </button>
+                </div>
+                
+                <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3" id="precios-resumen">
+                    <div class="space-y-3">
+                        <h3 class="text-xs font-semibold uppercase text-muted">Costo</h3>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.costo_usd.label }}</label>
+                            {{ variante_form.costo_usd }}
+                            {{ variante_form.costo_usd.errors }}
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.costo_ars.label }}</label>
+                            {{ variante_form.costo_ars }}
+                            {{ variante_form.costo_ars.errors }}
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <h3 class="text-xs font-semibold uppercase text-muted">Precio venta</h3>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_venta_usd.label }}</label>
+                            {{ variante_form.precio_venta_usd }}
+                            {{ variante_form.precio_venta_usd.errors }}
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_venta_ars.label }}</label>
+                            {{ variante_form.precio_venta_ars }}
+                            {{ variante_form.precio_venta_ars.errors }}
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <h3 class="text-xs font-semibold uppercase text-muted">Precio mínimo</h3>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_minimo_usd.label }}</label>
+                            {{ variante_form.precio_minimo_usd }}
+                            {{ variante_form.precio_minimo_usd.errors }}
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_minimo_ars.label }}</label>
+                            {{ variante_form.precio_minimo_ars }}
+                            {{ variante_form.precio_minimo_ars.errors }}
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <h3 class="text-xs font-semibold uppercase text-muted">Minorista</h3>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_minorista_usd.label }}</label>
+                            {{ variante_form.precio_minorista_usd }}
+                            {{ variante_form.precio_minorista_usd.errors }}
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_minorista_ars.label }}</label>
+                            {{ variante_form.precio_minorista_ars }}
+                            {{ variante_form.precio_minorista_ars.errors }}
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <h3 class="text-xs font-semibold uppercase text-muted">Mayorista</h3>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_mayorista_usd.label }}</label>
+                            {{ variante_form.precio_mayorista_usd }}
+                            {{ variante_form.precio_mayorista_usd.errors }}
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_mayorista_ars.label }}</label>
+                            {{ variante_form.precio_mayorista_ars }}
+                            {{ variante_form.precio_mayorista_ars.errors }}
+                        </div>
+                    </div>
                 </div>
             </section>
 
             <div class="flex justify-end gap-3">
-                <a href="{% url 'inventario:dashboard' %}" class="rounded-full border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-500 hover:text-slate-900">Cancelar</a>
-                <button type="submit" class="rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-lg hover:bg-slate-800">Guardar</button>
+                <a href="{% url 'inventario:dashboard' %}" class="glass-input rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-slate-100 hover:bg-white/10 transition">Cancelar</a>
+                <button type="submit" class="glass-input rounded-full border border-white/20 bg-white/10 px-5 py-2 text-sm font-semibold text-slate-100 hover:bg-white/20 transition shadow-lg">Guardar</button>
             </div>
         </form>
     </div>
 </div>
-{% endblock %}
 
+<div id="camera-container">
+    <div class="glass-card rounded-3xl p-6 max-w-md w-full mx-4">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold text-slate-100">Escanear código de barras</h3>
+            <button type="button" id="close-camera" class="text-slate-100 hover:text-slate-300">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div id="qr-reader"></div>
+    </div>
+</div>
+
+<div id="modal-precios" class="fixed inset-0 z-50 hidden items-center justify-center" style="background: rgba(4, 7, 17, 0.95); backdrop-filter: blur(8px);">
+    <div class="glass-card rounded-3xl p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h3 class="text-2xl font-semibold text-slate-100">Configurar precios</h3>
+            <button type="button" id="cerrar-modal-precios" class="text-slate-100 hover:text-slate-300">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        
+        <div class="mb-6 flex items-center justify-center gap-4">
+            <span class="text-sm text-muted">Moneda base:</span>
+            <label class="switch-container">
+                <input type="checkbox" id="switch-moneda-precios" checked>
+                <span class="switch-slider"></span>
+            </label>
+            <span class="text-sm font-semibold text-slate-100" id="moneda-label">USD</span>
+            <span class="text-xs text-muted" id="dolar-rate-modal">USD: ${{ valor_dolar|default:"0" }}</span>
+        </div>
+        
+        <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3" id="precios-modal-content">
+            <div class="space-y-3">
+                <h3 class="text-xs font-semibold uppercase text-muted">Costo</h3>
+                <div>
+                    <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.costo_usd.label }}</label>
+                    {{ variante_form.costo_usd }}
+                </div>
+                <div>
+                    <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.costo_ars.label }}</label>
+                    {{ variante_form.costo_ars }}
+                </div>
+            </div>
+            <div class="space-y-3">
+                <h3 class="text-xs font-semibold uppercase text-muted">Precio venta</h3>
+                <div>
+                    <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_venta_usd.label }}</label>
+                    {{ variante_form.precio_venta_usd }}
+                </div>
+                <div>
+                    <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_venta_ars.label }}</label>
+                    {{ variante_form.precio_venta_ars }}
+                </div>
+            </div>
+            <div class="space-y-3">
+                <h3 class="text-xs font-semibold uppercase text-muted">Precio mínimo</h3>
+                <div>
+                    <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_minimo_usd.label }}</label>
+                    {{ variante_form.precio_minimo_usd }}
+                </div>
+                <div>
+                    <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_minimo_ars.label }}</label>
+                    {{ variante_form.precio_minimo_ars }}
+                </div>
+            </div>
+            <div class="space-y-3">
+                <h3 class="text-xs font-semibold uppercase text-muted">Minorista</h3>
+                <div>
+                    <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_minorista_usd.label }}</label>
+                    {{ variante_form.precio_minorista_usd }}
+                </div>
+                <div>
+                    <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_minorista_ars.label }}</label>
+                    {{ variante_form.precio_minorista_ars }}
+                </div>
+            </div>
+            <div class="space-y-3">
+                <h3 class="text-xs font-semibold uppercase text-muted">Mayorista</h3>
+                <div>
+                    <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_mayorista_usd.label }}</label>
+                    {{ variante_form.precio_mayorista_usd }}
+                </div>
+                <div>
+                    <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_mayorista_ars.label }}</label>
+                    {{ variante_form.precio_mayorista_ars }}
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-6 flex justify-end gap-3">
+            <button type="button" id="cerrar-modal-precios-btn" class="glass-input rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-slate-100 hover:bg-white/10 transition">Cerrar</button>
+            <button type="button" id="guardar-precios-modal" class="glass-input rounded-full border border-white/20 bg-white/10 px-5 py-2 text-sm font-semibold text-slate-100 hover:bg-white/20 transition shadow-lg">Guardar precios</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const dolarRate = {{ valor_dolar|default:"0" }};
+    const monedaBase = document.getElementById('moneda-base-select');
+    const nombreInput = document.getElementById('producto-nombre');
+    const skuInput = document.getElementById('sku-input');
+    const skuAutoToggle = document.getElementById('sku-auto-toggle');
+    const atributo1 = document.querySelector('[name="atributo_1"]');
+    const atributo2 = document.querySelector('[name="atributo_2"]');
+    
+    // SKU automático
+    function generarSKU() {
+        if (!skuAutoToggle.checked) return;
+        const nombre = nombreInput.value || '';
+        const attr1 = atributo1?.value || '';
+        const attr2 = atributo2?.value || '';
+        const sku = `${nombre}-${attr1}-${attr2}`.toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+        if (sku) skuInput.value = sku;
+    }
+    
+    [nombreInput, atributo1, atributo2].forEach(el => {
+        if (el) el.addEventListener('input', generarSKU);
+    });
+    skuAutoToggle.addEventListener('change', function() {
+        skuInput.readOnly = this.checked;
+        if (this.checked) generarSKU();
+    });
+    skuInput.readOnly = skuAutoToggle.checked;
+    
+    // Conversión de moneda
+    const camposUSD = ['costo-usd', 'precio-venta-usd', 'precio-minimo-usd', 'precio-minorista-usd', 'precio-mayorista-usd'];
+    const camposARS = ['costo-ars', 'precio-venta-ars', 'precio-minimo-ars', 'precio-minorista-ars', 'precio-mayorista-ars'];
+    
+    function convertirMoneda() {
+        const base = monedaBase.value;
+        camposUSD.forEach((idUSD, idx) => {
+            const inputUSD = document.getElementById(idUSD);
+            const inputARS = document.getElementById(camposARS[idx]);
+            if (!inputUSD || !inputARS) return;
+            
+            if (base === 'USD') {
+                inputARS.addEventListener('input', function() {
+                    const valor = parseFloat(this.value) || 0;
+                    inputUSD.value = (valor / dolarRate).toFixed(2);
+                });
+            } else {
+                inputUSD.addEventListener('input', function() {
+                    const valor = parseFloat(this.value) || 0;
+                    inputARS.value = (valor * dolarRate).toFixed(2);
+                });
+            }
+        });
+    }
+    monedaBase.addEventListener('change', convertirMoneda);
+    convertirMoneda();
+    
+    // Escaneo de código de barras
+    const scanBtn = document.getElementById('scan-barcode-btn');
+    const cameraContainer = document.getElementById('camera-container');
+    const closeCamera = document.getElementById('close-camera');
+    const barcodeInput = document.getElementById('codigo-barras-input');
+    let html5QrcodeScanner = null;
+    
+    scanBtn.addEventListener('click', function() {
+        cameraContainer.classList.add('active');
+        if (!html5QrcodeScanner) {
+            html5QrcodeScanner = new Html5Qrcode("qr-reader");
+        }
+        html5QrcodeScanner.start(
+            { facingMode: "environment" },
+            {
+                fps: 10,
+                qrbox: { width: 250, height: 250 }
+            },
+            (decodedText) => {
+                barcodeInput.value = decodedText;
+                html5QrcodeScanner.stop();
+                cameraContainer.classList.remove('active');
+            },
+            (errorMessage) => {}
+        );
+    });
+    
+    closeCamera.addEventListener('click', function() {
+        if (html5QrcodeScanner) {
+            html5QrcodeScanner.stop();
+        }
+        cameraContainer.classList.remove('active');
+    });
+    
+    // Generar código de barras
+    document.getElementById('generate-barcode-btn').addEventListener('click', function() {
+        const codigo = Math.floor(100000000000 + Math.random() * 900000000000).toString();
+        barcodeInput.value = codigo;
+    });
+    
+    // Modal de precios
+    const modalPrecios = document.getElementById('modal-precios');
+    const abrirModalPrecios = document.getElementById('abrir-modal-precios');
+    const cerrarModalPrecios = document.getElementById('cerrar-modal-precios');
+    const cerrarModalPreciosBtn = document.getElementById('cerrar-modal-precios-btn');
+    const switchMonedaPrecios = document.getElementById('switch-moneda-precios');
+    const monedaLabel = document.getElementById('moneda-label');
+    const guardarPreciosModal = document.getElementById('guardar-precios-modal');
+    
+    abrirModalPrecios.addEventListener('click', function() {
+        modalPrecios.classList.remove('hidden');
+        modalPrecios.classList.add('flex');
+    });
+    
+    [cerrarModalPrecios, cerrarModalPreciosBtn].forEach(btn => {
+        btn.addEventListener('click', function() {
+            modalPrecios.classList.add('hidden');
+            modalPrecios.classList.remove('flex');
+        });
+    });
+    
+    switchMonedaPrecios.addEventListener('change', function() {
+        const isUSD = this.checked;
+        monedaLabel.textContent = isUSD ? 'USD' : 'ARS';
+        const camposUSD = document.querySelectorAll('[id$="-usd"]');
+        const camposARS = document.querySelectorAll('[id$="-ars"]');
+        
+        camposUSD.forEach(input => {
+            input.style.display = isUSD ? 'block' : 'none';
+        });
+        camposARS.forEach(input => {
+            input.style.display = isUSD ? 'none' : 'block';
+        });
+    });
+    
+    // Conversión automática en el modal
+    const convertirEnModal = () => {
+        const isUSD = switchMonedaPrecios.checked;
+        camposUSD.forEach((idUSD, idx) => {
+            const inputUSD = document.getElementById(idUSD);
+            const inputARS = document.getElementById(camposARS[idx]);
+            if (!inputUSD || !inputARS) return;
+            
+            if (isUSD) {
+                inputUSD.addEventListener('input', function() {
+                    const valor = parseFloat(this.value) || 0;
+                    inputARS.value = (valor * dolarRate).toFixed(2);
+                });
+            } else {
+                inputARS.addEventListener('input', function() {
+                    const valor = parseFloat(this.value) || 0;
+                    inputUSD.value = (valor / dolarRate).toFixed(2);
+                });
+            }
+        });
+    };
+    
+    switchMonedaPrecios.addEventListener('change', convertirEnModal);
+    convertirEnModal();
+    
+    guardarPreciosModal.addEventListener('click', function() {
+        modalPrecios.classList.add('hidden');
+        modalPrecios.classList.remove('flex');
+        // Los valores ya están en los inputs del formulario, se guardarán al submit
+    });
+})();
+</script>
+{% endblock %}

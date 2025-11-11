@@ -23,7 +23,7 @@ from .forms import (
 )
 from .models import Categoria, Precio, Producto, ProductoVariante, Proveedor
 from .utils import is_detalleiphone_variante_ready
-from .importers import exportar_catalogo_a_csv, importar_catalogo_desde_archivo
+from .importers import exportar_catalogo_a_csv, exportar_catalogo_a_excel, importar_catalogo_desde_archivo
 
 
 SCHEMA_REQUIREMENTS = (
@@ -37,6 +37,12 @@ SCHEMA_REQUIREMENTS = (
 
 
 PRECIO_FIELDS = (
+    "costo_usd",
+    "costo_ars",
+    "precio_venta_usd",
+    "precio_venta_ars",
+    "precio_minimo_usd",
+    "precio_minimo_ars",
     "precio_minorista_usd",
     "precio_minorista_ars",
     "precio_mayorista_usd",
@@ -56,15 +62,20 @@ def _precio_subquery(tipo, moneda):
 
 
 def _sincronizar_precios(variante: ProductoVariante, data: dict) -> None:
+    # Precio venta = minorista (si no hay minorista explícito)
+    precio_venta_usd = data.get("precio_venta_usd") or data.get("precio_minorista_usd")
+    precio_venta_ars = data.get("precio_venta_ars") or data.get("precio_minorista_ars")
+    
     combinaciones = [
-        ("precio_minorista_usd", Precio.Tipo.MINORISTA, Precio.Moneda.USD),
-        ("precio_minorista_ars", Precio.Tipo.MINORISTA, Precio.Moneda.ARS),
-        ("precio_mayorista_usd", Precio.Tipo.MAYORISTA, Precio.Moneda.USD),
-        ("precio_mayorista_ars", Precio.Tipo.MAYORISTA, Precio.Moneda.ARS),
+        ("precio_minorista_usd", Precio.Tipo.MINORISTA, Precio.Moneda.USD, precio_venta_usd),
+        ("precio_minorista_ars", Precio.Tipo.MINORISTA, Precio.Moneda.ARS, precio_venta_ars),
+        ("precio_mayorista_usd", Precio.Tipo.MAYORISTA, Precio.Moneda.USD, data.get("precio_mayorista_usd")),
+        ("precio_mayorista_ars", Precio.Tipo.MAYORISTA, Precio.Moneda.ARS, data.get("precio_mayorista_ars")),
     ]
 
-    for campo, tipo, moneda in combinaciones:
-        valor = data.get(campo)
+    for campo, tipo, moneda, valor in combinaciones:
+        if valor is None:
+            valor = data.get(campo)
         if valor in (None, ""):
             variante.precios.filter(tipo=tipo, moneda=moneda).update(activo=False)
             continue
@@ -237,6 +248,24 @@ def producto_crear(request):
 
     if request.method == "POST":
         if producto_form.is_valid() and variante_form.is_valid():
+            # Generar SKU automático si está habilitado
+            if variante_form.cleaned_data.get("sku_auto", True):
+                nombre = producto_form.cleaned_data.get("nombre", "")
+                attr1 = variante_form.cleaned_data.get("atributo_1", "")
+                attr2 = variante_form.cleaned_data.get("atributo_2", "")
+                from django.utils.text import slugify
+                sku_auto = slugify(f"{nombre}-{attr1}-{attr2}".strip("-"))
+                if sku_auto:
+                    variante_form.cleaned_data["sku"] = sku_auto
+                    variante_form.instance.sku = sku_auto
+            
+            # Generar código de barras si está habilitado
+            if producto_form.cleaned_data.get("generar_codigo_barras"):
+                import random
+                codigo = f"{random.randint(100000000000, 999999999999)}"
+                producto_form.cleaned_data["codigo_barras"] = codigo
+                producto_form.instance.codigo_barras = codigo
+            
             producto = producto_form.save()
             variante = variante_form.save(commit=False)
             variante.producto = producto
@@ -250,6 +279,7 @@ def producto_crear(request):
         "variante_form": variante_form,
         "modo": "crear",
         "precio_fields": PRECIO_FIELDS,
+        "valor_dolar": obtener_valor_dolar_blue(),
     }
     return render(request, "inventario/producto_form.html", context)
 
@@ -312,9 +342,15 @@ def inventario_importar(request):
 
 @login_required
 def inventario_exportar(request):
-    buffer = exportar_catalogo_a_csv()
-    respuesta = HttpResponse(buffer.getvalue(), content_type="text/csv")
-    respuesta["Content-Disposition"] = "attachment; filename=inventario_exportado.csv"
+    formato = request.GET.get("formato", "excel")
+    if formato == "excel":
+        buffer = exportar_catalogo_a_excel()
+        respuesta = HttpResponse(buffer.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        respuesta["Content-Disposition"] = "attachment; filename=inventario_exportado.xlsx"
+    else:
+        buffer = exportar_catalogo_a_csv()
+        respuesta = HttpResponse(buffer.getvalue(), content_type="text/csv")
+        respuesta["Content-Disposition"] = "attachment; filename=inventario_exportado.csv"
     return respuesta
 
 

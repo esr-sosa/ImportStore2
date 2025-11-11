@@ -20,6 +20,22 @@ logger = logging.getLogger(__name__)
 genai.configure(api_key=settings.GEMINI_API_KEY)
 
 
+def _extract_json_block(text: str) -> str:
+    """
+    Extrae el primer bloque JSON válido de un texto potencialmente envuelto en ```json ... ```.
+    """
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.replace("```json", "").replace("```", "").strip()
+    # Fallback simple: si no empieza con { intenta encontrar el primer { y último }
+    if not cleaned.startswith("{"):
+        start = cleaned.find("{")
+        end = cleaned.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            cleaned = cleaned[start : end + 1]
+    return cleaned
+
+
 def _invoke_gemini(prompt: str):
     """Ejecuta una generación en Gemini con fallback de modelo."""
 
@@ -65,6 +81,31 @@ MODEL_MAP = {
     'RegistroHistorial': RegistroHistorial,
     'Categoria': Categoria,
 }
+
+# Whitelist de campos permitidos por modelo (para evitar consultas peligrosas)
+ALLOWED_FIELDS: dict[str, set[str]] = {
+    'Producto': {'nombre', 'categoria__nombre', 'activo'},
+    'ProductoVariante': {'producto__nombre', 'producto__categoria__nombre', 'sku', 'atributo_1', 'atributo_2', 'stock_actual', 'stock_minimo'},
+    'DetalleIphone': {'variante__sku', 'imei', 'salud_bateria', 'costo_usd', 'precio_venta_usd', 'precio_oferta_usd'},
+    'Precio': {'variante__sku', 'variante__producto__nombre', 'tipo', 'moneda', 'precio'},
+    'RegistroHistorial': {'accion', 'usuario__username', 'modelo', 'obj_id'},
+    'Categoria': {'nombre'},
+}
+
+ALLOWED_LOOKUPS = {'exact', 'iexact', 'contains', 'icontains', 'gte', 'lte', 'gt', 'lt', 'in', 'startswith', 'istartswith', 'endswith', 'iendswith'}
+
+
+def _is_allowed_field(model_name: str, field_lookup: str) -> bool:
+    """
+    Verifica que el lookup esté permitido. Permite sufijos de lookup (campo__icontains).
+    """
+    parts = field_lookup.split("__")
+    if len(parts) > 1 and parts[-1] in ALLOWED_LOOKUPS:
+        base = "__".join(parts[:-1])
+    else:
+        base = field_lookup
+    return base in ALLOWED_FIELDS.get(model_name, set())
+
 
 # Esquema de la DB para que la IA entienda la estructura.
 DATABASE_SCHEMA = """
@@ -138,8 +179,21 @@ def generate_query_json_from_question(question, user_name="Ema", chat_history=""
     """
     try:
         response = _invoke_gemini(prompt)
-        json_text = response.text.strip().replace('```json', '').replace('```', '')
-        return json.loads(json_text)
+        json_text = _extract_json_block(response.text or "")
+        data = json.loads(json_text)
+        # Validación mínima del esquema
+        if not isinstance(data, dict):
+            return {"model": "None", "action": "chat", "filters": []}
+        model_name = data.get("model")
+        action = data.get("action")
+        filters = data.get("filters", [])
+        if model_name not in MODEL_MAP and model_name != "None":
+            data["model"] = "None"
+        if action not in {"filter", "count"}:
+            data["action"] = "chat"
+        if not isinstance(filters, list):
+            data["filters"] = []
+        return data
     except Exception as e:
         if "429" in str(e):
             return {"error": "RATE_LIMIT_EXCEEDED"}
@@ -162,9 +216,21 @@ def run_query_from_json(query_json):
         
         Model = MODEL_MAP[model_name]
         q_objects = Q()
+        valid_filters = 0
         for f in filters_list:
-            if "field" in f and "value" in f:
-                q_objects &= Q(**{f['field']: f['value']})
+            field = f.get("field")
+            value = f.get("value")
+            if not field or value is None:
+                continue
+            if not _is_allowed_field(model_name, field):
+                logger.warning("Filtro rechazado por whitelist", extra={"model": model_name, "field": field})
+                continue
+            try:
+                q_objects &= Q(**{field: value})
+                valid_filters += 1
+            except Exception as ex:
+                logger.warning("Filtro inválido descartado", extra={"field": field, "error": str(ex)})
+                continue
 
         queryset = Model.objects.filter(q_objects)
 

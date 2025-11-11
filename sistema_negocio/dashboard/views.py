@@ -15,6 +15,7 @@ from django.utils import timezone
 
 from core.db_inspector import column_exists, table_exists
 from core.utils import obtener_valor_dolar_blue
+from configuracion.models import ConfiguracionSistema
 from crm.models import Cliente, Conversacion
 from historial.models import RegistroHistorial
 from inventario.models import Precio, Producto, ProductoVariante
@@ -227,4 +228,8 @@ def tienda_preview(request):
             }
         )
 
-    return render(request, "dashboard/preview.html", {"catalogo": catalogo})
+    configuracion = ConfiguracionSistema.carga()
+    return render(request, "dashboard/preview.html", {
+        "catalogo": catalogo,
+        "configuracion_sistema": configuracion,
+    })

@@ -1,4 +1,5 @@
 from django import forms
+from django.utils.text import slugify
 
 from .models import Categoria, Precio, Producto, ProductoVariante, Proveedor
 
@@ -117,10 +118,28 @@ class ProveedorForm(forms.ModelForm):
 
 
 class ProductoForm(forms.ModelForm):
+    generar_codigo_barras = forms.BooleanField(
+        required=False,
+        initial=False,
+        label="Generar código de barras automáticamente",
+        widget=forms.CheckboxInput(attrs={"class": "h-5 w-5 rounded border-slate-300"}),
+    )
+    generar_qr = forms.BooleanField(
+        required=False,
+        initial=False,
+        label="Generar QR code",
+        widget=forms.CheckboxInput(attrs={"class": "h-5 w-5 rounded border-slate-300"}),
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["categoria"].required = False
         self.fields["proveedor"].required = False
+        self.fields["codigo_barras"].required = False
+        self.fields["codigo_barras"].widget.attrs.update({
+            "id": "codigo-barras-input",
+            "readonly": True,
+        })
 
     class Meta:
         model = Producto
@@ -133,43 +152,170 @@ class ProductoForm(forms.ModelForm):
             "activo",
         ]
         widgets = {
-            "nombre": forms.TextInput(attrs={"class": "rounded-2xl border border-slate-200 px-4 py-3 text-sm w-full"}),
-            "categoria": forms.Select(attrs={"class": "rounded-2xl border border-slate-200 px-4 py-3 text-sm w-full"}),
-            "proveedor": forms.Select(attrs={"class": "rounded-2xl border border-slate-200 px-4 py-3 text-sm w-full"}),
-            "descripcion": forms.Textarea(attrs={"rows": 4, "class": "rounded-2xl border border-slate-200 px-4 py-3 text-sm w-full"}),
-            "codigo_barras": forms.TextInput(attrs={"class": "rounded-2xl border border-slate-200 px-4 py-3 text-sm w-full"}),
-            "activo": forms.CheckboxInput(attrs={"class": "h-5 w-5 rounded border-slate-300 text-black focus:ring-black"}),
+            "nombre": forms.TextInput(attrs={
+                "class": "glass-input w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder-slate-400 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20",
+                "id": "producto-nombre",
+                "placeholder": "Nombre del producto",
+            }),
+            "categoria": forms.Select(attrs={
+                "class": "glass-input w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-slate-100 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20",
+            }),
+            "proveedor": forms.Select(attrs={
+                "class": "glass-input w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-slate-100 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20",
+            }),
+            "descripcion": forms.Textarea(attrs={
+                "rows": 4,
+                "class": "glass-input w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder-slate-400 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20",
+                "placeholder": "Descripción del producto",
+            }),
+            "codigo_barras": forms.TextInput(attrs={
+                "class": "glass-input w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder-slate-400 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20",
+                "placeholder": "Escaneá o generá código de barras",
+            }),
+            "activo": forms.CheckboxInput(attrs={
+                "class": "h-5 w-5 rounded border-white/30 bg-white/5 text-slate-100 focus:ring-white/20",
+            }),
         }
 
 
 class ProductoVarianteForm(forms.ModelForm):
+    # SKU automático
+    sku_auto = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="SKU automático",
+        widget=forms.CheckboxInput(attrs={"class": "h-5 w-5 rounded border-white/30", "id": "sku-auto-toggle"}),
+    )
+
+    # Moneda base para conversión
+    moneda_base = forms.ChoiceField(
+        choices=[("USD", "USD"), ("ARS", "ARS")],
+        initial="USD",
+        label="Moneda base",
+        widget=forms.Select(attrs={
+            "class": "glass-input rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-slate-100 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20",
+            "id": "moneda-base-select",
+        }),
+    )
+
+    # Costo
+    costo_usd = forms.DecimalField(
+        required=False,
+        label="Costo USD",
+        min_value=0,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={
+            "class": "glass-input w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder-slate-400 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20",
+            "id": "costo-usd",
+            "step": "0.01",
+        }),
+    )
+    costo_ars = forms.DecimalField(
+        required=False,
+        label="Costo ARS",
+        min_value=0,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={
+            "class": "glass-input w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder-slate-400 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20",
+            "id": "costo-ars",
+            "step": "0.01",
+        }),
+    )
+
+    # Precio venta (minorista)
+    precio_venta_usd = forms.DecimalField(
+        required=False,
+        label="Precio venta USD",
+        min_value=0,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={
+            "class": "glass-input w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder-slate-400 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20",
+            "id": "precio-venta-usd",
+            "step": "0.01",
+        }),
+    )
+    precio_venta_ars = forms.DecimalField(
+        required=False,
+        label="Precio venta ARS",
+        min_value=0,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={
+            "class": "glass-input w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder-slate-400 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20",
+            "id": "precio-venta-ars",
+            "step": "0.01",
+        }),
+    )
+
+    # Precio mínimo
+    precio_minimo_usd = forms.DecimalField(
+        required=False,
+        label="Precio mínimo USD",
+        min_value=0,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={
+            "class": "glass-input w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder-slate-400 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20",
+            "id": "precio-minimo-usd",
+            "step": "0.01",
+        }),
+    )
+    precio_minimo_ars = forms.DecimalField(
+        required=False,
+        label="Precio mínimo ARS",
+        min_value=0,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={
+            "class": "glass-input w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder-slate-400 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20",
+            "id": "precio-minimo-ars",
+            "step": "0.01",
+        }),
+    )
+
+    # Precio minorista
     precio_minorista_usd = forms.DecimalField(
         required=False,
         label="P. minorista USD",
         min_value=0,
         decimal_places=2,
-        widget=forms.NumberInput(attrs={"class": "rounded-2xl border border-slate-200 px-3 py-2 text-sm w-full"}),
+        widget=forms.NumberInput(attrs={
+            "class": "glass-input w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder-slate-400 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20",
+            "id": "precio-minorista-usd",
+            "step": "0.01",
+        }),
     )
     precio_minorista_ars = forms.DecimalField(
         required=False,
         label="P. minorista ARS",
         min_value=0,
         decimal_places=2,
-        widget=forms.NumberInput(attrs={"class": "rounded-2xl border border-slate-200 px-3 py-2 text-sm w-full"}),
+        widget=forms.NumberInput(attrs={
+            "class": "glass-input w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder-slate-400 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20",
+            "id": "precio-minorista-ars",
+            "step": "0.01",
+        }),
     )
+
+    # Precio mayorista
     precio_mayorista_usd = forms.DecimalField(
         required=False,
         label="P. mayorista USD",
         min_value=0,
         decimal_places=2,
-        widget=forms.NumberInput(attrs={"class": "rounded-2xl border border-slate-200 px-3 py-2 text-sm w-full"}),
+        widget=forms.NumberInput(attrs={
+            "class": "glass-input w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder-slate-400 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20",
+            "id": "precio-mayorista-usd",
+            "step": "0.01",
+        }),
     )
     precio_mayorista_ars = forms.DecimalField(
         required=False,
         label="P. mayorista ARS",
         min_value=0,
         decimal_places=2,
-        widget=forms.NumberInput(attrs={"class": "rounded-2xl border border-slate-200 px-3 py-2 text-sm w-full"}),
+        widget=forms.NumberInput(attrs={
+            "class": "glass-input w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder-slate-400 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20",
+            "id": "precio-mayorista-ars",
+            "step": "0.01",
+        }),
     )
 
     class Meta:
@@ -183,12 +329,30 @@ class ProductoVarianteForm(forms.ModelForm):
             "activo",
         ]
         widgets = {
-            "sku": forms.TextInput(attrs={"class": "rounded-2xl border border-slate-200 px-4 py-3 text-sm w-full"}),
-            "atributo_1": forms.TextInput(attrs={"class": "rounded-2xl border border-slate-200 px-4 py-3 text-sm w-full"}),
-            "atributo_2": forms.TextInput(attrs={"class": "rounded-2xl border border-slate-200 px-4 py-3 text-sm w-full"}),
-            "stock_actual": forms.NumberInput(attrs={"class": "rounded-2xl border border-slate-200 px-4 py-3 text-sm w-full"}),
-            "stock_minimo": forms.NumberInput(attrs={"class": "rounded-2xl border border-slate-200 px-4 py-3 text-sm w-full"}),
-            "activo": forms.CheckboxInput(attrs={"class": "h-5 w-5 rounded border-slate-300 text-black focus:ring-black"}),
+            "sku": forms.TextInput(attrs={
+                "class": "glass-input w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder-slate-400 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20",
+                "id": "sku-input",
+                "placeholder": "SKU (se genera automáticamente)",
+            }),
+            "atributo_1": forms.TextInput(attrs={
+                "class": "glass-input w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder-slate-400 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20",
+                "placeholder": "Ej: Color, Talle",
+            }),
+            "atributo_2": forms.TextInput(attrs={
+                "class": "glass-input w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder-slate-400 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20",
+                "placeholder": "Ej: Capacidad, Material",
+            }),
+            "stock_actual": forms.NumberInput(attrs={
+                "class": "glass-input w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder-slate-400 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20",
+                "min": "0",
+            }),
+            "stock_minimo": forms.NumberInput(attrs={
+                "class": "glass-input w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder-slate-400 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20",
+                "min": "0",
+            }),
+            "activo": forms.CheckboxInput(attrs={
+                "class": "h-5 w-5 rounded border-white/30 bg-white/5 text-slate-100 focus:ring-white/20",
+            }),
         }
 
     def inicializar_precios(self, variante: ProductoVariante) -> None:
@@ -201,4 +365,3 @@ class ProductoVarianteForm(forms.ModelForm):
             precio = variante.precios.filter(tipo=tipo, moneda=moneda, activo=True).order_by("-actualizado").first()
             if precio:
                 self.fields[campo].initial = precio.precio
-

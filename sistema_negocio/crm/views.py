@@ -8,7 +8,7 @@ from django.contrib.auth.decorators import login_required
 from datetime import timedelta
 
 from django.core.paginator import Paginator
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Max
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
@@ -82,7 +82,9 @@ def _clientes_context(request, form: ClienteForm):
         "page": request.GET.get("page", "1"),
     }
 
-    clientes_qs = Cliente.objects.all()
+    clientes_qs = Cliente.objects.all().annotate(
+        ultima_actividad=Max("conversaciones__ultima_actualizacion")
+    )
     if filtros["q"]:
         clientes_qs = clientes_qs.filter(
             Q(nombre__icontains=filtros["q"]) | Q(telefono__icontains=filtros["q"]) | Q(email__icontains=filtros["q"])

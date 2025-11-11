@@ -4,18 +4,18 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
-<div class="min-h-screen w-full bg-slate-50 pb-16">
+<div class="min-h-screen w-full pb-16">
     <div class="mx-auto max-w-7xl px-6 py-12 space-y-10">
-        <header class="flex flex-col gap-4 rounded-3xl bg-white/80 px-6 py-8 shadow-sm ring-1 ring-slate-200/60 lg:flex-row lg:items-center lg:justify-between">
+        <header class="flex flex-col gap-4 glass-card rounded-3xl px-6 py-8 lg:flex-row lg:items-center lg:justify-between">
             <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Centro operativo</p>
-                <h1 class="mt-2 text-3xl font-semibold text-slate-900 sm:text-4xl">Hola, {{ user.first_name|default:user.username }} 👋</h1>
-                <p class="mt-3 max-w-2xl text-sm text-slate-600">
+                <p class="text-xs font-semibold uppercase tracking-[0.35em] text-muted">Centro operativo</p>
+                <h1 class="mt-2 text-3xl font-semibold text-slate-100 sm:text-4xl">Hola, {{ user.first_name|default:user.username }} 👋</h1>
+                <p class="mt-3 max-w-2xl text-sm text-muted">
                     Seguimiento integral del inventario, conversaciones y ventas en un solo panel. Activá las acciones rápidas para crear productos, atender clientes o registrar una venta sin salir de este tablero.
                 </p>
             </div>
-            <div class="flex items-center gap-3 rounded-2xl bg-slate-900 px-5 py-4 text-slate-100 shadow-lg">
-                <div class="rounded-full bg-white/10 px-3 py-2 text-xs uppercase tracking-widest text-slate-200">Dólar blue</div>
+            <div class="glass-card rounded-2xl px-5 py-4 text-slate-100 shadow-lg">
+                <div class="rounded-full bg-white/10 px-3 py-2 text-xs uppercase tracking-widest text-slate-200 inline-block mb-2">Dólar blue</div>
                 <div class="text-3xl font-semibold">
                     {% if valor_blue %}
                         ${{ valor_blue|floatformat:0|intcomma }}
@@ -27,7 +27,7 @@
         </header>
 
         {% if schema_warnings %}
-            <div class="rounded-3xl border border-amber-300/50 bg-amber-50 px-6 py-5 text-sm text-amber-800 shadow-sm">
+            <div class="glass-card rounded-3xl border border-amber-500/40 px-6 py-5 text-sm text-amber-200">
                 <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide">Atención</h2>
                 <ul class="space-y-1">
                     {% for warning in schema_warnings %}
@@ -38,189 +38,189 @@
         {% endif %}
 
         <section class="grid gap-6 lg:grid-cols-3">
-            <article class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200/60">
+            <article class="glass-card rounded-3xl p-6">
                 <header class="mb-4 flex items-center justify-between">
                     <div>
-                        <p class="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Inventario</p>
-                        <h2 class="text-lg font-semibold text-slate-900">Salud del catálogo</h2>
+                        <p class="text-xs font-semibold uppercase tracking-[0.3em] text-muted">Inventario</p>
+                        <h2 class="text-lg font-semibold text-slate-100">Salud del catálogo</h2>
                     </div>
-                    <span class="rounded-full bg-slate-900/10 px-3 py-1 text-xs font-medium text-slate-700">SKU</span>
+                    <span class="rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-slate-200">SKU</span>
                 </header>
                 {% if inventario_metrics %}
                     <dl class="grid grid-cols-2 gap-4 text-sm">
-                        <div class="rounded-2xl bg-slate-100/70 px-4 py-3">
-                            <dt class="text-xs uppercase tracking-widest text-slate-500">Variantes activas</dt>
-                            <dd class="mt-1 text-2xl font-semibold text-slate-900">{{ inventario_metrics.total_activos|default:0|intcomma }}</dd>
+                        <div class="glass-card rounded-2xl px-4 py-3">
+                            <dt class="text-xs uppercase tracking-widest text-muted">Variantes activas</dt>
+                            <dd class="mt-1 text-2xl font-semibold text-slate-100">{{ inventario_metrics.total_activos|default:0|intcomma }}</dd>
                         </div>
-                        <div class="rounded-2xl bg-slate-100/70 px-4 py-3">
-                            <dt class="text-xs uppercase tracking-widest text-slate-500">Bajo stock</dt>
-                            <dd class="mt-1 text-2xl font-semibold text-amber-600">{{ inventario_metrics.total_bajo_stock|default:0|intcomma }}</dd>
+                        <div class="glass-card rounded-2xl px-4 py-3">
+                            <dt class="text-xs uppercase tracking-widest text-muted">Bajo stock</dt>
+                            <dd class="mt-1 text-2xl font-semibold text-amber-400">{{ inventario_metrics.total_bajo_stock|default:0|intcomma }}</dd>
                         </div>
-                        <div class="rounded-2xl bg-slate-100/70 px-4 py-3">
-                            <dt class="text-xs uppercase tracking-widest text-slate-500">Unidades disponibles</dt>
-                            <dd class="mt-1 text-2xl font-semibold text-slate-900">{{ inventario_metrics.unidades_totales|default:0|intcomma }}</dd>
+                        <div class="glass-card rounded-2xl px-4 py-3">
+                            <dt class="text-xs uppercase tracking-widest text-muted">Unidades disponibles</dt>
+                            <dd class="mt-1 text-2xl font-semibold text-slate-100">{{ inventario_metrics.unidades_totales|default:0|intcomma }}</dd>
                         </div>
-                        <div class="rounded-2xl bg-slate-100/70 px-4 py-3">
-                            <dt class="text-xs uppercase tracking-widest text-slate-500">Valuación USD</dt>
-                            <dd class="mt-1 text-2xl font-semibold text-slate-900">USD {{ inventario_metrics.valor_catalogo_usd|default:0|floatformat:2|intcomma }}</dd>
+                        <div class="glass-card rounded-2xl px-4 py-3">
+                            <dt class="text-xs uppercase tracking-widest text-muted">Valuación USD</dt>
+                            <dd class="mt-1 text-2xl font-semibold text-slate-100">USD {{ inventario_metrics.valor_catalogo_usd|default:0|floatformat:2|intcomma }}</dd>
                         </div>
                     </dl>
-                    <p class="mt-4 text-xs text-slate-500">Equivalente en ARS: ${{ inventario_metrics.valor_catalogo_ars|default:0|floatformat:2|intcomma }}</p>
+                    <p class="mt-4 text-xs text-muted">Equivalente en ARS: ${{ inventario_metrics.valor_catalogo_ars|default:0|floatformat:2|intcomma }}</p>
                 {% else %}
-                    <p class="text-sm text-slate-500">Necesitamos que completes las migraciones del módulo Inventario.</p>
+                    <p class="text-sm text-muted">Necesitamos que completes las migraciones del módulo Inventario.</p>
                 {% endif %}
             </article>
 
-            <article class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200/60">
+            <article class="glass-card rounded-3xl p-6">
                 <header class="mb-4 flex items-center justify-between">
                     <div>
-                        <p class="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">CRM</p>
-                        <h2 class="text-lg font-semibold text-slate-900">Conversaciones y clientes</h2>
+                        <p class="text-xs font-semibold uppercase tracking-[0.3em] text-muted">CRM</p>
+                        <h2 class="text-lg font-semibold text-slate-100">Conversaciones y clientes</h2>
                     </div>
-                    <span class="rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-700">Chat</span>
+                    <span class="rounded-full bg-indigo-500/20 px-3 py-1 text-xs font-medium text-indigo-300">Chat</span>
                 </header>
                 {% if crm_metrics %}
                     <dl class="space-y-3 text-sm">
                         <div class="flex items-baseline justify-between">
-                            <dt class="text-slate-500">Clientes registrados</dt>
-                            <dd class="text-lg font-semibold text-slate-900">{{ crm_metrics.clientes|default:0|intcomma }}</dd>
+                            <dt class="text-muted">Clientes registrados</dt>
+                            <dd class="text-lg font-semibold text-slate-100">{{ crm_metrics.clientes|default:0|intcomma }}</dd>
                         </div>
                         <div class="flex items-baseline justify-between">
-                            <dt class="text-slate-500">Conversaciones abiertas</dt>
-                            <dd class="text-lg font-semibold text-slate-900">{{ crm_metrics.conversaciones_abiertas|default:0|intcomma }}</dd>
+                            <dt class="text-muted">Conversaciones abiertas</dt>
+                            <dd class="text-lg font-semibold text-slate-100">{{ crm_metrics.conversaciones_abiertas|default:0|intcomma }}</dd>
                         </div>
                         <div class="flex items-baseline justify-between">
-                            <dt class="text-slate-500">SLA vencidos</dt>
-                            <dd class="text-lg font-semibold text-rose-600">{{ crm_metrics.sla_vencidos|default:0|intcomma }}</dd>
+                            <dt class="text-muted">SLA vencidos</dt>
+                            <dd class="text-lg font-semibold text-rose-400">{{ crm_metrics.sla_vencidos|default:0|intcomma }}</dd>
                         </div>
                     </dl>
-                    <a href="{% url 'crm:panel_chat' %}" class="mt-6 inline-flex items-center justify-center rounded-full bg-indigo-600 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white shadow hover:bg-indigo-700">Ir al panel</a>
+                    <a href="{% url 'crm:panel_chat' %}" class="mt-6 inline-flex items-center justify-center glass-card rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-widest text-slate-100 hover:bg-white/10 transition">Ir al panel</a>
                 {% else %}
-                    <p class="text-sm text-slate-500">Aplicá las migraciones del CRM para ver la actividad.</p>
+                    <p class="text-sm text-muted">Aplicá las migraciones del CRM para ver la actividad.</p>
                 {% endif %}
             </article>
 
-            <article class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200/60">
+            <article class="glass-card rounded-3xl p-6">
                 <header class="mb-4 flex items-center justify-between">
                     <div>
-                        <p class="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Ventas</p>
-                        <h2 class="text-lg font-semibold text-slate-900">Últimos 30 días</h2>
+                        <p class="text-xs font-semibold uppercase tracking-[0.3em] text-muted">Ventas</p>
+                        <h2 class="text-lg font-semibold text-slate-100">Últimos 30 días</h2>
                     </div>
-                    <span class="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-700">POS</span>
+                    <span class="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-medium text-emerald-300">POS</span>
                 </header>
                 {% if ventas_metrics %}
                     <dl class="space-y-3 text-sm">
                         <div class="flex items-baseline justify-between">
-                            <dt class="text-slate-500">Facturación</dt>
-                            <dd class="text-lg font-semibold text-slate-900">USD {{ ventas_metrics.total_periodo|default:0|floatformat:2|intcomma }}</dd>
+                            <dt class="text-muted">Facturación</dt>
+                            <dd class="text-lg font-semibold text-slate-100">USD {{ ventas_metrics.total_periodo|default:0|floatformat:2|intcomma }}</dd>
                         </div>
                         <div class="flex items-baseline justify-between">
-                            <dt class="text-slate-500">Tickets emitidos</dt>
-                            <dd class="text-lg font-semibold text-slate-900">{{ ventas_metrics.tickets_periodo|default:0|intcomma }}</dd>
+                            <dt class="text-muted">Tickets emitidos</dt>
+                            <dd class="text-lg font-semibold text-slate-100">{{ ventas_metrics.tickets_periodo|default:0|intcomma }}</dd>
                         </div>
                         <div class="flex items-baseline justify-between">
-                            <dt class="text-slate-500">Ticket promedio</dt>
-                            <dd class="text-lg font-semibold text-slate-900">USD {{ ventas_metrics.ticket_promedio|default:0|floatformat:2|intcomma }}</dd>
+                            <dt class="text-muted">Ticket promedio</dt>
+                            <dd class="text-lg font-semibold text-slate-100">USD {{ ventas_metrics.ticket_promedio|default:0|floatformat:2|intcomma }}</dd>
                         </div>
                     </dl>
-                    <a href="{% url 'ventas:pos' %}" class="mt-6 inline-flex items-center justify-center rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white shadow hover:bg-emerald-700">Abrir POS</a>
+                    <a href="{% url 'ventas:pos' %}" class="mt-6 inline-flex items-center justify-center glass-card rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-widest text-slate-100 hover:bg-white/10 transition">Abrir POS</a>
                 {% else %}
-                    <p class="text-sm text-slate-500">Todavía no hay ventas registradas o faltan migraciones del módulo.</p>
+                    <p class="text-sm text-muted">Todavía no hay ventas registradas o faltan migraciones del módulo.</p>
                 {% endif %}
             </article>
         </section>
 
         <section class="grid gap-6 lg:grid-cols-3">
             <div class="space-y-6 lg:col-span-2">
-                <article class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200/60">
+                <article class="glass-card rounded-3xl p-6">
                     <header class="mb-4 flex items-center justify-between">
                         <div>
-                            <p class="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Accesos rápidos</p>
-                            <h2 class="text-lg font-semibold text-slate-900">Acciones frecuentes</h2>
+                            <p class="text-xs font-semibold uppercase tracking-[0.3em] text-muted">Accesos rápidos</p>
+                            <h2 class="text-lg font-semibold text-slate-100">Acciones frecuentes</h2>
                         </div>
                     </header>
                     <div class="grid gap-4 sm:grid-cols-2">
                         {% for action in quick_actions %}
-                            <a href="{{ action.url }}" class="group flex h-full flex-col justify-between rounded-2xl border border-slate-200/70 bg-white px-4 py-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
+                            <a href="{{ action.url }}" class="group flex h-full flex-col justify-between glass-card rounded-2xl px-4 py-5 transition hover:-translate-y-0.5 hover:shadow-lg">
                                 <div>
                                     <span class="inline-flex rounded-full {{ action.accent }} px-3 py-1 text-xs font-medium">{{ action.title }}</span>
-                                    <p class="mt-3 text-sm text-slate-600">{{ action.description }}</p>
+                                    <p class="mt-3 text-sm text-muted">{{ action.description }}</p>
                                 </div>
-                                <span class="mt-4 inline-flex items-center text-xs font-semibold uppercase tracking-widest text-slate-500">Ingresar →</span>
+                                <span class="mt-4 inline-flex items-center text-xs font-semibold uppercase tracking-widest text-muted">Ingresar →</span>
                             </a>
                         {% endfor %}
                     </div>
                 </article>
 
-                <article class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200/60">
+                <article class="glass-card rounded-3xl p-6">
                     <header class="mb-4 flex items-center justify-between">
                         <div>
-                            <p class="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Stock crítico</p>
-                            <h2 class="text-lg font-semibold text-slate-900">Variantes para reponer</h2>
+                            <p class="text-xs font-semibold uppercase tracking-[0.3em] text-muted">Stock crítico</p>
+                            <h2 class="text-lg font-semibold text-slate-100">Variantes para reponer</h2>
                         </div>
                     </header>
                     {% if low_stock_variantes %}
-                        <ul class="divide-y divide-slate-200 text-sm">
+                        <ul class="divide-y divide-white/10 text-sm">
                             {% for variante in low_stock_variantes %}
                                 <li class="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
                                     <div>
-                                        <p class="font-medium text-slate-900">{{ variante.producto.nombre }}</p>
-                                        <p class="text-xs text-slate-500">SKU {{ variante.sku }} · {{ variante.atributos_display|default:"Variante estándar" }}</p>
+                                        <p class="font-medium text-slate-100">{{ variante.producto.nombre }}</p>
+                                        <p class="text-xs text-muted">SKU {{ variante.sku }} · {{ variante.atributos_display|default:"Variante estándar" }}</p>
                                     </div>
                                     <div class="flex items-center gap-4">
-                                        <span class="text-xs uppercase tracking-widest text-slate-400">Stock</span>
-                                        <span class="text-lg font-semibold text-rose-600">{{ variante.stock_actual }} / {{ variante.stock_minimo }}</span>
+                                        <span class="text-xs uppercase tracking-widest text-muted">Stock</span>
+                                        <span class="text-lg font-semibold text-rose-400">{{ variante.stock_actual }} / {{ variante.stock_minimo }}</span>
                                     </div>
                                 </li>
                             {% endfor %}
                         </ul>
                     {% else %}
-                        <p class="text-sm text-slate-500">¡Buen trabajo! No hay variantes en nivel crítico.</p>
+                        <p class="text-sm text-muted">¡Buen trabajo! No hay variantes en nivel crítico.</p>
                     {% endif %}
                 </article>
 
-                <article class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200/60">
+                <article class="glass-card rounded-3xl p-6">
                     <header class="mb-4 flex items-center justify-between">
                         <div>
-                            <p class="text-xs,font-semibold uppercase tracking-[0.3em] text-slate-400">Ventas recientes</p>
-                            <h2 class="text-lg font-semibold text-slate-900">Últimos tickets</h2>
+                            <p class="text-xs font-semibold uppercase tracking-[0.3em] text-muted">Ventas recientes</p>
+                            <h2 class="text-lg font-semibold text-slate-100">Últimos tickets</h2>
                         </div>
                     </header>
                     {% if ultimas_ventas %}
-                        <ul class="divide-y divide-slate-200 text-sm">
+                        <ul class="divide-y divide-white/10 text-sm">
                             {% for venta in ultimas_ventas %}
                                 <li class="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
                                     <div>
-                                        <p class="font-medium text-slate-900">{{ venta.numero }}</p>
-                                        <p class="text-xs text-slate-500">{{ venta.fecha|naturaltime }} · {{ venta.get_metodo_pago_display }}</p>
+                                        <p class="font-medium text-slate-100">{{ venta.numero }}</p>
+                                        <p class="text-xs text-muted">{{ venta.fecha|naturaltime }} · {{ venta.get_metodo_pago_display }}</p>
                                     </div>
-                                    <span class="text-lg font-semibold text-slate-900">USD {{ venta.total|floatformat:2|intcomma }}</span>
+                                    <span class="text-lg font-semibold text-slate-100">USD {{ venta.total|floatformat:2|intcomma }}</span>
                                 </li>
                             {% endfor %}
                         </ul>
                     {% else %}
-                        <p class="text-sm text-slate-500">Aún no registraste ventas en el período analizado.</p>
+                        <p class="text-sm text-muted">Aún no registraste ventas en el período analizado.</p>
                     {% endif %}
                 </article>
             </div>
 
-            <aside class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200/60">
+            <aside class="glass-card rounded-3xl p-6">
                 <header class="mb-4">
-                    <p class="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Actividad</p>
-                    <h2 class="text-lg font-semibold text-slate-900">Bitácora reciente</h2>
+                    <p class="text-xs font-semibold uppercase tracking-[0.3em] text-muted">Actividad</p>
+                    <h2 class="text-lg font-semibold text-slate-100">Bitácora reciente</h2>
                 </header>
                 {% if recent_activity %}
                     <ol class="space-y-4 text-sm">
                         {% for registro in recent_activity %}
-                            <li class="rounded-2xl border border-slate-200/70 px-4 py-3">
-                                <p class="text-xs uppercase tracking-widest text-slate-400">{{ registro.fecha|naturaltime }}</p>
-                                <p class="mt-1 font-medium text-slate-900">{{ registro.descripcion }}</p>
-                                <p class="mt-1 text-xs text-slate-500">{{ registro.get_tipo_accion_display }} · {{ registro.usuario|default:"Sistema" }}</p>
+                            <li class="glass-card rounded-2xl px-4 py-3">
+                                <p class="text-xs uppercase tracking-widest text-muted">{{ registro.fecha|naturaltime }}</p>
+                                <p class="mt-1 font-medium text-slate-100">{{ registro.descripcion }}</p>
+                                <p class="mt-1 text-xs text-muted">{{ registro.get_tipo_accion_display }} · {{ registro.usuario|default:"Sistema" }}</p>
                             </li>
                         {% endfor %}
                     </ol>
                 {% else %}
-                    <p class="text-sm text-slate-500">La bitácora quedará activa cuando haya movimientos en el sistema.</p>
+                    <p class="text-sm text-muted">La bitácora quedará activa cuando haya movimientos en el sistema.</p>
                 {% endif %}
             </aside>
         </section>
