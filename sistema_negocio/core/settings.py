@@ -11,10 +11,10 @@ load_dotenv(BASE_DIR / ".env")
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-y1r-da*d4kgxhe-u@z4l7bd*=&i84@w=c&ybdp^w14d0=(zpv+")
 
 DEBUG = os.getenv("DJANGO_DEBUG", "true").lower() == "true"
+ALLOWED_HOSTS = ['127.0.0.1', 'a0f1acbd3c2f.ngrok-free.app']
 
-ALLOWED_HOSTS = [
-    host.strip() for host in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if host.strip()
-]
+# ¡AGREGÁ ESTA LÍNEA DE ABAJO!
+CSRF_TRUSTED_ORIGINS = ['https://a0f1acbd3c2f.ngrok-free.app']
 
 # Fallback inseguro sólo permitido en desarrollo
 if not DEBUG:
