@@ -2,6 +2,32 @@ from django.conf import settings
 from django.db import models
 
 
+class ConfiguracionTienda(models.Model):
+    nombre_tienda = models.CharField(max_length=150, default="ImportStore")
+    logo = models.ImageField(upload_to="branding/", blank=True, null=True)
+    cuit = models.CharField(max_length=20, blank=True)
+    direccion = models.CharField(max_length=255, blank=True)
+    email_contacto = models.EmailField(blank=True)
+    telefono_contacto = models.CharField(max_length=40, blank=True)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Configuración de tienda"
+        verbose_name_plural = "Configuración de tienda"
+
+    def __str__(self) -> str:
+        return self.nombre_tienda or "Configuración de tienda"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def obtener_unica(cls) -> "ConfiguracionTienda":
+        obj, _ = cls.objects.get_or_create(pk=1, defaults={"nombre_tienda": "ImportStore"})
+        return obj
+
+
 class ConfiguracionSistema(models.Model):
     nombre_comercial = models.CharField(
         max_length=120,

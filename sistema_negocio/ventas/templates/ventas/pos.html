@@ -9,6 +9,56 @@
     @media (max-width: 1024px) {
         #pos-layout { grid-template-columns: minmax(0, 1fr); }
     }
+    /* Modal de confirmación */
+    #sale-success-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+        align-items: center;
+        justify-content: center;
+        animation: fadeIn 0.2s ease-out;
+    }
+    #sale-success-modal.show {
+        display: flex;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @keyframes slideUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    .modal-content {
+        background: white;
+        border-radius: 24px;
+        padding: 2rem;
+        max-width: 500px;
+        width: 90%;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        animation: slideUp 0.3s ease-out;
+    }
+    .modal-content * {
+        color: #1e293b !important;
+    }
+    .modal-content h3 {
+        color: #0f172a !important;
+    }
+    .modal-content .text-green-600 {
+        color: #16a34a !important;
+    }
+    .modal-content .text-slate-600 {
+        color: #475569 !important;
+    }
+    .modal-content .text-slate-900 {
+        color: #0f172a !important;
+    }
+    .modal-content .text-slate-700 {
+        color: #334155 !important;
+    }
 </style>
 {% endblock %}
 
@@ -95,9 +145,10 @@
                     <div>
                         <label for="sale-status" class="block font-semibold text-slate-600">Estado de la venta</label>
                         <select id="sale-status" class="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm">
-                            <option value="cobrada">Cobrada</option>
-                            <option value="borrador">Borrador</option>
-                            <option value="anulada">Anulada</option>
+                            <option value="COMPLETADO">Completado</option>
+                            <option value="PENDIENTE_PAGO">Pendiente de pago</option>
+                            <option value="PENDIENTE_ENVIO">Pendiente de envío</option>
+                            <option value="CANCELADO">Cancelado</option>
                         </select>
                     </div>
                     <div>
@@ -117,10 +168,10 @@
                     <div>
                         <label for="payment-method" class="block font-semibold text-slate-600">Método de pago</label>
                         <select id="payment-method" class="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm">
-                            <option value="efectivo">Efectivo</option>
-                            <option value="tarjeta">Tarjeta</option>
-                            <option value="transferencia">Transferencia</option>
-                            <option value="mixto">Mixto</option>
+                            <option value="EFECTIVO_ARS">Efectivo (ARS)</option>
+                            <option value="EFECTIVO_USD">Efectivo (USD)</option>
+                            <option value="TRANSFERENCIA">Transferencia</option>
+                            <option value="TARJETA">Tarjeta</option>
                         </select>
                     </div>
                     <div>
@@ -128,12 +179,20 @@
                         <textarea id="sale-note" rows="3" class="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Observaciones, referencia de pedido o link de pago"></textarea>
                     </div>
                     <div>
-                        <label for="customer-name" class="block font-semibold text-slate-600">Cliente</label>
-                        <input id="customer-name" type="text" class="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Nombre y apellido">
-                    </div>
-                    <div>
-                        <label for="customer-document" class="block font-semibold text-slate-600">Documento / CUIT</label>
-                        <input id="customer-document" type="text" class="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="DNI / CUIT opcional">
+                        <label for="customer-search" class="block font-semibold text-slate-600">Cliente (opcional)</label>
+                        <div class="relative mt-2">
+                            <input id="customer-search" type="text" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Buscar cliente o dejar en blanco (consumidor final)">
+                            <div id="customer-dropdown" class="absolute left-0 top-full z-20 mt-1 hidden max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl"></div>
+                        </div>
+                        <input type="hidden" id="customer-id" value="">
+                        <input id="customer-name" type="hidden" value="">
+                        <input id="customer-document" type="hidden" value="">
+                        <div id="selected-customer" class="mt-2 hidden rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                            <div class="flex items-center justify-between">
+                                <span class="font-medium text-slate-900"></span>
+                                <button type="button" id="clear-customer" class="text-xs text-slate-500 hover:text-rose-500">Quitar</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -203,14 +262,89 @@
     const loadLast = document.getElementById('load-last');
     const exportCart = document.getElementById('export-cart');
     const saleStatus = document.getElementById('sale-status');
+    const customerSearch = document.getElementById('customer-search');
+    const customerDropdown = document.getElementById('customer-dropdown');
+    const customerId = document.getElementById('customer-id');
     const customerName = document.getElementById('customer-name');
     const customerDocument = document.getElementById('customer-document');
+    const selectedCustomer = document.getElementById('selected-customer');
+    const clearCustomer = document.getElementById('clear-customer');
     const lastSaleLink = document.getElementById('last-sale-link');
     const csrfToken = '{{ csrf_token }}';
 
     let lastPdfUrl = null;
 
     let cart = [];
+    
+    // Búsqueda de clientes
+    let customerSearchTimeout;
+    customerSearch.addEventListener('input', async () => {
+        clearTimeout(customerSearchTimeout);
+        const query = customerSearch.value.trim();
+        if (query.length < 2) {
+            customerDropdown.classList.add('hidden');
+            return;
+        }
+        
+        customerSearchTimeout = setTimeout(async () => {
+            const response = await fetch(`/ventas/api/buscar-clientes/?q=${encodeURIComponent(query)}`);
+            const data = await response.json();
+            renderCustomerResults(data.results || []);
+        }, 300);
+    });
+    
+    function renderCustomerResults(results) {
+        if (!results.length) {
+            customerDropdown.innerHTML = `
+                <div class="p-4 text-sm text-slate-500">
+                    <p>Sin resultados. Se creará un nuevo cliente al registrar la venta.</p>
+                </div>
+            `;
+            customerDropdown.classList.remove('hidden');
+            return;
+        }
+        
+        customerDropdown.innerHTML = '';
+        results.forEach(cliente => {
+            const option = document.createElement('button');
+            option.type = 'button';
+            option.className = 'flex w-full flex-col items-start gap-1 border-b border-slate-100 px-5 py-3 text-left text-sm hover:bg-slate-50';
+            option.innerHTML = `
+                <span class="font-semibold text-slate-900">${cliente.nombre}</span>
+                <span class="text-xs text-slate-500">${cliente.telefono}${cliente.email ? ' · ' + cliente.email : ''}</span>
+            `;
+            option.addEventListener('click', () => {
+                selectCustomer(cliente);
+            });
+            customerDropdown.appendChild(option);
+        });
+        customerDropdown.classList.remove('hidden');
+    }
+    
+    function selectCustomer(cliente) {
+        customerId.value = cliente.id;
+        customerName.value = cliente.nombre;
+        customerDocument.value = cliente.telefono;
+        customerSearch.value = cliente.nombre;
+        customerDropdown.classList.add('hidden');
+        selectedCustomer.querySelector('span').textContent = `${cliente.nombre} (${cliente.telefono})`;
+        selectedCustomer.classList.remove('hidden');
+    }
+    
+    clearCustomer.addEventListener('click', () => {
+        customerId.value = '';
+        customerName.value = '';
+        customerDocument.value = '';
+        customerSearch.value = '';
+        selectedCustomer.classList.add('hidden');
+    });
+    
+    // Cerrar dropdown al hacer click fuera
+    document.addEventListener('click', (e) => {
+        if (!customerSearch.contains(e.target) && !customerDropdown.contains(e.target)) {
+            customerDropdown.classList.add('hidden');
+        }
+    });
 
     searchInput.addEventListener('input', async () => {
         const query = searchInput.value.trim();
@@ -260,6 +394,9 @@
         if (existing) {
             existing.cantidad += 1;
         } else {
+            const precioArs = parseFloat(item.precios.minorista_ars || 0);
+            const precioUsd = parseFloat(item.precios.minorista_usd || 0);
+            const precioSeleccionado = precioArs > 0 ? precioArs : precioUsd;
             cart.push({
                 variante_id: item.id,
                 nombre: item.producto,
@@ -267,7 +404,7 @@
                 sku: item.sku,
                 cantidad: 1,
                 precios: item.precios,
-                precio_unitario: parseFloat(item.precios.minorista_usd || item.precios.minorista_ars || 0),
+                precio_unitario_ars: precioSeleccionado,
                 descuento: null,
             });
         }
@@ -321,7 +458,7 @@
     }
 
     function calculateLineTotal(item) {
-        const precio = parseFloat(item.precio_unitario || 0);
+        const precio = parseFloat(item.precio_unitario_ars || 0);
         const cantidad = parseInt(item.cantidad, 10) || 1;
         const bruto = precio * cantidad;
         let descuento = 0;
@@ -416,7 +553,7 @@
             items: cart.map(item => ({
                 variante_id: item.variante_id,
                 cantidad: item.cantidad,
-                precio_unitario: item.precio_unitario,
+                precio_unitario_ars: item.precio_unitario_ars,
             descuento: item.descuento,
             })),
             descuento_general: { tipo: globalDiscountType.value, valor: parseFloat(globalDiscountValue.value || 0) },
@@ -424,11 +561,11 @@
             iva_porcentaje: parseFloat(taxRate.value || 0),
             metodo_pago: paymentMethod.value,
             nota: saleNote.value,
-            estado: saleStatus.value,
-            cliente: {
-                nombre: customerName.value,
-                documento: customerDocument.value,
-            },
+            status: saleStatus.value,
+            cliente_id: customerId.value || null,
+            cliente_nombre: customerSearch.value.trim() || customerName.value || '',
+            cliente_telefono: customerDocument.value || customerSearch.value.trim() || '',
+            cliente_documento: customerDocument.value || '',
         };
 
         const response = await fetch('{% url "ventas:crear_venta_api" %}', {
@@ -442,21 +579,30 @@
 
         const data = await response.json();
         if (response.ok) {
-            alert(`Venta ${data.venta.numero} (${data.venta.estado}) registrada. Total: $${data.venta.total}`);
             cart = [];
             renderCart();
             saleNote.value = '';
             globalDiscountValue.value = '';
             toggleTax.checked = false;
-            saleStatus.value = 'cobrada';
+            saleStatus.value = 'COMPLETADO';
+            customerSearch.value = '';
+            customerId.value = '';
             customerName.value = '';
             customerDocument.value = '';
+            selectedCustomer.classList.add('hidden');
             updateSummary();
             lastPdfUrl = data.venta.pdf;
             if (lastPdfUrl) {
                 exportCart.disabled = false;
                 lastSaleLink.classList.remove('hidden');
                 lastSaleLink.href = lastPdfUrl;
+            }
+            // Mostrar modal de confirmación
+            if (window.showSaleModal) {
+                window.showSaleModal(data.venta.id, data.venta.total_ars, lastPdfUrl);
+            } else {
+                // Fallback si el modal no está disponible
+                alert(`Venta ${data.venta.id} registrada. Total: $${data.venta.total_ars}`);
             }
         } else {
             alert(data.error || 'No se pudo registrar la venta');
@@ -476,7 +622,90 @@
         window.open(lastPdfUrl, '_blank');
     });
 
+    // Modal de confirmación de venta - Definir funciones GLOBALMENTE primero
+    window.showSaleModal = function(ventaId, total, pdfUrl) {
+        const saleModal = document.getElementById('sale-success-modal');
+        const saleModalVentaId = document.getElementById('sale-modal-venta-id');
+        const saleModalTotal = document.getElementById('sale-modal-total');
+        const saleModalView = document.getElementById('sale-modal-view');
+        const saleModalPrint = document.getElementById('sale-modal-print');
+        
+        if (!saleModal) {
+            console.error('Modal no encontrado');
+            alert(`Venta ${ventaId} registrada. Total: $${total}`);
+            return;
+        }
+        
+        if (saleModalVentaId) saleModalVentaId.textContent = ventaId;
+        if (saleModalTotal) saleModalTotal.textContent = `$${parseFloat(total).toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        if (saleModalView) saleModalView.href = pdfUrl || '#';
+        if (saleModalPrint) saleModalPrint.href = pdfUrl || '#';
+        saleModal.classList.add('show');
+    };
+
+    window.hideSaleModal = function() {
+        const saleModal = document.getElementById('sale-success-modal');
+        if (saleModal) {
+            saleModal.classList.remove('show');
+        }
+    };
+
     renderCart();
+
+    // Configurar event listeners cuando el DOM esté listo
+    document.addEventListener('DOMContentLoaded', function() {
+        const saleModal = document.getElementById('sale-success-modal');
+        const saleModalClose = document.getElementById('sale-modal-close');
+        const saleModalPrint = document.getElementById('sale-modal-print');
+        
+        if (saleModalClose) {
+            saleModalClose.addEventListener('click', window.hideSaleModal);
+        }
+        
+        if (saleModal) {
+            saleModal.addEventListener('click', (e) => {
+                if (e.target === saleModal) window.hideSaleModal();
+            });
+        }
+        
+        if (saleModalPrint) {
+            saleModalPrint.addEventListener('click', (e) => {
+                e.preventDefault();
+                const pdfUrl = saleModalPrint.href;
+                if (pdfUrl && pdfUrl !== '#') {
+                    window.open(pdfUrl, '_blank');
+                }
+            });
+        }
+    });
 </script>
+
+<!-- Modal de confirmación de venta -->
+<div id="sale-success-modal">
+    <div class="modal-content">
+        <div class="text-center">
+            <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 mb-4">
+                <svg class="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </div>
+            <h3 class="text-2xl font-bold mb-2" style="color: #0f172a !important;">¡Venta registrada!</h3>
+            <p class="mb-1" style="color: #475569 !important;">Comprobante <span id="sale-modal-venta-id" class="font-semibold" style="color: #0f172a !important;"></span></p>
+            <p class="text-2xl font-bold mb-6" id="sale-modal-total" style="color: #16a34a !important;"></p>
+            
+            <div class="flex flex-col sm:flex-row gap-3">
+                <a id="sale-modal-view" href="#" target="_blank" class="flex-1 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3 text-center text-sm font-semibold text-white shadow-lg hover:from-blue-500 hover:to-indigo-500 transition-all">
+                    Ver comprobante
+                </a>
+                <a id="sale-modal-print" href="#" target="_blank" class="flex-1 rounded-xl border-2 border-slate-300 bg-white px-6 py-3 text-center text-sm font-semibold hover:bg-slate-50 transition-all" style="color: #334155 !important;">
+                    Imprimir
+                </a>
+                <button id="sale-modal-close" class="flex-1 rounded-xl border-2 border-slate-300 bg-white px-6 py-3 text-sm font-semibold hover:bg-slate-50 transition-all" style="color: #334155 !important;">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 

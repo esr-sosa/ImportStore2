@@ -1,80 +1,402 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Editar variante{% endblock %}
 
 {% block extra_head %}
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
-    main { background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); }
+    .glass-input {
+        background: linear-gradient(145deg, rgba(17, 24, 39, 0.75), rgba(14, 19, 30, 0.55));
+        border: 1px solid rgba(111, 134, 214, 0.25);
+        backdrop-filter: blur(20px);
+        color: #edf2ff;
+    }
+    .glass-input::placeholder {
+        color: rgba(168, 182, 214, 0.5);
+    }
+    .glass-card {
+        background: linear-gradient(155deg, rgba(17, 24, 39, 0.72), rgba(17, 24, 39, 0.45));
+        border: 1px solid rgba(111, 134, 214, 0.25);
+        backdrop-filter: blur(26px) saturate(180%);
+        box-shadow: 0 25px 65px -40px rgba(8, 12, 24, 0.85);
+    }
+    #camera-container {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        background: rgba(4, 7, 17, 0.95);
+        backdrop-filter: blur(8px);
+    }
+    #camera-container.active {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    #qr-reader {
+        max-width: 90vw;
+        max-height: 90vh;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="min-h-screen w-full px-4 py-8 sm:px-6 lg:px-10">
-    <div class="mx-auto w-full max-w-5xl">
+    <div class="mx-auto w-full max-w-6xl">
         <header class="mb-8">
-            <a href="{% url 'inventario:dashboard' %}" class="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-900">
+            <a href="{% url 'inventario:dashboard' %}" class="inline-flex items-center gap-2 text-sm font-semibold text-muted hover:text-slate-100">
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
                 Volver al inventario
             </a>
-            <h1 class="mt-3 text-3xl font-bold text-slate-900">Editar {{ producto.nombre }}</h1>
-            <p class="mt-1 text-sm text-slate-600">Variante {{ variante.sku }} · {{ variante.atributos_display }}</p>
+            <h1 class="mt-3 text-3xl font-bold text-slate-100">Editar {{ producto.nombre }}</h1>
+            <p class="mt-2 text-sm text-muted">Variante {{ variante.sku }} · {{ variante.atributos_display }}</p>
         </header>
 
-        <form method="post" class="space-y-8 rounded-3xl border border-white/60 bg-white/90 p-8 shadow-xl">
+        <form method="post" class="space-y-8 glass-card rounded-3xl p-8" id="variante-form">
             {% csrf_token %}
+            
             <section class="grid gap-6 lg:grid-cols-2">
-                <div>
-                    <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Producto</h2>
-                    <div class="mt-4 space-y-4 text-sm">
-                        {% for field in producto_form %}
+                <div class="glass-card rounded-2xl p-6">
+                    <h2 class="text-sm font-semibold uppercase tracking-wide text-muted mb-4">Datos del producto</h2>
+                    <div class="space-y-4 text-sm">
+                        {{ producto_form.non_field_errors }}
+                        <div>
+                            <label class="mb-1 block font-semibold text-slate-100">{{ producto_form.nombre.label }}</label>
+                            {{ producto_form.nombre }}
+                            {{ producto_form.nombre.errors }}
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="mb-1 block font-semibold text-slate-600">{{ field.label }}</label>
-                                {{ field }}
-                                {{ field.errors }}
+                                <label class="mb-1 block font-semibold text-slate-100">{{ producto_form.categoria.label }}</label>
+                                {{ producto_form.categoria }}
+                                {{ producto_form.categoria.errors }}
                             </div>
-                        {% endfor %}
+                            <div>
+                                <label class="mb-1 block font-semibold text-slate-100">{{ producto_form.proveedor.label }}</label>
+                                {{ producto_form.proveedor }}
+                                {{ producto_form.proveedor.errors }}
+                            </div>
+                        </div>
+                        <div>
+                            <label class="mb-1 block font-semibold text-slate-100">{{ producto_form.descripcion.label }}</label>
+                            {{ producto_form.descripcion }}
+                            {{ producto_form.descripcion.errors }}
+                        </div>
+                        <div>
+                            <label class="flex items-center gap-2 text-slate-100">
+                                {{ producto_form.activo }}
+                                <span class="font-semibold">{{ producto_form.activo.label }}</span>
+                            </label>
+                        </div>
                     </div>
                 </div>
-                <div>
-                    <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Variante</h2>
-                    <div class="mt-4 space-y-4 text-sm">
-                        {% for field in variante_form.visible_fields %}
-                            {% if field.name not in precio_fields %}
-                                <div>
-                                    <label class="mb-1 block font-semibold text-slate-600">{{ field.label }}</label>
-                                    {{ field }}
-                                    {{ field.errors }}
+
+                <div class="glass-card rounded-2xl p-6">
+                    <h2 class="text-sm font-semibold uppercase tracking-wide text-muted mb-4">Variante</h2>
+                    <div class="space-y-4 text-sm">
+                        {{ variante_form.non_field_errors }}
+                        <div>
+                            <label class="mb-1 block font-semibold text-slate-100">{{ variante_form.sku.label }}</label>
+                            <div class="flex items-center gap-3">
+                                {{ variante_form.sku }}
+                                <label class="flex items-center gap-2 text-xs text-muted whitespace-nowrap">
+                                    {{ variante_form.sku_auto }}
+                                    <span>Auto</span>
+                                </label>
+                            </div>
+                            {{ variante_form.sku.errors }}
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="mb-1 block font-semibold text-slate-100">{{ variante_form.codigo_barras.label }}</label>
+                                <div class="flex items-center gap-2">
+                                    {{ variante_form.codigo_barras }}
+                                    <button type="button" id="scan-barcode-btn" class="glass-input rounded-2xl border border-white/20 px-3 py-2 text-sm text-slate-100 hover:bg-white/10 transition">
+                                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
+                                    </button>
                                 </div>
-                            {% endif %}
-                        {% endfor %}
+                                <div class="mt-2">
+                                    <label class="flex items-center gap-2 text-xs text-muted">
+                                        {{ variante_form.generar_codigo_barras }}
+                                        <span>Generar automáticamente</span>
+                                    </label>
+                                </div>
+                                {{ variante_form.codigo_barras.errors }}
+                            </div>
+                            <div>
+                                <label class="mb-1 block font-semibold text-slate-100">{{ variante_form.qr_code.label }}</label>
+                                <div class="flex items-center gap-2">
+                                    {{ variante_form.qr_code }}
+                                </div>
+                                <div class="mt-2">
+                                    <label class="flex items-center gap-2 text-xs text-muted">
+                                        {{ variante_form.generar_qr }}
+                                        <span>Generar automáticamente</span>
+                                    </label>
+                                </div>
+                                {{ variante_form.qr_code.errors }}
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="mb-1 block font-semibold text-slate-100">{{ variante_form.atributo_1.label }}</label>
+                                {{ variante_form.atributo_1 }}
+                                {{ variante_form.atributo_1.errors }}
+                            </div>
+                            <div>
+                                <label class="mb-1 block font-semibold text-slate-100">{{ variante_form.atributo_2.label }}</label>
+                                {{ variante_form.atributo_2 }}
+                                {{ variante_form.atributo_2.errors }}
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="mb-1 block font-semibold text-slate-100">{{ variante_form.stock_actual.label }}</label>
+                                {{ variante_form.stock_actual }}
+                                {{ variante_form.stock_actual.errors }}
+                            </div>
+                            <div>
+                                <label class="mb-1 block font-semibold text-slate-100">{{ variante_form.stock_minimo.label }}</label>
+                                {{ variante_form.stock_minimo }}
+                                {{ variante_form.stock_minimo.errors }}
+                            </div>
+                        </div>
+                        <div>
+                            <label class="flex items-center gap-2 text-slate-100">
+                                {{ variante_form.activo }}
+                                <span class="font-semibold">{{ variante_form.activo.label }}</span>
+                            </label>
+                        </div>
                     </div>
                 </div>
             </section>
 
-            <section>
-                <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Precios</h2>
-                <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    {% for field in variante_form %}
-                        {% if field.name in precio_fields %}
-                            <div>
-                                <label class="mb-1 block text-xs font-semibold text-slate-500">{{ field.label }}</label>
-                                {{ field }}
-                                {{ field.errors }}
-                            </div>
-                        {% endif %}
-                    {% endfor %}
+            <section class="glass-card rounded-2xl p-6">
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
+                    <div>
+                        <h2 class="text-sm font-semibold uppercase tracking-wide text-muted">Precios y costos (ARS)</h2>
+                        <p class="text-xs text-muted">Ingresá valores en pesos. Para iPhones (categoría Celulares) los montos en USD se recalcularán con la lógica del sistema.</p>
+                    </div>
                 </div>
+
+                <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    <div class="space-y-3">
+                        <h3 class="text-xs font-semibold uppercase text-muted">Costo base</h3>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.costo_ars.label }}</label>
+                            {{ variante_form.costo_ars }}
+                            {{ variante_form.costo_ars.errors }}
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <h3 class="text-xs font-semibold uppercase text-muted">Precio de lista</h3>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_venta_ars.label }}</label>
+                            {{ variante_form.precio_venta_ars }}
+                            {{ variante_form.precio_venta_ars.errors }}
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <h3 class="text-xs font-semibold uppercase text-muted">Precio mínimo</h3>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_minimo_ars.label }}</label>
+                            {{ variante_form.precio_minimo_ars }}
+                            {{ variante_form.precio_minimo_ars.errors }}
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <h3 class="text-xs font-semibold uppercase text-muted">Minorista</h3>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_minorista_ars.label }}</label>
+                            {{ variante_form.precio_minorista_ars }}
+                            {{ variante_form.precio_minorista_ars.errors }}
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <h3 class="text-xs font-semibold uppercase text-muted">Mayorista</h3>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_mayorista_ars.label }}</label>
+                            {{ variante_form.precio_mayorista_ars }}
+                            {{ variante_form.precio_mayorista_ars.errors }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Campos USD ocultos -->
+                <input type="hidden" name="{{ variante_form.moneda_base.name }}" value="{{ variante_form.moneda_base.value|default:'ARS' }}">
+                {{ variante_form.costo_usd.as_hidden }}
+                {{ variante_form.precio_venta_usd.as_hidden }}
+                {{ variante_form.precio_minimo_usd.as_hidden }}
+                {{ variante_form.precio_minorista_usd.as_hidden }}
+                {{ variante_form.precio_mayorista_usd.as_hidden }}
             </section>
 
-            <div class="flex justify-between gap-3">
-                <div class="text-xs text-slate-500">Última actualización: {{ variante.actualizado|date:"d/m/Y H:i" }}</div>
-                <div class="flex gap-3">
-                    <a href="{% url 'inventario:dashboard' %}" class="rounded-full border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-500 hover:text-slate-900">Cancelar</a>
-                    <button type="submit" class="rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-lg hover:bg-slate-800">Guardar cambios</button>
-                </div>
+            <div class="flex justify-end gap-3">
+                <a href="{% url 'inventario:dashboard' %}" class="glass-input rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-slate-100 hover:bg-white/10 transition">Cancelar</a>
+                <button type="submit" class="glass-input rounded-full border border-white/20 bg-white/10 px-5 py-2 text-sm font-semibold text-slate-100 hover:bg-white/20 transition shadow-lg">Guardar</button>
             </div>
         </form>
     </div>
 </div>
-{% endblock %}
 
+<div id="camera-container">
+    <div class="glass-card rounded-3xl p-6 max-w-md w-full mx-4">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold text-slate-100">Escanear código de barras</h3>
+            <button type="button" id="close-camera" class="text-slate-100 hover:text-slate-300">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div id="qr-reader"></div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const nombreInput = document.querySelector('[name="nombre"]');
+    const skuInput = document.getElementById('sku-input') || document.getElementById('id_sku');
+    const skuAutoToggle = document.getElementById('id_sku_auto');
+    const atributo1 = document.querySelector('[name="atributo_1"]');
+    const atributo2 = document.querySelector('[name="atributo_2"]');
+    const categoriaSelect = document.querySelector('[name="categoria"]');
+    const monedaBaseHidden = document.querySelector('input[name="moneda_base"]');
+    const codigoBarrasInput = document.getElementById('id_codigo_barras');
+    const generarCodigoBarrasCheck = document.getElementById('id_generar_codigo_barras');
+    const qrCodeInput = document.getElementById('id_qr_code');
+    const generarQrCheck = document.getElementById('id_generar_qr');
+
+    function actualizarMonedaBase() {
+        if (!monedaBaseHidden) return;
+        if (!categoriaSelect) {
+            if (!monedaBaseHidden.value) {
+                monedaBaseHidden.value = 'ARS';
+            }
+            return;
+        }
+        const opcion = categoriaSelect.options[categoriaSelect.selectedIndex];
+        const texto = opcion ? opcion.text.toLowerCase() : '';
+        if (texto.includes('celular')) {
+            monedaBaseHidden.value = 'USD';
+        } else {
+            monedaBaseHidden.value = 'ARS';
+        }
+    }
+
+    actualizarMonedaBase();
+    if (categoriaSelect) {
+        categoriaSelect.addEventListener('change', actualizarMonedaBase);
+    }
+
+    // SKU automático
+    function generarSKU() {
+        if (!skuInput || !nombreInput) return;
+        const nombre = nombreInput.value || '';
+        const attr1 = atributo1?.value || '';
+        const attr2 = atributo2?.value || '';
+        const sku = `${nombre}-${attr1}-${attr2}`.toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+        if (sku) {
+            if (!skuInput.value || (skuAutoToggle && skuAutoToggle.checked)) {
+                skuInput.value = sku;
+            }
+        }
+    }
+
+    if (skuInput && nombreInput) {
+        [nombreInput, atributo1, atributo2].forEach(el => {
+            if (el) el.addEventListener('input', generarSKU);
+        });
+        if (skuAutoToggle) {
+            skuAutoToggle.addEventListener('change', function() {
+                if (skuInput) skuInput.readOnly = this.checked;
+                if (this.checked) generarSKU();
+            });
+            if (skuAutoToggle.checked && skuInput) {
+                skuInput.readOnly = true;
+            }
+        }
+    }
+
+    // Generar código de barras automáticamente
+    function generarCodigoBarras() {
+        if (!codigoBarrasInput) return;
+        const randomCode = Math.floor(100000000000 + Math.random() * 900000000000);
+        codigoBarrasInput.value = randomCode.toString();
+    }
+
+    if (generarCodigoBarrasCheck) {
+        generarCodigoBarrasCheck.addEventListener('change', function() {
+            if (this.checked) {
+                generarCodigoBarras();
+            }
+        });
+    }
+
+    // Generar QR automáticamente
+    function generarQR() {
+        if (!qrCodeInput || !skuInput) return;
+        const sku = skuInput.value;
+        if (sku) {
+            qrCodeInput.value = `https://importstore.com/producto/${sku}`;
+        }
+    }
+
+    if (generarQrCheck) {
+        generarQrCheck.addEventListener('change', function() {
+            if (this.checked) {
+                generarQR();
+            }
+        });
+    }
+    
+    // Generar automáticamente al cambiar SKU si el checkbox está activo
+    if (skuInput && generarQrCheck) {
+        skuInput.addEventListener('input', function() {
+            if (generarQrCheck.checked) {
+                generarQR();
+            }
+        });
+    }
+
+    // Escaneo de código de barras
+    const scanBtn = document.getElementById('scan-barcode-btn');
+    const cameraContainer = document.getElementById('camera-container');
+    const closeCamera = document.getElementById('close-camera');
+    let html5QrcodeScanner = null;
+
+    if (scanBtn && cameraContainer && closeCamera) {
+        scanBtn.addEventListener('click', function() {
+            cameraContainer.classList.add('active');
+            if (!html5QrcodeScanner) {
+                html5QrcodeScanner = new Html5Qrcode('qr-reader');
+            }
+            html5QrcodeScanner.start(
+                { facingMode: 'environment' },
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                (decodedText) => {
+                    if (codigoBarrasInput) {
+                        codigoBarrasInput.value = decodedText;
+                    }
+                    html5QrcodeScanner.stop();
+                    cameraContainer.classList.remove('active');
+                },
+                () => {}
+            );
+        });
+
+        closeCamera.addEventListener('click', function() {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.stop();
+            }
+            cameraContainer.classList.remove('active');
+        });
+    }
+})();
+</script>
+{% endblock %}

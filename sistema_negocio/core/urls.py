@@ -16,6 +16,7 @@ urlpatterns = [
     path('historial/', include('historial.urls')),
     path('asistente_ia/', include('asistente_ia.urls')),
     path('configuracion/', include('configuracion.urls')),
+    path('caja/', include('caja.urls')),
     path('', include('dashboard.urls')),
     path('webhook/', views.whatsapp_webhook, name='whatsapp_webhook'),
 ]

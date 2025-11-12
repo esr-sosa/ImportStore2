@@ -21,45 +21,6 @@
         backdrop-filter: blur(26px) saturate(180%);
         box-shadow: 0 25px 65px -40px rgba(8, 12, 24, 0.85);
     }
-    .switch-container {
-        position: relative;
-        display: inline-block;
-        width: 60px;
-        height: 32px;
-    }
-    .switch-container input {
-        opacity: 0;
-        width: 0;
-        height: 0;
-    }
-    .switch-slider {
-        position: absolute;
-        cursor: pointer;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: rgba(71, 85, 105, 0.5);
-        transition: .3s;
-        border-radius: 32px;
-    }
-    .switch-slider:before {
-        position: absolute;
-        content: "";
-        height: 24px;
-        width: 24px;
-        left: 4px;
-        bottom: 4px;
-        background-color: white;
-        transition: .3s;
-        border-radius: 50%;
-    }
-    input:checked + .switch-slider {
-        background-color: var(--accent-color, #4f64ff);
-    }
-    input:checked + .switch-slider:before {
-        transform: translateX(28px);
-    }
     #camera-container {
         display: none;
         position: fixed;
@@ -89,7 +50,7 @@
                 Volver al inventario
             </a>
             <h1 class="mt-3 text-3xl font-bold text-slate-100">{% if modo == "crear" %}Alta de producto{% else %}Editar producto{% endif %}</h1>
-            <p class="mt-2 text-sm text-muted">Definí la ficha base y la variante principal con precios en USD/ARS.</p>
+            <p class="mt-2 text-sm text-muted">Definí la ficha base y la variante principal con precios en ARS (minorista, mayorista y márgenes clave).</p>
         </header>
 
         <form method="post" class="space-y-8 glass-card rounded-3xl p-8" id="producto-form">
@@ -171,6 +132,30 @@
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
+                                <label class="mb-1 block font-semibold text-slate-100">{{ variante_form.codigo_barras.label }}</label>
+                                <div class="flex items-center gap-2">
+                                    {{ variante_form.codigo_barras }}
+                                    <label class="flex items-center gap-2 text-xs text-muted whitespace-nowrap">
+                                        {{ variante_form.generar_codigo_barras }}
+                                        <span>Generar</span>
+                                    </label>
+                                </div>
+                                {{ variante_form.codigo_barras.errors }}
+                            </div>
+                            <div>
+                                <label class="mb-1 block font-semibold text-slate-100">{{ variante_form.qr_code.label }}</label>
+                                <div class="flex items-center gap-2">
+                                    {{ variante_form.qr_code }}
+                                    <label class="flex items-center gap-2 text-xs text-muted whitespace-nowrap">
+                                        {{ variante_form.generar_qr }}
+                                        <span>Generar</span>
+                                    </label>
+                                </div>
+                                {{ variante_form.qr_code.errors }}
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
                                 <label class="mb-1 block font-semibold text-slate-100">{{ variante_form.atributo_1.label }}</label>
                                 {{ variante_form.atributo_1 }}
                                 {{ variante_form.atributo_1.errors }}
@@ -204,78 +189,52 @@
             </section>
 
             <section class="glass-card rounded-2xl p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-sm font-semibold uppercase tracking-wide text-muted">Precios y costos</h2>
-                    <button type="button" id="abrir-modal-precios" class="glass-input rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-white/20 transition">
-                        <svg class="h-4 w-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        Configurar precios
-                    </button>
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
+                    <div>
+                        <h2 class="text-sm font-semibold uppercase tracking-wide text-muted">Precios y costos (ARS)</h2>
+                        <p class="text-xs text-muted">Ingresá valores en pesos. Para iPhones (categoría Celulares) los montos en USD se recalcularán con la lógica del sistema.</p>
+                    </div>
                 </div>
-                
-                <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3" id="precios-resumen">
+
+                <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     <div class="space-y-3">
-                        <h3 class="text-xs font-semibold uppercase text-muted">Costo</h3>
-                        <div>
-                            <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.costo_usd.label }}</label>
-                            {{ variante_form.costo_usd }}
-                            {{ variante_form.costo_usd.errors }}
-                        </div>
+                        <h3 class="text-xs font-semibold uppercase text-muted">Costo base</h3>
                         <div>
                             <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.costo_ars.label }}</label>
                             {{ variante_form.costo_ars }}
                             {{ variante_form.costo_ars.errors }}
                         </div>
                     </div>
-                    
+
                     <div class="space-y-3">
-                        <h3 class="text-xs font-semibold uppercase text-muted">Precio venta</h3>
-                        <div>
-                            <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_venta_usd.label }}</label>
-                            {{ variante_form.precio_venta_usd }}
-                            {{ variante_form.precio_venta_usd.errors }}
-                        </div>
+                        <h3 class="text-xs font-semibold uppercase text-muted">Precio de lista</h3>
                         <div>
                             <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_venta_ars.label }}</label>
                             {{ variante_form.precio_venta_ars }}
                             {{ variante_form.precio_venta_ars.errors }}
                         </div>
                     </div>
-                    
+
                     <div class="space-y-3">
                         <h3 class="text-xs font-semibold uppercase text-muted">Precio mínimo</h3>
-                        <div>
-                            <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_minimo_usd.label }}</label>
-                            {{ variante_form.precio_minimo_usd }}
-                            {{ variante_form.precio_minimo_usd.errors }}
-                        </div>
                         <div>
                             <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_minimo_ars.label }}</label>
                             {{ variante_form.precio_minimo_ars }}
                             {{ variante_form.precio_minimo_ars.errors }}
                         </div>
                     </div>
-                    
+
                     <div class="space-y-3">
                         <h3 class="text-xs font-semibold uppercase text-muted">Minorista</h3>
-                        <div>
-                            <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_minorista_usd.label }}</label>
-                            {{ variante_form.precio_minorista_usd }}
-                            {{ variante_form.precio_minorista_usd.errors }}
-                        </div>
                         <div>
                             <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_minorista_ars.label }}</label>
                             {{ variante_form.precio_minorista_ars }}
                             {{ variante_form.precio_minorista_ars.errors }}
                         </div>
                     </div>
-                    
+
                     <div class="space-y-3">
                         <h3 class="text-xs font-semibold uppercase text-muted">Mayorista</h3>
-                        <div>
-                            <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_mayorista_usd.label }}</label>
-                            {{ variante_form.precio_mayorista_usd }}
-                            {{ variante_form.precio_mayorista_usd.errors }}
-                        </div>
                         <div>
                             <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_mayorista_ars.label }}</label>
                             {{ variante_form.precio_mayorista_ars }}
@@ -283,6 +242,13 @@
                         </div>
                     </div>
                 </div>
+
+                <input type="hidden" name="{{ variante_form.moneda_base.name }}" value="{{ variante_form.moneda_base.value|default:'ARS' }}">
+                {{ variante_form.costo_usd.as_hidden }}
+                {{ variante_form.precio_venta_usd.as_hidden }}
+                {{ variante_form.precio_minimo_usd.as_hidden }}
+                {{ variante_form.precio_minorista_usd.as_hidden }}
+                {{ variante_form.precio_mayorista_usd.as_hidden }}
             </section>
 
             <div class="flex justify-end gap-3">
@@ -305,253 +271,126 @@
     </div>
 </div>
 
-<div id="modal-precios" class="fixed inset-0 z-50 hidden items-center justify-center" style="background: rgba(4, 7, 17, 0.95); backdrop-filter: blur(8px);">
-    <div class="glass-card rounded-3xl p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div class="flex justify-between items-center mb-6">
-            <h3 class="text-2xl font-semibold text-slate-100">Configurar precios</h3>
-            <button type="button" id="cerrar-modal-precios" class="text-slate-100 hover:text-slate-300">
-                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
-        </div>
-        
-        <div class="mb-6 flex items-center justify-center gap-4">
-            <span class="text-sm text-muted">Moneda base:</span>
-            <label class="switch-container">
-                <input type="checkbox" id="switch-moneda-precios" checked>
-                <span class="switch-slider"></span>
-            </label>
-            <span class="text-sm font-semibold text-slate-100" id="moneda-label">USD</span>
-            <span class="text-xs text-muted" id="dolar-rate-modal">USD: ${{ valor_dolar|default:"0" }}</span>
-        </div>
-        
-        <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3" id="precios-modal-content">
-            <div class="space-y-3">
-                <h3 class="text-xs font-semibold uppercase text-muted">Costo</h3>
-                <div>
-                    <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.costo_usd.label }}</label>
-                    {{ variante_form.costo_usd }}
-                </div>
-                <div>
-                    <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.costo_ars.label }}</label>
-                    {{ variante_form.costo_ars }}
-                </div>
-            </div>
-            <div class="space-y-3">
-                <h3 class="text-xs font-semibold uppercase text-muted">Precio venta</h3>
-                <div>
-                    <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_venta_usd.label }}</label>
-                    {{ variante_form.precio_venta_usd }}
-                </div>
-                <div>
-                    <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_venta_ars.label }}</label>
-                    {{ variante_form.precio_venta_ars }}
-                </div>
-            </div>
-            <div class="space-y-3">
-                <h3 class="text-xs font-semibold uppercase text-muted">Precio mínimo</h3>
-                <div>
-                    <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_minimo_usd.label }}</label>
-                    {{ variante_form.precio_minimo_usd }}
-                </div>
-                <div>
-                    <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_minimo_ars.label }}</label>
-                    {{ variante_form.precio_minimo_ars }}
-                </div>
-            </div>
-            <div class="space-y-3">
-                <h3 class="text-xs font-semibold uppercase text-muted">Minorista</h3>
-                <div>
-                    <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_minorista_usd.label }}</label>
-                    {{ variante_form.precio_minorista_usd }}
-                </div>
-                <div>
-                    <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_minorista_ars.label }}</label>
-                    {{ variante_form.precio_minorista_ars }}
-                </div>
-            </div>
-            <div class="space-y-3">
-                <h3 class="text-xs font-semibold uppercase text-muted">Mayorista</h3>
-                <div>
-                    <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_mayorista_usd.label }}</label>
-                    {{ variante_form.precio_mayorista_usd }}
-                </div>
-                <div>
-                    <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_mayorista_ars.label }}</label>
-                    {{ variante_form.precio_mayorista_ars }}
-                </div>
-            </div>
-        </div>
-        
-        <div class="mt-6 flex justify-end gap-3">
-            <button type="button" id="cerrar-modal-precios-btn" class="glass-input rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-slate-100 hover:bg-white/10 transition">Cerrar</button>
-            <button type="button" id="guardar-precios-modal" class="glass-input rounded-full border border-white/20 bg-white/10 px-5 py-2 text-sm font-semibold text-slate-100 hover:bg-white/20 transition shadow-lg">Guardar precios</button>
-        </div>
-    </div>
-</div>
-
 <script>
 (function() {
-    const dolarRate = {{ valor_dolar|default:"0" }};
-    const monedaBase = document.getElementById('moneda-base-select');
     const nombreInput = document.getElementById('producto-nombre');
     const skuInput = document.getElementById('sku-input');
     const skuAutoToggle = document.getElementById('sku-auto-toggle');
     const atributo1 = document.querySelector('[name="atributo_1"]');
     const atributo2 = document.querySelector('[name="atributo_2"]');
-    
-    // SKU automático
+    const categoriaSelect = document.querySelector('[name="categoria"]');
+    const monedaBaseHidden = document.querySelector('input[name="moneda_base"]');
+
+    function actualizarMonedaBase() {
+        if (!monedaBaseHidden) return;
+        if (!categoriaSelect) {
+            if (!monedaBaseHidden.value) {
+                monedaBaseHidden.value = 'ARS';
+            }
+            return;
+        }
+        const opcion = categoriaSelect.options[categoriaSelect.selectedIndex];
+        const texto = opcion ? opcion.text.toLowerCase() : '';
+        if (texto.includes('celular')) {
+            monedaBaseHidden.value = 'USD';
+        } else {
+            monedaBaseHidden.value = 'ARS';
+        }
+    }
+
+    actualizarMonedaBase();
+    if (categoriaSelect) {
+        categoriaSelect.addEventListener('change', actualizarMonedaBase);
+    }
+
+    // SKU automático - siempre generar si está vacío
     function generarSKU() {
-        if (!skuAutoToggle.checked) return;
-        const nombre = nombreInput.value || '';
+        const nombre = nombreInput?.value || '';
         const attr1 = atributo1?.value || '';
         const attr2 = atributo2?.value || '';
         const sku = `${nombre}-${attr1}-${attr2}`.toLowerCase()
             .replace(/[^a-z0-9]+/g, '-')
             .replace(/^-+|-+$/g, '');
-        if (sku) skuInput.value = sku;
+        if (sku && skuInput) {
+            // Solo actualizar si está vacío o si el toggle está activado
+            if (!skuInput.value || (skuAutoToggle && skuAutoToggle.checked)) {
+                skuInput.value = sku;
+            }
+        }
     }
-    
+
+    // Generar automáticamente al cargar si está vacío
+    if (skuInput && !skuInput.value && nombreInput && nombreInput.value) {
+        generarSKU();
+    }
+
     [nombreInput, atributo1, atributo2].forEach(el => {
         if (el) el.addEventListener('input', generarSKU);
     });
-    skuAutoToggle.addEventListener('change', function() {
-        skuInput.readOnly = this.checked;
-        if (this.checked) generarSKU();
-    });
-    skuInput.readOnly = skuAutoToggle.checked;
+    if (skuAutoToggle && skuInput) {
+        skuAutoToggle.addEventListener('change', function() {
+            skuInput.readOnly = this.checked;
+            if (this.checked) generarSKU();
+        });
+        if (skuAutoToggle.checked) {
+            skuInput.readOnly = true;
+            generarSKU();
+        }
+    }
     
-    // Conversión de moneda
-    const camposUSD = ['costo-usd', 'precio-venta-usd', 'precio-minimo-usd', 'precio-minorista-usd', 'precio-mayorista-usd'];
-    const camposARS = ['costo-ars', 'precio-venta-ars', 'precio-minimo-ars', 'precio-minorista-ars', 'precio-mayorista-ars'];
-    
-    function convertirMoneda() {
-        const base = monedaBase.value;
-        camposUSD.forEach((idUSD, idx) => {
-            const inputUSD = document.getElementById(idUSD);
-            const inputARS = document.getElementById(camposARS[idx]);
-            if (!inputUSD || !inputARS) return;
-            
-            if (base === 'USD') {
-                inputARS.addEventListener('input', function() {
-                    const valor = parseFloat(this.value) || 0;
-                    inputUSD.value = (valor / dolarRate).toFixed(2);
-                });
-            } else {
-                inputUSD.addEventListener('input', function() {
-                    const valor = parseFloat(this.value) || 0;
-                    inputARS.value = (valor * dolarRate).toFixed(2);
-                });
-            }
+    // Generar código de barras automáticamente
+    const generarBarcodeBtn = document.getElementById('generate-barcode-btn');
+    const codigoBarrasInput = document.querySelector('[name="codigo_barras"]');
+    if (generarBarcodeBtn && codigoBarrasInput) {
+        generarBarcodeBtn.addEventListener('click', function() {
+            const randomCode = Math.floor(100000000000 + Math.random() * 900000000000);
+            codigoBarrasInput.value = randomCode.toString();
         });
     }
-    monedaBase.addEventListener('change', convertirMoneda);
-    convertirMoneda();
-    
+
     // Escaneo de código de barras
     const scanBtn = document.getElementById('scan-barcode-btn');
     const cameraContainer = document.getElementById('camera-container');
     const closeCamera = document.getElementById('close-camera');
     const barcodeInput = document.getElementById('codigo-barras-input');
     let html5QrcodeScanner = null;
-    
-    scanBtn.addEventListener('click', function() {
-        cameraContainer.classList.add('active');
-        if (!html5QrcodeScanner) {
-            html5QrcodeScanner = new Html5Qrcode("qr-reader");
-        }
-        html5QrcodeScanner.start(
-            { facingMode: "environment" },
-            {
-                fps: 10,
-                qrbox: { width: 250, height: 250 }
-            },
-            (decodedText) => {
-                barcodeInput.value = decodedText;
-                html5QrcodeScanner.stop();
-                cameraContainer.classList.remove('active');
-            },
-            (errorMessage) => {}
-        );
-    });
-    
-    closeCamera.addEventListener('click', function() {
-        if (html5QrcodeScanner) {
-            html5QrcodeScanner.stop();
-        }
-        cameraContainer.classList.remove('active');
-    });
-    
-    // Generar código de barras
-    document.getElementById('generate-barcode-btn').addEventListener('click', function() {
-        const codigo = Math.floor(100000000000 + Math.random() * 900000000000).toString();
-        barcodeInput.value = codigo;
-    });
-    
-    // Modal de precios
-    const modalPrecios = document.getElementById('modal-precios');
-    const abrirModalPrecios = document.getElementById('abrir-modal-precios');
-    const cerrarModalPrecios = document.getElementById('cerrar-modal-precios');
-    const cerrarModalPreciosBtn = document.getElementById('cerrar-modal-precios-btn');
-    const switchMonedaPrecios = document.getElementById('switch-moneda-precios');
-    const monedaLabel = document.getElementById('moneda-label');
-    const guardarPreciosModal = document.getElementById('guardar-precios-modal');
-    
-    abrirModalPrecios.addEventListener('click', function() {
-        modalPrecios.classList.remove('hidden');
-        modalPrecios.classList.add('flex');
-    });
-    
-    [cerrarModalPrecios, cerrarModalPreciosBtn].forEach(btn => {
-        btn.addEventListener('click', function() {
-            modalPrecios.classList.add('hidden');
-            modalPrecios.classList.remove('flex');
-        });
-    });
-    
-    switchMonedaPrecios.addEventListener('change', function() {
-        const isUSD = this.checked;
-        monedaLabel.textContent = isUSD ? 'USD' : 'ARS';
-        const camposUSD = document.querySelectorAll('[id$="-usd"]');
-        const camposARS = document.querySelectorAll('[id$="-ars"]');
-        
-        camposUSD.forEach(input => {
-            input.style.display = isUSD ? 'block' : 'none';
-        });
-        camposARS.forEach(input => {
-            input.style.display = isUSD ? 'none' : 'block';
-        });
-    });
-    
-    // Conversión automática en el modal
-    const convertirEnModal = () => {
-        const isUSD = switchMonedaPrecios.checked;
-        camposUSD.forEach((idUSD, idx) => {
-            const inputUSD = document.getElementById(idUSD);
-            const inputARS = document.getElementById(camposARS[idx]);
-            if (!inputUSD || !inputARS) return;
-            
-            if (isUSD) {
-                inputUSD.addEventListener('input', function() {
-                    const valor = parseFloat(this.value) || 0;
-                    inputARS.value = (valor * dolarRate).toFixed(2);
-                });
-            } else {
-                inputARS.addEventListener('input', function() {
-                    const valor = parseFloat(this.value) || 0;
-                    inputUSD.value = (valor / dolarRate).toFixed(2);
-                });
+
+    if (scanBtn && cameraContainer && closeCamera) {
+        scanBtn.addEventListener('click', function() {
+            cameraContainer.classList.add('active');
+            if (!html5QrcodeScanner) {
+                html5QrcodeScanner = new Html5Qrcode('qr-reader');
             }
+            html5QrcodeScanner.start(
+                { facingMode: 'environment' },
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                (decodedText) => {
+                    if (barcodeInput) {
+                        barcodeInput.value = decodedText;
+                    }
+                    html5QrcodeScanner.stop();
+                    cameraContainer.classList.remove('active');
+                },
+                () => {}
+            );
         });
-    };
-    
-    switchMonedaPrecios.addEventListener('change', convertirEnModal);
-    convertirEnModal();
-    
-    guardarPreciosModal.addEventListener('click', function() {
-        modalPrecios.classList.add('hidden');
-        modalPrecios.classList.remove('flex');
-        // Los valores ya están en los inputs del formulario, se guardarán al submit
-    });
+
+        closeCamera.addEventListener('click', function() {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.stop();
+            }
+            cameraContainer.classList.remove('active');
+        });
+    }
+
+    // Generar código de barras
+    const generarCodigoBtn = document.getElementById('generate-barcode-btn');
+    if (generarCodigoBtn && barcodeInput) {
+        generarCodigoBtn.addEventListener('click', function() {
+            const codigo = Math.floor(100000000000 + Math.random() * 900000000000).toString();
+            barcodeInput.value = codigo;
+        });
+    }
 })();
 </script>
 {% endblock %}

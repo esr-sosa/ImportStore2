@@ -11,10 +11,75 @@ load_dotenv(BASE_DIR / ".env")
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-y1r-da*d4kgxhe-u@z4l7bd*=&i84@w=c&ybdp^w14d0=(zpv+")
 
 DEBUG = os.getenv("DJANGO_DEBUG", "true").lower() == "true"
-ALLOWED_HOSTS = ['127.0.0.1', 'a0f1acbd3c2f.ngrok-free.app']
 
-# ¡AGREGÁ ESTA LÍNEA DE ABAJO!
-CSRF_TRUSTED_ORIGINS = ['https://a0f1acbd3c2f.ngrok-free.app']
+
+# 1. Definimos ALLOWED_HOSTS leyendo del .env (con localhost como base)
+ALLOWED_HOSTS = [
+    host.strip() for host in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if host.strip()
+]
+
+# 2. Definimos CSRF_TRUSTED_ORIGINS (es bueno leerlo del .env también)
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip() for origin in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if origin.strip()
+]
+# --- FIN DEL ARREGLO ---
+
+
+# 3. AHORA SÍ, podemos agregar ngrok a esas listas si estamos en DEBUG
+# Solo intentar iniciar ngrok si está explícitamente habilitado y no hay errores previos
+_ngrok_initialized = False
+if DEBUG and os.getenv('NGROK_AUTHTOKEN') and not _ngrok_initialized:
+    try:
+        from pyngrok import ngrok
+        
+        # Verificar si ya hay un túnel activo antes de crear uno nuevo
+        try:
+            tunnels = ngrok.get_tunnels()
+            if tunnels:
+                # Reutilizar túnel existente
+                http_tunnel = tunnels[0]
+                public_url = http_tunnel.public_url
+            else:
+                # Crear nuevo túnel
+                ngrok.set_auth_token(os.getenv("NGROK_AUTHTOKEN"))
+                http_tunnel = ngrok.connect(8000)
+                public_url = http_tunnel.public_url
+            
+            # Limpiamos la URL para obtener solo el host
+            ngrok_host = public_url.replace("https://", "").replace("http://", "")
+            
+            # Lo añadimos a las listas automáticamente
+            ALLOWED_HOSTS.append(ngrok_host)
+            # IMPORTANTE: CSRF necesita la URL completa con https://
+            CSRF_TRUSTED_ORIGINS.append(public_url) 
+            
+            print(f"--- NGROK Automático Activado ---")
+            print(f"Acceso público en: {public_url}")
+            _ngrok_initialized = True
+        except Exception as inner_e:
+            # Error al obtener/crear túnel (ej: sesión limitada)
+            error_msg = str(inner_e)
+            if "ERR_NGROK_108" not in error_msg and "authentication failed" not in error_msg.lower():
+                # Solo mostrar errores que no sean de autenticación/sesión
+                print(f"--- Error al iniciar NGROK: {error_msg[:100]} ---")
+            # Marcar como inicializado para no intentar de nuevo
+            _ngrok_initialized = True
+
+    except ImportError:
+        # pyngrok no instalado, silenciar el error
+        pass
+    except Exception as e:
+        # Error general al importar/inicializar ngrok
+        error_msg = str(e)
+        if "ERR_NGROK_108" not in error_msg and "authentication failed" not in error_msg.lower():
+            # Solo mostrar errores que no sean de autenticación/sesión
+            print(f"--- Error al iniciar NGROK: {error_msg[:100]} ---")
+        # Marcar como inicializado para no intentar de nuevo
+        _ngrok_initialized = True
+
+
+
+
 
 # Fallback inseguro sólo permitido en desarrollo
 if not DEBUG:
@@ -42,6 +107,8 @@ INSTALLED_APPS = [
     'historial',
     'asistente_ia',
     'configuracion',
+    'locales',
+    'caja',
 ]
 
 MIDDLEWARE = [
@@ -124,11 +191,10 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'America/Argentina/Buenos_Aires'
+USE_TZ = True
 
 USE_I18N = True
-
-USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)

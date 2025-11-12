@@ -1,16 +1,45 @@
 from django import forms
 
-from .models import ConfiguracionSistema, PreferenciaUsuario
+from .models import ConfiguracionSistema, ConfiguracionTienda, PreferenciaUsuario
+
+TEXT_INPUT_BASE = (
+    "mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm "
+    "font-medium text-slate-700 shadow-sm focus:border-slate-400 focus:outline-none "
+    "focus:ring-2 focus:ring-slate-200/60 dark:border-slate-700 dark:bg-slate-900 "
+    "dark:text-slate-100 dark:focus:border-slate-500"
+)
+
+
+class ConfiguracionTiendaForm(forms.ModelForm):
+    class Meta:
+        model = ConfiguracionTienda
+        fields = ["nombre_tienda", "logo", "cuit", "direccion", "email_contacto", "telefono_contacto"]
+        widgets = {
+            "logo": forms.FileInput(
+                attrs={
+                    "class": "mt-1 block w-full text-sm text-slate-600 file:mr-4 file:rounded-full file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-slate-700 dark:text-slate-200",
+                    "accept": "image/png,image/jpeg,image/svg+xml",
+                }
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for nombre, campo in self.fields.items():
+            if isinstance(campo.widget, forms.FileInput):
+                continue
+            campo.widget.attrs.setdefault("class", TEXT_INPUT_BASE)
+            if nombre == "telefono_contacto":
+                campo.widget.attrs.setdefault("placeholder", "+54 11 0000 0000")
+            if nombre == "email_contacto":
+                campo.widget.attrs.setdefault("placeholder", "contacto@tu-negocio.com")
+            if nombre == "direccion":
+                campo.widget.attrs.setdefault("placeholder", "Dirección fiscal o del local principal")
+            if nombre == "cuit":
+                campo.widget.attrs.setdefault("placeholder", "00-00000000-0")
 
 
 class ConfiguracionSistemaForm(forms.ModelForm):
-    TEXT_INPUT_CLASS = (
-        "mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm "
-        "font-medium text-slate-700 shadow-sm focus:border-slate-400 focus:outline-none "
-        "focus:ring-2 focus:ring-slate-200/60 dark:border-slate-700 dark:bg-slate-900 "
-        "dark:text-slate-100 dark:focus:border-slate-500"
-    )
-
     class Meta:
         model = ConfiguracionSistema
         fields = [
@@ -36,7 +65,10 @@ class ConfiguracionSistemaForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         for nombre, campo in self.fields.items():
             if nombre == "color_principal":
-                campo.widget.attrs.setdefault("class", "h-10 w-20 rounded-full border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900")
+                campo.widget.attrs.setdefault(
+                    "class",
+                    "h-10 w-20 rounded-full border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900",
+                )
                 continue
             if isinstance(campo.widget, forms.CheckboxInput):
                 campo.widget.attrs.update(
@@ -54,9 +86,9 @@ class ConfiguracionSistemaForm(forms.ModelForm):
                 )
                 continue
             if isinstance(campo.widget, forms.Textarea):
-                campo.widget.attrs.setdefault("class", self.TEXT_INPUT_CLASS + " min-h-[120px]")
+                campo.widget.attrs.setdefault("class", TEXT_INPUT_BASE + " min-h-[120px]")
             else:
-                campo.widget.attrs.setdefault("class", self.TEXT_INPUT_CLASS)
+                campo.widget.attrs.setdefault("class", TEXT_INPUT_BASE)
 
 
 class PreferenciaUsuarioForm(forms.ModelForm):

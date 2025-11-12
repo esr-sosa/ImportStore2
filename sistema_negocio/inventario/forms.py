@@ -186,11 +186,25 @@ class ProductoVarianteForm(forms.ModelForm):
         label="SKU automático",
         widget=forms.CheckboxInput(attrs={"class": "h-5 w-5 rounded border-white/30", "id": "sku-auto-toggle"}),
     )
+    # Generar código de barras
+    generar_codigo_barras = forms.BooleanField(
+        required=False,
+        initial=False,
+        label="Generar código de barras",
+        widget=forms.CheckboxInput(attrs={"class": "h-5 w-5 rounded border-white/30"}),
+    )
+    # Generar QR
+    generar_qr = forms.BooleanField(
+        required=False,
+        initial=False,
+        label="Generar QR code",
+        widget=forms.CheckboxInput(attrs={"class": "h-5 w-5 rounded border-white/30"}),
+    )
 
     # Moneda base para conversión
     moneda_base = forms.ChoiceField(
         choices=[("USD", "USD"), ("ARS", "ARS")],
-        initial="USD",
+        initial="ARS",
         label="Moneda base",
         widget=forms.Select(attrs={
             "class": "glass-input rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-slate-100 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20",
@@ -322,6 +336,8 @@ class ProductoVarianteForm(forms.ModelForm):
         model = ProductoVariante
         fields = [
             "sku",
+            "codigo_barras",
+            "qr_code",
             "atributo_1",
             "atributo_2",
             "stock_actual",
@@ -350,12 +366,21 @@ class ProductoVarianteForm(forms.ModelForm):
                 "class": "glass-input w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder-slate-400 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20",
                 "min": "0",
             }),
+            "codigo_barras": forms.TextInput(attrs={
+                "class": "glass-input w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder-slate-400 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20",
+                "placeholder": "Código de barras (EAN/UPC)",
+            }),
+            "qr_code": forms.TextInput(attrs={
+                "class": "glass-input w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder-slate-400 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20",
+                "placeholder": "QR code (URL o texto)",
+            }),
             "activo": forms.CheckboxInput(attrs={
                 "class": "h-5 w-5 rounded border-white/30 bg-white/5 text-slate-100 focus:ring-white/20",
             }),
         }
 
     def inicializar_precios(self, variante: ProductoVariante) -> None:
+        # Inicializar precios desde la base de datos
         for tipo, moneda, campo in [
             (Precio.Tipo.MINORISTA, Precio.Moneda.USD, "precio_minorista_usd"),
             (Precio.Tipo.MINORISTA, Precio.Moneda.ARS, "precio_minorista_ars"),
@@ -365,3 +390,13 @@ class ProductoVarianteForm(forms.ModelForm):
             precio = variante.precios.filter(tipo=tipo, moneda=moneda, activo=True).order_by("-actualizado").first()
             if precio:
                 self.fields[campo].initial = precio.precio
+        
+        # Precio venta = minorista si no hay precio_venta específico
+        precio_venta_ars = variante.precios.filter(tipo=Precio.Tipo.MINORISTA, moneda=Precio.Moneda.ARS, activo=True).order_by("-actualizado").first()
+        if precio_venta_ars:
+            self.fields["precio_venta_ars"].initial = precio_venta_ars.precio
+        
+        # Precio mínimo (si existe en el modelo, sino usar precio_venta)
+        precio_minimo_ars = variante.precios.filter(tipo=Precio.Tipo.MINORISTA, moneda=Precio.Moneda.ARS, activo=True).order_by("-actualizado").first()
+        if precio_minimo_ars:
+            self.fields["precio_minimo_ars"].initial = precio_minimo_ars.precio

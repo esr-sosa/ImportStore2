@@ -14,14 +14,14 @@
 
 {% block content %}
 <div class="min-h-screen bg-transparent pb-16">
-  <div class="mx-auto max-w-7xl px-6 pt-10">
+  <div class="mx-auto max-w-7xl px-4 pt-10 sm:px-6 lg:px-10">
     <div class="mb-10 flex flex-col gap-6 text-slate-100 lg:flex-row lg:items-center lg:justify-between">
       <div>
         <p class="text-xs uppercase tracking-[0.35em] text-slate-400">Inventario premium</p>
         <h1 class="text-4xl font-semibold tracking-tight">Colección de iPhones</h1>
         <p class="mt-2 max-w-2xl text-sm text-slate-300">Un panel inspirado en iOS para administrar unidades, precios y condición de cada equipo Apple en stock.</p>
       </div>
-      <a href="{% url 'iphones:agregar_iphone' %}" class="inline-flex items-center gap-2 rounded-2xl bg-white/90 px-5 py-3 text-sm font-semibold text-slate-900 shadow-lg transition hover:bg-white {% if schema_missing_columns %}pointer-events-none opacity-50{% elif not detalleiphone_ready %}opacity-75{% endif %}">
+      <a href="{% url 'iphones:agregar_iphone' %}" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white/90 px-5 py-3 text-sm font-semibold text-slate-900 shadow-lg transition hover:bg-white sm:w-auto {% if schema_missing_columns %}pointer-events-none opacity-50{% elif not detalleiphone_ready %}opacity-75{% endif %}">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
         Nuevo iPhone
       </a>
@@ -79,17 +79,17 @@
       </section>
 
       <section class="glass mt-10 rounded-3xl p-6 shadow-xl">
-        <form method="get" class="flex flex-col gap-4 lg:flex-row lg:items-end">
-          <div class="flex-1">
+        <form method="get" class="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
+          <div class="flex-1 min-w-0">
             <label class="block text-xs font-semibold uppercase tracking-[0.3em] text-slate-300">Buscar</label>
             <div class="mt-2">
               <input type="text" name="q" value="{{ search_query }}" placeholder="Modelo, SKU, color o IMEI" class="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-sm font-medium text-slate-900 shadow-sm placeholder-slate-400 focus:border-black focus:outline-none focus:ring-2 focus:ring-black/10" />
             </div>
           </div>
-          <div class="flex gap-4">
-            <button class="rounded-2xl bg-white/90 px-5 py-3 text-sm font-semibold text-slate-900 shadow-md transition hover:bg-white">Aplicar</button>
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+            <button class="w-full rounded-2xl bg-white/90 px-5 py-3 text-sm font-semibold text-slate-900 shadow-md transition hover:bg-white sm:w-auto">Aplicar</button>
             {% if search_query %}
-              <a href="{% url 'iphones:dashboard' %}" class="rounded-2xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/10">Limpiar</a>
+              <a href="{% url 'iphones:dashboard' %}" class="w-full rounded-2xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/10 sm:w-auto">Limpiar</a>
             {% endif %}
           </div>
         </form>

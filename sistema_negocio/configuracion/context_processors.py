@@ -1,33 +1,37 @@
+from types import SimpleNamespace
+
+
 def configuracion_global(request):
-    """Inyecta la configuración global y preferencias visuales en cada plantilla."""
+    """Inyecta configuraciones globales y preferencias del usuario en cada plantilla."""
 
-    from types import SimpleNamespace
-
-    configuracion = None
+    configuracion_tienda = None
+    configuracion_sistema = None
     preferencia_usuario = None
     modo_oscuro_usuario = None
 
     try:
+        from .models import ConfiguracionTienda  # type: ignore
+
+        configuracion_tienda = ConfiguracionTienda.obtener_unica()
+    except Exception:
+        configuracion_tienda = None
+
+    try:
         from .models import ConfiguracionSistema, PreferenciaUsuario
 
-        configuracion = ConfiguracionSistema.carga()
+        configuracion_sistema = ConfiguracionSistema.carga()
 
         user = getattr(request, "user", None)
         if user and user.is_authenticated:
-            try:
-                preferencia_usuario = (
-                    PreferenciaUsuario.objects.select_related(None)
-                    .only("usa_modo_oscuro")
-                    .filter(usuario=user)
-                    .first()
-                )
-                if preferencia_usuario is not None:
-                    modo_oscuro_usuario = preferencia_usuario.usa_modo_oscuro
-            except Exception:
-                preferencia_usuario = None
-                modo_oscuro_usuario = None
+            preferencia_usuario = (
+                PreferenciaUsuario.objects.only("usa_modo_oscuro")
+                .filter(usuario=user)
+                .first()
+            )
+            if preferencia_usuario is not None:
+                modo_oscuro_usuario = preferencia_usuario.usa_modo_oscuro
     except Exception:
-        configuracion = SimpleNamespace(
+        configuracion_sistema = SimpleNamespace(
             nombre_comercial="ImportStore",
             lema="",
             logo=None,
@@ -35,11 +39,22 @@ def configuracion_global(request):
             modo_oscuro_predeterminado=False,
         )
 
+    if configuracion_tienda is None:
+        configuracion_tienda = SimpleNamespace(
+            nombre_tienda=getattr(configuracion_sistema, "nombre_comercial", "ImportStore"),
+            logo=getattr(configuracion_sistema, "logo", None),
+            cuit="",
+            direccion=getattr(configuracion_sistema, "domicilio_comercial", ""),
+            email_contacto=getattr(configuracion_sistema, "contacto_email", ""),
+            telefono_contacto="",
+        )
+
     return {
-        "configuracion_sistema": configuracion,
+        "configuracion_tienda": configuracion_tienda,
+        "configuracion_sistema": configuracion_sistema,
         "preferencia_usuario": preferencia_usuario,
         "modo_oscuro_usuario": modo_oscuro_usuario,
         "modo_oscuro_predeterminado": getattr(
-            configuracion, "modo_oscuro_predeterminado", False
+            configuracion_sistema, "modo_oscuro_predeterminado", False
         ),
     }

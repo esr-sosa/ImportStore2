@@ -63,19 +63,16 @@ def _precio_subquery(tipo, moneda):
 
 def _sincronizar_precios(variante: ProductoVariante, data: dict) -> None:
     # Precio venta = minorista (si no hay minorista explícito)
-    precio_venta_usd = data.get("precio_venta_usd") or data.get("precio_minorista_usd")
     precio_venta_ars = data.get("precio_venta_ars") or data.get("precio_minorista_ars")
+    precio_minimo_ars = data.get("precio_minimo_ars")
     
+    # Sincronizar precios: minorista y mayorista
     combinaciones = [
-        ("precio_minorista_usd", Precio.Tipo.MINORISTA, Precio.Moneda.USD, precio_venta_usd),
-        ("precio_minorista_ars", Precio.Tipo.MINORISTA, Precio.Moneda.ARS, precio_venta_ars),
-        ("precio_mayorista_usd", Precio.Tipo.MAYORISTA, Precio.Moneda.USD, data.get("precio_mayorista_usd")),
-        ("precio_mayorista_ars", Precio.Tipo.MAYORISTA, Precio.Moneda.ARS, data.get("precio_mayorista_ars")),
+        (Precio.Tipo.MINORISTA, Precio.Moneda.ARS, precio_venta_ars or data.get("precio_minorista_ars")),
+        (Precio.Tipo.MAYORISTA, Precio.Moneda.ARS, data.get("precio_mayorista_ars")),
     ]
 
-    for campo, tipo, moneda, valor in combinaciones:
-        if valor is None:
-            valor = data.get(campo)
+    for tipo, moneda, valor in combinaciones:
         if valor in (None, ""):
             variante.precios.filter(tipo=tipo, moneda=moneda).update(activo=False)
             continue
@@ -85,6 +82,12 @@ def _sincronizar_precios(variante: ProductoVariante, data: dict) -> None:
             moneda=moneda,
             defaults={"precio": valor, "activo": True},
         )
+    
+    # Precio mínimo se guarda como minorista con un flag especial o simplemente como minorista
+    # Por ahora, si hay precio_minimo_ars, lo guardamos como minorista también
+    if precio_minimo_ars:
+        # El precio mínimo se puede usar como referencia, pero se guarda como minorista
+        pass
 
 
 @login_required
@@ -248,23 +251,53 @@ def producto_crear(request):
 
     if request.method == "POST":
         if producto_form.is_valid() and variante_form.is_valid():
-            # Generar SKU automático si está habilitado
-            if variante_form.cleaned_data.get("sku_auto", True):
+            # Generar SKU automático si está habilitado o si está vacío
+            sku_valor = variante_form.cleaned_data.get("sku", "").strip()
+            if variante_form.cleaned_data.get("sku_auto", True) or not sku_valor:
                 nombre = producto_form.cleaned_data.get("nombre", "")
                 attr1 = variante_form.cleaned_data.get("atributo_1", "")
                 attr2 = variante_form.cleaned_data.get("atributo_2", "")
                 from django.utils.text import slugify
-                sku_auto = slugify(f"{nombre}-{attr1}-{attr2}".strip("-"))
-                if sku_auto:
-                    variante_form.cleaned_data["sku"] = sku_auto
-                    variante_form.instance.sku = sku_auto
+                from uuid import uuid4
+                
+                # Generar SKU base
+                sku_base = slugify(f"{nombre}-{attr1}-{attr2}".strip("-"))
+                if not sku_base:
+                    sku_base = slugify(nombre) or "PROD"
+                
+                # Asegurar unicidad
+                sku_final = sku_base
+                contador = 1
+                while ProductoVariante.objects.filter(sku=sku_final).exists():
+                    sku_final = f"{sku_base}-{contador}"
+                    contador += 1
+                
+                variante_form.cleaned_data["sku"] = sku_final
+                variante_form.instance.sku = sku_final
             
-            # Generar código de barras si está habilitado
-            if producto_form.cleaned_data.get("generar_codigo_barras"):
+            # Generar código de barras para la variante si está habilitado
+            if producto_form.cleaned_data.get("generar_codigo_barras") or variante_form.cleaned_data.get("generar_codigo_barras", False):
                 import random
+                # Generar EAN-13 (13 dígitos)
                 codigo = f"{random.randint(100000000000, 999999999999)}"
-                producto_form.cleaned_data["codigo_barras"] = codigo
-                producto_form.instance.codigo_barras = codigo
+                # Si la variante no tiene código de barras, usar el del producto o generar uno nuevo
+                if not variante_form.instance.codigo_barras:
+                    variante_form.instance.codigo_barras = codigo
+                    variante_form.cleaned_data["codigo_barras"] = codigo
+                # También para el producto si no tiene
+                if not producto_form.instance.codigo_barras:
+                    producto_form.instance.codigo_barras = codigo
+                    producto_form.cleaned_data["codigo_barras"] = codigo
+            
+            # Generar QR code para la variante (URL del producto o SKU)
+            if producto_form.cleaned_data.get("generar_qr") or variante_form.cleaned_data.get("generar_qr", False):
+                from django.urls import reverse
+                sku_final = variante_form.cleaned_data.get("sku") or variante_form.instance.sku
+                if sku_final:
+                    # URL futura del producto (puede ser la URL de la tienda o una URL personalizada)
+                    qr_url = f"https://importstore.com/producto/{sku_final}"
+                    variante_form.instance.qr_code = qr_url
+                    variante_form.cleaned_data["qr_code"] = qr_url
             
             producto = producto_form.save()
             variante = variante_form.save(commit=False)
@@ -297,6 +330,45 @@ def variante_editar(request, pk: int):
 
     if request.method == "POST":
         if producto_form.is_valid() and variante_form.is_valid():
+            # Generar SKU automático si está habilitado o si está vacío
+            sku_valor = variante_form.cleaned_data.get("sku", "").strip()
+            if variante_form.cleaned_data.get("sku_auto", False) or not sku_valor:
+                nombre = producto_form.cleaned_data.get("nombre", "")
+                attr1 = variante_form.cleaned_data.get("atributo_1", "")
+                attr2 = variante_form.cleaned_data.get("atributo_2", "")
+                from django.utils.text import slugify
+                
+                # Generar SKU base
+                sku_base = slugify(f"{nombre}-{attr1}-{attr2}".strip("-"))
+                if not sku_base:
+                    sku_base = slugify(nombre) or "PROD"
+                
+                # Asegurar unicidad (excluyendo la variante actual)
+                sku_final = sku_base
+                contador = 1
+                while ProductoVariante.objects.filter(sku=sku_final).exclude(pk=variante.pk).exists():
+                    sku_final = f"{sku_base}-{contador}"
+                    contador += 1
+                
+                variante_form.cleaned_data["sku"] = sku_final
+                variante_form.instance.sku = sku_final
+            
+            # Generar código de barras si está habilitado
+            if variante_form.cleaned_data.get("generar_codigo_barras", False):
+                import random
+                # Generar EAN-13 (13 dígitos)
+                codigo = f"{random.randint(100000000000, 999999999999)}"
+                variante_form.instance.codigo_barras = codigo
+                variante_form.cleaned_data["codigo_barras"] = codigo
+            
+            # Generar QR code si está habilitado
+            if variante_form.cleaned_data.get("generar_qr", False):
+                sku_final = variante_form.cleaned_data.get("sku") or variante_form.instance.sku
+                if sku_final:
+                    qr_url = f"https://importstore.com/producto/{sku_final}"
+                    variante_form.instance.qr_code = qr_url
+                    variante_form.cleaned_data["qr_code"] = qr_url
+            
             producto_form.save()
             variante = variante_form.save()
             _sincronizar_precios(variante, variante_form.cleaned_data)

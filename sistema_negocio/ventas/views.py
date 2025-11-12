@@ -5,17 +5,20 @@ from uuid import uuid4
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import F, Q, Sum, Count
-from django.http import HttpResponseBadRequest, JsonResponse
-from django.shortcuts import render
-from django.views.decorators.csrf import csrf_exempt
+from django.db.models import F, Q, Sum
+from django.http import FileResponse, HttpResponseBadRequest, HttpResponseNotFound, JsonResponse
+from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
-from datetime import timedelta
+from django.views.decorators.csrf import csrf_exempt
 
+from caja.models import CajaDiaria, MovimientoCaja
+from core.utils import obtener_valor_dolar_blue
+from crm.models import Cliente
 from inventario.models import Precio, ProductoVariante
 from historial.models import RegistroHistorial
+from locales.models import Local
 
-from .models import LineaVenta, Venta
+from .models import DetalleVenta, Venta
 from .pdf import generar_comprobante_pdf
 
 
@@ -60,6 +63,80 @@ def buscar_productos_api(request):
     return JsonResponse({"results": [_formatear_variante(v) for v in variantes]})
 
 
+def buscar_clientes_api(request):
+    query = request.GET.get("q", "").strip()
+    if not query:
+        return JsonResponse({"results": []})
+    
+    clientes = Cliente.objects.filter(
+        Q(nombre__icontains=query) | Q(telefono__icontains=query) | Q(email__icontains=query)
+    ).order_by("nombre")[:10]
+    
+    results = [
+        {
+            "id": c.id,
+            "nombre": c.nombre,
+            "telefono": c.telefono,
+            "email": c.email or "",
+        }
+        for c in clientes
+    ]
+    
+    return JsonResponse({"results": results})
+
+
+def _generar_id_venta(prefix: str = "POS") -> str:
+    base = f"{prefix}-{uuid4().hex[:8].upper()}"
+    while Venta.objects.filter(pk=base).exists():
+        base = f"{prefix}-{uuid4().hex[:8].upper()}"
+    return base
+
+
+def _resolver_precio_ars(variante: ProductoVariante) -> tuple[Decimal, Decimal | None, Decimal | None]:
+    """
+    Resuelve el precio en ARS de una variante.
+    Si es un iPhone (categoría Celulares) y tiene precio en USD, lo convierte a ARS.
+    Retorna: (precio_ars, precio_usd_original, tipo_cambio_usado)
+    """
+    # Verificar si es un iPhone (categoría Celulares)
+    es_iphone = (
+        variante.producto.categoria 
+        and variante.producto.categoria.nombre.lower() == "celulares"
+    )
+    
+    # Primero intentar precio en ARS
+    precio_ars = variante.precios.filter(
+        activo=True,
+        tipo=Precio.Tipo.MINORISTA,
+        moneda=Precio.Moneda.ARS,
+    ).order_by("-actualizado").first()
+    
+    if precio_ars:
+        return (Decimal(precio_ars.precio), None, None)
+    
+    # Si no hay precio en ARS, buscar en USD
+    precio_usd = variante.precios.filter(
+        activo=True,
+        tipo=Precio.Tipo.MINORISTA,
+        moneda=Precio.Moneda.USD,
+    ).order_by("-actualizado").first()
+    
+    if precio_usd:
+        precio_usd_valor = Decimal(precio_usd.precio)
+        
+        # Si es iPhone, convertir USD a ARS usando dólar blue
+        if es_iphone:
+            dolar_blue = obtener_valor_dolar_blue()
+            if dolar_blue:
+                precio_ars_convertido = precio_usd_valor * Decimal(str(dolar_blue))
+                return (precio_ars_convertido, precio_usd_valor, Decimal(str(dolar_blue)))
+        
+        # Si no es iPhone o no hay dólar blue, devolver el precio USD como está (será 0)
+        return (precio_usd_valor, precio_usd_valor, None)
+    
+    return (Decimal("0"), None, None)
+
+
 @csrf_exempt
 @transaction.atomic
 def crear_venta_api(request):
@@ -68,194 +145,307 @@ def crear_venta_api(request):
 
     try:
         data = json.loads(request.body or "{}")
-        items = data.get("items") or []
-        metodo_pago = data.get("metodo_pago", Venta.MetodoPago.EFECTIVO)
-        nota = data.get("nota", "")
-        descuento_general = data.get("descuento_general", {"tipo": "monto", "valor": 0})
-        aplicar_iva = data.get("aplicar_iva", False)
-        iva_porcentaje = Decimal(str(data.get("iva_porcentaje", 21)))
-        estado = data.get("estado", Venta.Estado.COBRADA)
-        cliente_info = data.get("cliente") or {}
-        cliente_nombre = cliente_info.get("nombre") or data.get("cliente_nombre", "")
-        cliente_documento = cliente_info.get("documento") or data.get("cliente_documento", "")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Payload inválido"}, status=400)
 
-        if not items:
-            return JsonResponse({"error": "La venta no contiene productos"}, status=400)
+    items = data.get("items") or []
+    if not items:
+        return JsonResponse({"error": "La venta no contiene productos"}, status=400)
 
-        subtotal = Decimal("0")
-        descuento_items_total = Decimal("0")
-        lineas = []
+    metodo_pago = data.get("metodo_pago", Venta.MetodoPago.EFECTIVO_ARS)
+    if metodo_pago not in dict(Venta.MetodoPago.choices):
+        return JsonResponse({"error": "Método de pago inválido"}, status=400)
 
-        for item in items:
-            variante_id = item.get("variante_id")
-            cantidad = int(item.get("cantidad", 1))
-            descuento_linea = item.get("descuento", {})
+    nota = data.get("nota", "")
+    aplicar_iva = data.get("aplicar_iva", False)
+    iva_porcentaje = Decimal(str(data.get("iva_porcentaje", 21)))
+    descuento_general = data.get("descuento_general", {"tipo": "monto", "valor": 0})
 
-            variante = ProductoVariante.objects.select_related("producto").get(pk=variante_id)
+    cliente_obj = None
+    cliente_id = data.get("cliente_id")
+    cliente_nombre = data.get("cliente_nombre", "").strip()
+    cliente_documento = data.get("cliente_documento", "").strip()
+    cliente_telefono = data.get("cliente_telefono", "").strip()
+    
+    # Si hay cliente_id, buscar el cliente existente
+    if cliente_id:
+        cliente_obj = Cliente.objects.filter(pk=cliente_id).first()
+        if cliente_obj:
+            cliente_nombre = cliente_obj.nombre
+            cliente_documento = cliente_obj.telefono  # Usar teléfono como documento si no hay otro
+    
+    # Si no hay cliente_id pero hay nombre y teléfono, crear o buscar cliente
+    elif cliente_nombre and cliente_telefono:
+        cliente_obj, created = Cliente.objects.get_or_create(
+            telefono=cliente_telefono,
+            defaults={
+                "nombre": cliente_nombre,
+                "email": data.get("cliente_email", "").strip() or None,
+                "tipo_cliente": "Minorista",
+            }
+        )
+        if not created:
+            # Si ya existe, actualizar nombre si es diferente
+            if cliente_obj.nombre != cliente_nombre:
+                cliente_obj.nombre = cliente_nombre
+                cliente_obj.save(update_fields=["nombre", "ultima_actualizacion"])
+    
+    # Si solo hay nombre sin teléfono, usar nombre como consumidor final
+    elif cliente_nombre and not cliente_telefono:
+        cliente_nombre = cliente_nombre
+        cliente_obj = None
+    
+    # Si no hay nada, consumidor final
+    else:
+        cliente_nombre = ""
+        cliente_obj = None
 
-            precio = item.get("precio_unitario")
-            if precio is None:
-                precio_obj = variante.precios.filter(activo=True, tipo=Precio.Tipo.MINORISTA, moneda=Precio.Moneda.USD).first()
-                if not precio_obj:
-                    precio_obj = variante.precios.filter(activo=True).order_by("-actualizado").first()
-                precio = precio_obj.precio if precio_obj else Decimal("0")
+    subtotal = Decimal("0")
+    descuento_items_total = Decimal("0")
+    detalles = []
 
-            precio = Decimal(str(precio))
-            cantidad = max(1, cantidad)
-            bruto = precio * cantidad
+    for item in items:
+        variante_id = item.get("variante_id")
+        if not variante_id:
+            return JsonResponse({"error": "Variante inválida"}, status=400)
 
-            descuento_linea_valor = Decimal("0")
-            if descuento_linea:
-                tipo = descuento_linea.get("tipo")
-                valor = Decimal(str(descuento_linea.get("valor", 0)))
-                if tipo == "porcentaje":
-                    descuento_linea_valor = (bruto * valor) / Decimal("100")
-                elif tipo == "monto":
-                    descuento_linea_valor = min(bruto, valor)
+        variante = ProductoVariante.objects.select_related("producto").get(pk=variante_id)
 
-            total_linea = bruto - descuento_linea_valor
-            subtotal += bruto
-            descuento_items_total += descuento_linea_valor
+        cantidad = int(item.get("cantidad", 1))
+        cantidad = max(1, cantidad)
 
-            lineas.append({
+        if variante.stock_actual is not None and variante.stock_actual < cantidad:
+            return JsonResponse(
+                {
+                    "error": f"Stock insuficiente para {variante.producto.nombre} ({variante.sku}). Disponible: {variante.stock_actual}",
+                },
+                status=400,
+            )
+
+        precio_ars = item.get("precio_unitario_ars")
+        precio_usd_original = None
+        tipo_cambio_usado = None
+        
+        if precio_ars is None:
+            precio_ars, precio_usd_original, tipo_cambio_usado = _resolver_precio_ars(variante)
+        else:
+            precio_ars = Decimal(str(precio_ars))
+            # Si el precio viene del frontend, verificar si es iPhone y tiene precio USD
+            es_iphone = (
+                variante.producto.categoria 
+                and variante.producto.categoria.nombre.lower() == "celulares"
+            )
+            if es_iphone:
+                precio_usd = variante.precios.filter(
+                    activo=True,
+                    tipo=Precio.Tipo.MINORISTA,
+                    moneda=Precio.Moneda.USD,
+                ).order_by("-actualizado").first()
+                if precio_usd and not variante.precios.filter(
+                    activo=True,
+                    tipo=Precio.Tipo.MINORISTA,
+                    moneda=Precio.Moneda.ARS,
+                ).exists():
+                    # Solo tiene precio USD, guardar info de conversión
+                    precio_usd_original = Decimal(precio_usd.precio)
+                    dolar_blue = obtener_valor_dolar_blue()
+                    if dolar_blue:
+                        tipo_cambio_usado = Decimal(str(dolar_blue))
+
+        bruto = precio_ars * cantidad
+
+        descuento_linea_valor = Decimal("0")
+        descuento_linea = item.get("descuento", {})
+        if descuento_linea:
+            tipo = descuento_linea.get("tipo")
+            valor = Decimal(str(descuento_linea.get("valor", 0)))
+            if tipo == "porcentaje":
+                descuento_linea_valor = (bruto * valor) / Decimal("100")
+            elif tipo == "monto":
+                descuento_linea_valor = min(bruto, valor)
+
+        subtotal += bruto
+        descuento_items_total += descuento_linea_valor
+        total_linea = bruto - descuento_linea_valor
+
+        detalles.append(
+            {
                 "variante": variante,
+                "sku": variante.sku,
                 "descripcion": f"{variante.producto.nombre} {variante.atributos_display}",
                 "cantidad": cantidad,
-                "precio": precio,
-                "descuento": descuento_linea_valor,
-                "total": total_linea,
-            })
-
-        descuento_general_valor = Decimal("0")
-        if descuento_general:
-            tipo_general = descuento_general.get("tipo")
-            valor_general = Decimal(str(descuento_general.get("valor", 0)))
-            base = subtotal - descuento_items_total
-            if tipo_general == "porcentaje":
-                descuento_general_valor = (base * valor_general) / Decimal("100")
-            elif tipo_general == "monto":
-                descuento_general_valor = min(base, valor_general)
-
-        neto = subtotal - descuento_items_total - descuento_general_valor
-        impuestos = Decimal("0")
-        if aplicar_iva:
-            impuestos = (neto * iva_porcentaje) / Decimal("100")
-
-        total = neto + impuestos
-
-        venta = Venta.objects.create(
-            numero=f"POS-{uuid4().hex[:8].upper()}",
-            subtotal=subtotal,
-            descuento_items=descuento_items_total,
-            descuento_general=descuento_general_valor,
-            impuestos=impuestos,
-            total=total,
-            metodo_pago=metodo_pago,
-            nota=nota,
-            estado=estado,
-            vendedor=request.user if request.user.is_authenticated else None,
-            cliente_nombre=cliente_nombre,
-            cliente_documento=cliente_documento,
-        )
-
-        for linea in lineas:
-            LineaVenta.objects.create(
-                venta=venta,
-                variante=linea["variante"],
-                descripcion=linea["descripcion"],
-                cantidad=linea["cantidad"],
-                precio_unitario=linea["precio"],
-                descuento=linea["descuento"],
-                total_linea=linea["total"],
-            )
-            ProductoVariante.objects.filter(pk=linea["variante"].pk).update(
-                stock_actual=F("stock_actual") - linea["cantidad"]
-            )
-
-        venta.refresh_from_db()
-
-        RegistroHistorial.objects.create(
-            usuario=request.user if request.user.is_authenticated else None,
-            tipo_accion=RegistroHistorial.TipoAccion.VENTA,
-            descripcion=f"Venta {venta.numero} por {venta.total} ({venta.metodo_pago}).",
-        )
-
-        pdf_file = generar_comprobante_pdf(venta)
-        venta.comprobante_pdf.save(pdf_file.name, pdf_file, save=True)
-
-        return JsonResponse(
-            {
-                "status": "ok",
-                "venta": {
-                    "numero": venta.numero,
-                    "estado": venta.estado,
-                    "subtotal": str(subtotal),
-                    "descuento_items": str(descuento_items_total),
-                    "descuento_general": str(descuento_general_valor),
-                    "impuestos": str(impuestos),
-                    "total": str(total),
-                    "pdf": venta.comprobante_pdf.url if venta.comprobante_pdf else None,
-                },
+                "precio": precio_ars,
+                "subtotal": total_linea,
+                "precio_usd_original": precio_usd_original,
+                "tipo_cambio_usado": tipo_cambio_usado,
             }
         )
 
-    except ProductoVariante.DoesNotExist:
-        return JsonResponse({"error": "Algún producto seleccionado ya no existe"}, status=404)
-    except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=400)
+    descuento_general_valor = Decimal("0")
+    if descuento_general:
+        tipo_general = descuento_general.get("tipo")
+        valor_general = Decimal(str(descuento_general.get("valor", 0)))
+        base = subtotal - descuento_items_total
+        if tipo_general == "porcentaje":
+            descuento_general_valor = (base * valor_general) / Decimal("100")
+        elif tipo_general == "monto":
+            descuento_general_valor = min(base, valor_general)
+
+    neto = subtotal - descuento_items_total - descuento_general_valor
+    impuestos = Decimal("0")
+    if aplicar_iva:
+        impuestos = (neto * iva_porcentaje) / Decimal("100")
+
+    total = neto + impuestos
+
+    venta_id = data.get("orden_id") or _generar_id_venta()
+    status = data.get("status")
+    if status not in dict(Venta.Status.choices):
+        status = Venta.Status.COMPLETADO
+
+    venta = Venta.objects.create(
+        id=venta_id,
+        fecha=timezone.now(),
+        cliente=cliente_obj,
+        cliente_nombre=cliente_nombre,
+        cliente_documento=cliente_documento,
+        subtotal_ars=subtotal,
+        descuento_total_ars=descuento_items_total + descuento_general_valor,
+        impuestos_ars=impuestos,
+        total_ars=total,
+        metodo_pago=metodo_pago,
+        status=status,
+        nota=nota,
+        vendedor=request.user if request.user.is_authenticated else None,
+    )
+
+    for detalle in detalles:
+        DetalleVenta.objects.create(
+            venta=venta,
+            variante=detalle["variante"],
+            sku=detalle["sku"],
+            descripcion=detalle["descripcion"],
+            cantidad=detalle["cantidad"],
+            precio_unitario_ars_congelado=detalle["precio"],
+            subtotal_ars=detalle["subtotal"],
+            precio_unitario_usd_original=detalle.get("precio_usd_original"),
+            tipo_cambio_usado=detalle.get("tipo_cambio_usado"),
+        )
+        ProductoVariante.objects.filter(pk=detalle["variante"].pk).update(
+            stock_actual=F("stock_actual") - detalle["cantidad"]
+        )
+
+    RegistroHistorial.objects.create(
+        usuario=request.user if request.user.is_authenticated else None,
+        tipo_accion=RegistroHistorial.TipoAccion.VENTA,
+        descripcion=f"Venta {venta.id} por ${venta.total_ars:.2f} ({venta.metodo_pago}).",
+    )
+
+    pdf_file = generar_comprobante_pdf(venta)
+    venta.comprobante_pdf.save(pdf_file.name, pdf_file, save=True)
+
+    # ========== INTEGRACIÓN CON CAJA ==========
+    # Buscar caja abierta para el local (por defecto el primero, o el que se pase en el request)
+    local_id = data.get("local_id")
+    if local_id:
+        try:
+            local = Local.objects.get(pk=local_id)
+        except Local.DoesNotExist:
+            local = None
+    else:
+        local = Local.objects.first()  # Local por defecto
+
+    if local:
+        caja_abierta = CajaDiaria.objects.filter(local=local, estado=CajaDiaria.Estado.ABIERTA).first()
+        if caja_abierta:
+            # Crear movimiento de caja
+            MovimientoCaja.objects.create(
+                caja_diaria=caja_abierta,
+                tipo=MovimientoCaja.Tipo.VENTA,
+                metodo_pago=venta.metodo_pago,
+                monto_ars=venta.total_ars,
+                descripcion=f"Venta {venta.id}",
+                venta_asociada=venta,
+                usuario=request.user if request.user.is_authenticated else None,
+            )
+
+    return JsonResponse(
+        {
+            "status": "ok",
+            "venta": {
+                "id": venta.id,
+                "status": venta.status,
+                "status_label": venta.get_status_display(),
+                "subtotal_ars": str(subtotal),
+                "descuento_total_ars": str(descuento_items_total + descuento_general_valor),
+                "impuestos_ars": str(impuestos),
+                "total_ars": str(total),
+                "pdf": venta.comprobante_pdf.url if venta.comprobante_pdf else None,
+            },
+        }
+    )
+
+
+@login_required
+def generar_voucher_pdf(request, venta_id: str):
+    venta = get_object_or_404(Venta.objects.prefetch_related("detalles"), pk=venta_id)
+    if not venta.comprobante_pdf:
+        pdf = generar_comprobante_pdf(venta)
+        venta.comprobante_pdf.save(pdf.name, pdf, save=True)
+    if not venta.comprobante_pdf:
+        return HttpResponseNotFound("No se pudo generar el comprobante")
+    venta.comprobante_pdf.open("rb")
+    filename = venta.comprobante_pdf.name.split("/")[-1]
+    return FileResponse(venta.comprobante_pdf, as_attachment=True, filename=filename)
 
 
 @login_required
 def listado_ventas(request):
-    """Vista de listado de ventas con filtros y paginación."""
-    # Filtros
     fecha_desde = request.GET.get("fecha_desde", "")
     fecha_hasta = request.GET.get("fecha_hasta", "")
-    estado = request.GET.get("estado", "")
+    status = request.GET.get("estado", "")
     metodo_pago = request.GET.get("metodo_pago", "")
     q = request.GET.get("q", "").strip()
-    
-    ventas_qs = Venta.objects.select_related("vendedor").prefetch_related("lineas").all()
-    
+
+    ventas_qs = Venta.objects.select_related("vendedor", "cliente").prefetch_related("detalles")
+
     if fecha_desde:
         try:
             desde = timezone.datetime.strptime(fecha_desde, "%Y-%m-%d").date()
             ventas_qs = ventas_qs.filter(fecha__gte=desde)
-        except:
+        except ValueError:
             pass
-    
+
     if fecha_hasta:
         try:
             hasta = timezone.datetime.strptime(fecha_hasta, "%Y-%m-%d").date()
             ventas_qs = ventas_qs.filter(fecha__lte=hasta)
-        except:
+        except ValueError:
             pass
-    
-    if estado:
-        ventas_qs = ventas_qs.filter(estado=estado)
-    
+
+    if status:
+        ventas_qs = ventas_qs.filter(status=status)
+
     if metodo_pago:
         ventas_qs = ventas_qs.filter(metodo_pago=metodo_pago)
-    
+
     if q:
         ventas_qs = ventas_qs.filter(
-            Q(numero__icontains=q) |
-            Q(cliente_nombre__icontains=q) |
-            Q(cliente_documento__icontains=q)
+            Q(id__icontains=q)
+            | Q(cliente_nombre__icontains=q)
+            | Q(cliente_documento__icontains=q)
         )
-    
+
     ventas_qs = ventas_qs.order_by("-fecha", "-id")
-    
-    # Estadísticas
+
     total_ventas = ventas_qs.count()
-    total_facturado = ventas_qs.aggregate(total=Sum("total"))["total"] or 0
-    promedio_ticket = total_facturado / total_ventas if total_ventas > 0 else 0
-    
-    # Paginación
+    total_facturado = ventas_qs.aggregate(total=Sum("total_ars"))["total"] or Decimal("0")
+    promedio_ticket = total_facturado / total_ventas if total_ventas > 0 else Decimal("0")
+
     paginator = Paginator(ventas_qs, 20)
     page = request.GET.get("page", 1)
     page_obj = paginator.get_page(page)
-    
+
     context = {
         "ventas": page_obj.object_list,
         "page_obj": page_obj,
@@ -265,13 +455,12 @@ def listado_ventas(request):
         "filtros": {
             "fecha_desde": fecha_desde,
             "fecha_hasta": fecha_hasta,
-            "estado": estado,
+            "estado": status,
             "metodo_pago": metodo_pago,
             "q": q,
         },
-        "estados": Venta.Estado.choices,
+        "estados": Venta.Status.choices,
         "metodos_pago": Venta.MetodoPago.choices,
     }
-    
-    template = "ventas/listado.html" if request.headers.get("HX-Request") else "ventas/listado.html"
-    return render(request, template, context)
+
+    return render(request, "ventas/listado.html", context)

@@ -170,6 +170,7 @@ def importar_catalogo_desde_archivo(archivo, actualizar: bool = True) -> ImportR
             "proveedor": _obtener_proveedor(data.get("proveedor")),
             "codigo_barras": data.get("codigo_barras", ""),
             "activo": is_visible,
+            "estado": "ACTIVO",
         }
 
         producto, _ = Producto.objects.get_or_create(nombre=data.get("nombre") or sku, defaults=producto_defaults)

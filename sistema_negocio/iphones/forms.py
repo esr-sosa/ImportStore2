@@ -3,8 +3,8 @@ from django import forms
 from .constants import CAPACITIES, COLORS, IPHONE_MODELS
 
 
-IOS_INPUT = "w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-sm font-medium text-slate-900 shadow-sm placeholder-slate-400 focus:border-black focus:outline-none focus:ring-2 focus:ring-black/10"
-IOS_SELECT = f"{IOS_INPUT} appearance-none"
+IOS_INPUT = "w-full rounded-2xl border-2 border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-900 shadow-sm placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+IOS_SELECT = f"{IOS_INPUT} appearance-none bg-white text-slate-900"
 IOS_TEXTAREA = IOS_INPUT + " min-h-[120px]"
 IOS_NUMBER = IOS_INPUT + " text-right"
 IOS_CHECK = "h-5 w-5 rounded-full border-slate-300 text-black focus:ring-black"
@@ -29,9 +29,44 @@ class AgregarIphoneForm(forms.Form):
     sku = forms.CharField(
         label="SKU interno",
         max_length=64,
+        required=False,
         widget=forms.TextInput(
-            attrs={"class": IOS_INPUT, "placeholder": "Ej: IPH-16PM-256-NAT"}
+            attrs={"class": IOS_INPUT, "placeholder": "Ej: IPH-16PM-256-NAT (se genera automáticamente)", "id": "sku-input"}
         ),
+    )
+    sku_auto = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="SKU automático",
+        widget=forms.CheckboxInput(attrs={"class": "switch-container", "id": "sku-auto-toggle"}),
+    )
+    codigo_barras = forms.CharField(
+        label="Código de barras",
+        max_length=64,
+        required=False,
+        widget=forms.TextInput(
+            attrs={"class": IOS_INPUT, "placeholder": "EAN/UPC (se genera automáticamente)", "id": "codigo-barras-input"}
+        ),
+    )
+    generar_codigo_barras = forms.BooleanField(
+        required=False,
+        initial=False,
+        label="Generar código de barras",
+        widget=forms.CheckboxInput(attrs={"class": "switch-container"}),
+    )
+    qr_code = forms.CharField(
+        label="QR code",
+        max_length=255,
+        required=False,
+        widget=forms.TextInput(
+            attrs={"class": IOS_INPUT, "placeholder": "URL o texto (se genera automáticamente)", "id": "qr-code-input"}
+        ),
+    )
+    generar_qr = forms.BooleanField(
+        required=False,
+        initial=False,
+        label="Generar QR code",
+        widget=forms.CheckboxInput(attrs={"class": "switch-container"}),
     )
     stock_actual = forms.IntegerField(
         label="Unidades",

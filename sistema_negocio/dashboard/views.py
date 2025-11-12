@@ -15,10 +15,11 @@ from django.utils import timezone
 
 from core.db_inspector import column_exists, table_exists
 from core.utils import obtener_valor_dolar_blue
-from configuracion.models import ConfiguracionSistema
+from configuracion.models import ConfiguracionSistema, ConfiguracionTienda
 from crm.models import Cliente, Conversacion
 from historial.models import RegistroHistorial
 from inventario.models import Precio, Producto, ProductoVariante
+from locales.models import Local
 from ventas.models import Venta
 
 
@@ -108,7 +109,7 @@ def dashboard_view(request):
         periodo_inicio = timezone.now() - timedelta(days=30)
         ventas_qs = Venta.objects.filter(fecha__gte=periodo_inicio)
         ventas_resumen = ventas_qs.aggregate(
-            total=Coalesce(Sum("total"), Decimal("0")),
+            total=Coalesce(Sum("total_ars"), Decimal("0")),
             tickets=Count("id"),
         )
         tickets = ventas_resumen["tickets"] or 0
@@ -119,7 +120,7 @@ def dashboard_view(request):
             "tickets_periodo": tickets,
             "ticket_promedio": promedio,
         }
-        ultimas_ventas = list(ventas_qs.order_by("-fecha")[:5])
+        ultimas_ventas = list(ventas_qs.select_related("vendedor").order_by("-fecha")[:5])
     else:
         schema_warnings.append(
             "El módulo de ventas todavía no está migrado. Corré `python manage.py migrate ventas`."
@@ -228,8 +229,12 @@ def tienda_preview(request):
             }
         )
 
-    configuracion = ConfiguracionSistema.carga()
+    configuracion_sistema = ConfiguracionSistema.carga()
+    configuracion_tienda = ConfiguracionTienda.obtener_unica()
+    locales = Local.objects.order_by("nombre")
     return render(request, "dashboard/preview.html", {
         "catalogo": catalogo,
-        "configuracion_sistema": configuracion,
+        "configuracion_sistema": configuracion_sistema,
+        "configuracion_tienda": configuracion_tienda,
+        "locales": locales,
     })

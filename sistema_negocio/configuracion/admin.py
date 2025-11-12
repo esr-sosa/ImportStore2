@@ -1,6 +1,15 @@
 from django.contrib import admin
 
-from .models import ConfiguracionSistema, PreferenciaUsuario
+from .models import ConfiguracionSistema, ConfiguracionTienda, PreferenciaUsuario
+
+
+@admin.register(ConfiguracionTienda)
+class ConfiguracionTiendaAdmin(admin.ModelAdmin):
+    list_display = ("nombre_tienda", "cuit", "actualizado")
+    readonly_fields = ("actualizado",)
+
+    def has_add_permission(self, request):
+        return not ConfiguracionTienda.objects.exists()
 
 
 @admin.register(ConfiguracionSistema)

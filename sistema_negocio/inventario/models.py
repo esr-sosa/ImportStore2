@@ -49,6 +49,7 @@ class Producto(models.Model):
 
     # Campos que ya estás usando en tu DB:
     activo = models.BooleanField(default=True)
+    estado = models.CharField(max_length=20, default="ACTIVO", blank=True, help_text="Estado del producto en la base de datos")
     codigo_barras = models.CharField(max_length=64, blank=True, null=True)
     # Guardás un path/ruta (VARCHAR en DB). Lo dejo CharField para compatibilidad.
     imagen_codigo_barras = models.CharField(max_length=255, blank=True, null=True)
@@ -76,6 +77,8 @@ class ProductoVariante(models.Model):
         Producto, on_delete=models.CASCADE, related_name="variantes"
     )
     sku = models.CharField(max_length=64, unique=True)
+    codigo_barras = models.CharField(max_length=64, blank=True, null=True, help_text="Código de barras EAN/UPC")
+    qr_code = models.CharField(max_length=255, blank=True, null=True, help_text="Código QR (URL o texto)")
     atributo_1 = models.CharField(max_length=120, blank=True)  # ej: color
     atributo_2 = models.CharField(max_length=120, blank=True)  # ej: capacidad/tamaño
     stock_actual = models.IntegerField(default=0)

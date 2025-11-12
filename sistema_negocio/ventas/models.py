@@ -2,62 +2,78 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
+from crm.models import Cliente
 from inventario.models import ProductoVariante
 
 
 class Venta(models.Model):
-    class Estado(models.TextChoices):
-        BORRADOR = "borrador", "Borrador"
-        COBRADA = "cobrada", "Cobrada"
-        ANULADA = "anulada", "Anulada"
-
     class MetodoPago(models.TextChoices):
-        EFECTIVO = "efectivo", "Efectivo"
-        TARJETA = "tarjeta", "Tarjeta"
-        TRANSFERENCIA = "transferencia", "Transferencia"
-        MIXTO = "mixto", "Mixto"
+        EFECTIVO_ARS = "EFECTIVO_ARS", "Efectivo ARS"
+        EFECTIVO_USD = "EFECTIVO_USD", "Efectivo USD"
+        TRANSFERENCIA = "TRANSFERENCIA", "Transferencia"
+        TARJETA = "TARJETA", "Tarjeta"
 
-    numero = models.CharField(max_length=40, unique=True)
-    fecha = models.DateTimeField(auto_now_add=True)
-    subtotal = models.DecimalField(max_digits=12, decimal_places=2)
-    descuento_items = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"))
-    descuento_general = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"))
-    impuestos = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"))
-    total = models.DecimalField(max_digits=12, decimal_places=2)
-    metodo_pago = models.CharField(max_length=20, choices=MetodoPago.choices, default=MetodoPago.EFECTIVO)
+    class Status(models.TextChoices):
+        PENDIENTE_PAGO = "PENDIENTE_PAGO", "Pendiente de pago"
+        PAGADO = "PAGADO", "Pagado"
+        PENDIENTE_ENVIO = "PENDIENTE_ENVIO", "Pendiente de envío"
+        COMPLETADO = "COMPLETADO", "Completado"
+        CANCELADO = "CANCELADO", "Cancelado"
+
+    id = models.CharField(
+        primary_key=True,
+        max_length=20,
+        help_text="Identificador único de la venta / número de orden.",
+    )
+    fecha = models.DateTimeField(default=timezone.now)
+    cliente = models.ForeignKey(Cliente, null=True, blank=True, on_delete=models.SET_NULL)
+    cliente_nombre = models.CharField(max_length=120, blank=True)
+    cliente_documento = models.CharField(max_length=40, blank=True)
+    subtotal_ars = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"))
+    descuento_total_ars = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"))
+    impuestos_ars = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"))
+    total_ars = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"))
+    metodo_pago = models.CharField(max_length=20, choices=MetodoPago.choices)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDIENTE_PAGO)
     nota = models.TextField(blank=True)
-    estado = models.CharField(max_length=20, choices=Estado.choices, default=Estado.COBRADA)
     vendedor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        related_name="ventas_realizadas",
+        related_name="ventas_registradas",
     )
-    cliente_nombre = models.CharField(max_length=120, blank=True)
-    cliente_documento = models.CharField(max_length=40, blank=True)
     comprobante_pdf = models.FileField(upload_to="comprobantes/", blank=True, null=True)
+    actualizado = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["-fecha"]
 
-    def __str__(self) -> str:  # pragma: no cover - presentación simple
-        return f"Venta {self.numero}"
+    def __str__(self) -> str:
+        return f"Venta {self.id}"
+
+    @property
+    def saldo_pendiente(self) -> Decimal:
+        return Decimal("0") if self.status in {self.Status.PAGADO, self.Status.COMPLETADO} else self.total_ars
 
 
-class LineaVenta(models.Model):
-    venta = models.ForeignKey(Venta, related_name="lineas", on_delete=models.CASCADE)
-    variante = models.ForeignKey(ProductoVariante, on_delete=models.PROTECT)
+class DetalleVenta(models.Model):
+    venta = models.ForeignKey(Venta, related_name="detalles", on_delete=models.CASCADE)
+    variante = models.ForeignKey(ProductoVariante, on_delete=models.PROTECT, related_name="detalles_venta")
+    sku = models.CharField(max_length=60)
     descripcion = models.CharField(max_length=200)
     cantidad = models.PositiveIntegerField()
-    precio_unitario = models.DecimalField(max_digits=12, decimal_places=2)
-    descuento = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"))
-    total_linea = models.DecimalField(max_digits=12, decimal_places=2)
+    precio_unitario_ars_congelado = models.DecimalField(max_digits=12, decimal_places=2)
+    subtotal_ars = models.DecimalField(max_digits=12, decimal_places=2)
+    # Campos para conversión USD -> ARS (solo para iPhones)
+    precio_unitario_usd_original = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, help_text="Precio original en USD si fue convertido")
+    tipo_cambio_usado = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Tipo de cambio usado para la conversión")
 
     class Meta:
-        verbose_name = "Línea de venta"
-        verbose_name_plural = "Líneas de venta"
+        verbose_name = "Detalle de venta"
+        verbose_name_plural = "Detalles de venta"
 
-    def __str__(self) -> str:  # pragma: no cover - presentación simple
+    def __str__(self) -> str:
         return f"{self.descripcion} x{self.cantidad}"
