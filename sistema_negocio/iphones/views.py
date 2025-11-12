@@ -332,17 +332,67 @@ def agregar_iphone(request):
             elif data.get("qr_code"):
                 qr_code = data["qr_code"]
             
-            variante = ProductoVariante.objects.create(
-                producto=producto,
-                sku=sku_final,
-                codigo_barras=codigo_barras,
-                qr_code=qr_code,
-                atributo_1=data["capacidad"],
-                atributo_2=data["color"],
-                stock_actual=data["stock_actual"],
-                stock_minimo=data["stock_minimo"],
-                activo=data["activo"],
-            )
+            # Asegurar valores por defecto para stock
+            stock_actual_val = data.get("stock_actual", 0) or 0
+            stock_minimo_val = data.get("stock_minimo", 0) or 0
+            
+            # Verificar si existe el campo 'stock' antiguo en la base de datos
+            from core.db_inspector import column_exists
+            from django.db import connection
+            
+            nombre_variante_val = f"{data['modelo']} {data['capacidad']} {data['color']}".strip()
+            
+            if column_exists("inventario_productovariante", "stock"):
+                # Usar SQL directo para insertar con el campo stock
+                from django.utils import timezone
+                ahora = timezone.now()
+                
+                # Verificar si existe el campo 'peso' también
+                tiene_peso = column_exists("inventario_productovariante", "peso")
+                
+                with connection.cursor() as cursor:
+                    if tiene_peso:
+                        # Si existe el campo peso, incluirlo en el INSERT
+                        cursor.execute("""
+                            INSERT INTO inventario_productovariante 
+                            (producto_id, sku, nombre_variante, codigo_barras, qr_code, atributo_1, atributo_2, 
+                             stock_actual, stock_minimo, stock, peso, activo, creado, actualizado)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """, [
+                            producto.pk, sku_final, nombre_variante_val, codigo_barras, qr_code,
+                            data["capacidad"], data["color"], stock_actual_val, stock_minimo_val,
+                            stock_actual_val, 0, 1 if data["activo"] else 0, ahora, ahora
+                        ])
+                    else:
+                        # Si no existe el campo peso, INSERT normal
+                        cursor.execute("""
+                            INSERT INTO inventario_productovariante 
+                            (producto_id, sku, nombre_variante, codigo_barras, qr_code, atributo_1, atributo_2, 
+                             stock_actual, stock_minimo, stock, activo, creado, actualizado)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """, [
+                            producto.pk, sku_final, nombre_variante_val, codigo_barras, qr_code,
+                            data["capacidad"], data["color"], stock_actual_val, stock_minimo_val,
+                            stock_actual_val, 1 if data["activo"] else 0, ahora, ahora
+                        ])
+                    variante_id = cursor.lastrowid
+                
+                # Recargar la variante desde la base de datos
+                variante = ProductoVariante.objects.get(pk=variante_id)
+            else:
+                # Si no existe el campo stock, crear normalmente
+                variante = ProductoVariante.objects.create(
+                    producto=producto,
+                    sku=sku_final,
+                    nombre_variante=nombre_variante_val,
+                    codigo_barras=codigo_barras,
+                    qr_code=qr_code,
+                    atributo_1=data["capacidad"],
+                    atributo_2=data["color"],
+                    stock_actual=stock_actual_val,
+                    stock_minimo=stock_minimo_val,
+                    activo=data["activo"],
+                )
 
             _sincronizar_precios(variante, data)
 

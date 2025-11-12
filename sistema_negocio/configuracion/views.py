@@ -14,7 +14,7 @@ from django.views.decorators.http import require_POST
 from core.db_inspector import column_exists, table_exists
 from crm.models import Cliente
 from historial.models import RegistroHistorial
-from inventario.models import Producto
+from inventario.models import Categoria, Producto
 from locales.forms import LocalForm
 from locales.models import Local
 
@@ -112,6 +112,7 @@ def _contexto_panel(
         "configuracion": configuracion,
         "configuracion_tienda": configuracion_tienda,
         "locales": Local.objects.order_by("nombre"),
+        "categorias": Categoria.objects.order_by("nombre"),
         "pendientes": pendientes,
         "columnas_faltantes": _columnas_faltantes(),
         "salud_inventario": _salud_inventario(),
@@ -257,6 +258,50 @@ def panel_configuracion(request):
     )
     template = "configuracion/_panel_content.html" if request.headers.get("HX-Request") else "configuracion/panel.html"
     return render(request, template, contexto)
+
+
+@login_required
+@require_POST
+def actualizar_garantia_categoria(request, categoria_id):
+    """Actualiza los días de garantía de una categoría."""
+    from django.shortcuts import get_object_or_404
+    categoria = get_object_or_404(Categoria, pk=categoria_id)
+    
+    garantia_dias = request.POST.get("garantia_dias", "").strip()
+    if garantia_dias:
+        try:
+            categoria.garantia_dias = int(garantia_dias)
+        except ValueError:
+            categoria.garantia_dias = None
+    else:
+        categoria.garantia_dias = None
+    
+    categoria.save()
+    
+    if request.headers.get("HX-Request"):
+        configuracion = ConfiguracionSistema.carga()
+        configuracion_tienda = ConfiguracionTienda.obtener_unica()
+        preferencias, _ = PreferenciaUsuario.objects.get_or_create(usuario=request.user)
+        form = ConfiguracionSistemaForm(instance=configuracion, prefix="sistema")
+        pref_form = PreferenciaUsuarioForm(instance=preferencias, prefix="preferencia")
+        tienda_form = ConfiguracionTiendaForm(instance=configuracion_tienda, prefix="tienda")
+        local_form = LocalForm(prefix="local")
+        contexto = _contexto_panel(
+            configuracion,
+            configuracion_tienda,
+            form,
+            pref_form,
+            tienda_form,
+            local_form,
+        )
+        response = render(request, "configuracion/_panel_content.html", contexto)
+        response["HX-Trigger-After-Swap"] = json.dumps({
+            "showToast": {"message": f"Garantía de {categoria.nombre} actualizada correctamente.", "level": "success"},
+        })
+        return response
+    
+    messages.success(request, f"Garantía de {categoria.nombre} actualizada correctamente.")
+    return redirect("configuracion:panel")
 
 
 @login_required

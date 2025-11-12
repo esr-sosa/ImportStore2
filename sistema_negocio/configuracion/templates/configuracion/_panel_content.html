@@ -182,6 +182,12 @@
               {{ tienda_form.telefono_contacto }}
               {{ tienda_form.telefono_contacto.errors }}
             </div>
+            <div class="md:col-span-2">
+              <label class="text-xs font-semibold uppercase tracking-wide text-muted">Garantía en productos (días)</label>
+              {{ tienda_form.garantia_dias_general }}
+              {{ tienda_form.garantia_dias_general.errors }}
+              <p class="mt-1 text-xs text-muted">Días de garantía por defecto para todos los productos. Se puede configurar garantías específicas por categoría.</p>
+            </div>
           </div>
           <div class="flex justify-end">
             <button type="submit" class="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white/90">
@@ -241,6 +247,40 @@
               </button>
             </div>
           </form>
+        </div>
+      </section>
+
+      <section class="glass-surface card-surface rounded-3xl border px-6 py-6 shadow-xl dark:border-slate-700/60">
+        <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Garantía en productos por categorías</h2>
+            <p class="text-sm text-muted">Configurá los días de garantía específicos para cada categoría. Si no se especifica, se usa la garantía general.</p>
+          </div>
+        </div>
+        <div class="mt-6 space-y-3">
+          {% for categoria in categorias %}
+            <div class="flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm text-slate-100 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/70 sm:flex-row sm:items-center sm:justify-between">
+              <div class="flex-1">
+                <p class="font-semibold text-slate-100">{{ categoria.nombre }}</p>
+                <p class="text-xs text-muted">
+                  {% if categoria.garantia_dias %}
+                    Garantía: {{ categoria.garantia_dias }} días
+                  {% else %}
+                    Usa garantía general ({{ configuracion_tienda.garantia_dias_general|default:45 }} días)
+                  {% endif %}
+                </p>
+              </div>
+              <form method="post" action="{% url 'configuracion:categoria_garantia' categoria.pk %}" hx-post="{% url 'configuracion:categoria_garantia' categoria.pk %}" hx-target="#configuracion-panel" hx-swap="outerHTML" class="flex items-center gap-2">
+                {% csrf_token %}
+                <input type="number" name="garantia_dias" value="{{ categoria.garantia_dias|default:'' }}" min="0" placeholder="Días" class="w-24 rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-slate-100 placeholder-slate-400 focus:border-white/40 focus:outline-none">
+                <button type="submit" class="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white/90">
+                  Guardar
+                </button>
+              </form>
+            </div>
+          {% empty %}
+            <p class="rounded-2xl border border-dashed border-white/20 px-4 py-6 text-sm text-muted">No hay categorías configuradas. Creá categorías desde el módulo de inventario.</p>
+          {% endfor %}
         </div>
       </section>
 

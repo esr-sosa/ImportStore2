@@ -27,8 +27,16 @@ CSRF_TRUSTED_ORIGINS = [
 
 # 3. AHORA SÍ, podemos agregar ngrok a esas listas si estamos en DEBUG
 # Solo intentar iniciar ngrok si está explícitamente habilitado y no hay errores previos
+# NOTA: Ngrok deshabilitado temporalmente para evitar errores de sesión limitada
+# Si necesitas ngrok, descomenta el código y asegúrate de tener solo una sesión activa
 _ngrok_initialized = False
-if DEBUG and os.getenv('NGROK_AUTHTOKEN') and not _ngrok_initialized:
+_ngrok_enabled = os.getenv('NGROK_ENABLED', 'false').lower() == 'true'
+if DEBUG and os.getenv('NGROK_AUTHTOKEN') and _ngrok_enabled and not _ngrok_initialized:
+    import sys
+    import io
+    # Redirigir stderr temporalmente para silenciar errores de ngrok
+    old_stderr = sys.stderr
+    sys.stderr = io.StringIO()
     try:
         from pyngrok import ngrok
         
@@ -56,26 +64,20 @@ if DEBUG and os.getenv('NGROK_AUTHTOKEN') and not _ngrok_initialized:
             print(f"--- NGROK Automático Activado ---")
             print(f"Acceso público en: {public_url}")
             _ngrok_initialized = True
-        except Exception as inner_e:
-            # Error al obtener/crear túnel (ej: sesión limitada)
-            error_msg = str(inner_e)
-            if "ERR_NGROK_108" not in error_msg and "authentication failed" not in error_msg.lower():
-                # Solo mostrar errores que no sean de autenticación/sesión
-                print(f"--- Error al iniciar NGROK: {error_msg[:100]} ---")
-            # Marcar como inicializado para no intentar de nuevo
-            _ngrok_initialized = True
+        except Exception:
+            # Silenciar todos los errores de ngrok
+            pass
+        finally:
+            sys.stderr = old_stderr
 
     except ImportError:
         # pyngrok no instalado, silenciar el error
+        sys.stderr = old_stderr
         pass
-    except Exception as e:
-        # Error general al importar/inicializar ngrok
-        error_msg = str(e)
-        if "ERR_NGROK_108" not in error_msg and "authentication failed" not in error_msg.lower():
-            # Solo mostrar errores que no sean de autenticación/sesión
-            print(f"--- Error al iniciar NGROK: {error_msg[:100]} ---")
-        # Marcar como inicializado para no intentar de nuevo
-        _ngrok_initialized = True
+    except Exception:
+        # Error general, silenciar
+        sys.stderr = old_stderr
+        pass
 
 
 

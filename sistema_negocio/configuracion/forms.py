@@ -13,7 +13,7 @@ TEXT_INPUT_BASE = (
 class ConfiguracionTiendaForm(forms.ModelForm):
     class Meta:
         model = ConfiguracionTienda
-        fields = ["nombre_tienda", "logo", "cuit", "direccion", "email_contacto", "telefono_contacto"]
+        fields = ["nombre_tienda", "logo", "cuit", "direccion", "email_contacto", "telefono_contacto", "garantia_dias_general"]
         widgets = {
             "logo": forms.FileInput(
                 attrs={

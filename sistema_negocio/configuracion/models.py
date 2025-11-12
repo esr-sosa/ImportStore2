@@ -9,6 +9,7 @@ class ConfiguracionTienda(models.Model):
     direccion = models.CharField(max_length=255, blank=True)
     email_contacto = models.EmailField(blank=True)
     telefono_contacto = models.CharField(max_length=40, blank=True)
+    garantia_dias_general = models.PositiveIntegerField(default=45, help_text="Días de garantía por defecto para todos los productos")
     actualizado = models.DateTimeField(auto_now=True)
 
     class Meta:

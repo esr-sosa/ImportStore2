@@ -302,7 +302,45 @@ def producto_crear(request):
             producto = producto_form.save()
             variante = variante_form.save(commit=False)
             variante.producto = producto
-            variante.save()
+            # Asegurar que stock_actual y stock_minimo tengan valores por defecto si no se proporcionaron
+            stock_actual_val = variante.stock_actual if variante.stock_actual is not None else 0
+            stock_minimo_val = variante.stock_minimo if variante.stock_minimo is not None else 0
+            variante.stock_actual = stock_actual_val
+            variante.stock_minimo = stock_minimo_val
+            
+            # Verificar si existe el campo 'stock' antiguo en la base de datos
+            # Si existe, debemos insertar directamente con SQL para proporcionar el valor
+            from django.db import connection
+            if column_exists("inventario_productovariante", "stock"):
+                # Usar SQL directo para insertar con el campo stock
+                with connection.cursor() as cursor:
+                    # Obtener todos los campos necesarios para el INSERT
+                    sku_val = variante.sku or ""
+                    nombre_var_val = variante.nombre_variante or ""
+                    codigo_barras_val = variante.codigo_barras or None
+                    qr_code_val = variante.qr_code or None
+                    atributo_1_val = variante.atributo_1 or ""
+                    atributo_2_val = variante.atributo_2 or ""
+                    activo_val = 1 if variante.activo else 0
+                    
+                    from django.utils import timezone
+                    ahora = timezone.now()
+                    
+                    # Construir el INSERT con el campo stock
+                    cursor.execute("""
+                        INSERT INTO inventario_productovariante 
+                        (producto_id, sku, nombre_variante, codigo_barras, qr_code, atributo_1, atributo_2, 
+                         stock_actual, stock_minimo, stock, activo, creado, actualizado)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, [
+                        producto.pk, sku_val, nombre_var_val, codigo_barras_val, qr_code_val,
+                        atributo_1_val, atributo_2_val, stock_actual_val, stock_minimo_val,
+                        stock_actual_val, activo_val, ahora, ahora
+                    ])
+                    variante.pk = cursor.lastrowid
+            else:
+                # Si no existe el campo stock, guardar normalmente
+                variante.save()
             _sincronizar_precios(variante, variante_form.cleaned_data)
             messages.success(request, "Producto creado correctamente")
             return redirect("inventario:dashboard")

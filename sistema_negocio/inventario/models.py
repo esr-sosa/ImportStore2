@@ -7,6 +7,7 @@ from django.utils import timezone
 class Categoria(models.Model):
     nombre = models.CharField(max_length=120, unique=True)
     descripcion = models.TextField(blank=True)
+    garantia_dias = models.PositiveIntegerField(null=True, blank=True, help_text="Días de garantía específicos para esta categoría. Si está vacío, se usa la garantía general.")
 
     class Meta:
         verbose_name = "Categoría"
@@ -77,6 +78,7 @@ class ProductoVariante(models.Model):
         Producto, on_delete=models.CASCADE, related_name="variantes"
     )
     sku = models.CharField(max_length=64, unique=True)
+    nombre_variante = models.CharField(max_length=200, blank=True, default="", help_text="Nombre descriptivo de la variante")
     codigo_barras = models.CharField(max_length=64, blank=True, null=True, help_text="Código de barras EAN/UPC")
     qr_code = models.CharField(max_length=255, blank=True, null=True, help_text="Código QR (URL o texto)")
     atributo_1 = models.CharField(max_length=120, blank=True)  # ej: color

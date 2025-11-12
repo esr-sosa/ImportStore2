@@ -47,6 +47,12 @@ class Venta(models.Model):
     )
     comprobante_pdf = models.FileField(upload_to="comprobantes/", blank=True, null=True)
     actualizado = models.DateTimeField(auto_now=True)
+    
+    # Campos para pago mixto
+    es_pago_mixto = models.BooleanField(default=False, help_text="Indica si la venta tiene múltiples métodos de pago")
+    metodo_pago_2 = models.CharField(max_length=20, choices=MetodoPago.choices, blank=True, null=True, help_text="Segundo método de pago si es pago mixto")
+    monto_pago_1 = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, help_text="Monto del primer método de pago")
+    monto_pago_2 = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, help_text="Monto del segundo método de pago (restante)")
 
     class Meta:
         ordering = ["-fecha"]
@@ -61,7 +67,7 @@ class Venta(models.Model):
 
 class DetalleVenta(models.Model):
     venta = models.ForeignKey(Venta, related_name="detalles", on_delete=models.CASCADE)
-    variante = models.ForeignKey(ProductoVariante, on_delete=models.PROTECT, related_name="detalles_venta")
+    variante = models.ForeignKey(ProductoVariante, on_delete=models.PROTECT, related_name="detalles_venta", null=True, blank=True, help_text="Null para productos varios")
     sku = models.CharField(max_length=60)
     descripcion = models.CharField(max_length=200)
     cantidad = models.PositiveIntegerField()

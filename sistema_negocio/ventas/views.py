@@ -23,7 +23,12 @@ from .pdf import generar_comprobante_pdf
 
 
 def pos_view(request):
-    return render(request, "ventas/pos.html")
+    # Obtener el precio del dólar blue para mostrar en el POS
+    dolar_blue = obtener_valor_dolar_blue()
+    context = {
+        'dolar_blue': dolar_blue,
+    }
+    return render(request, "ventas/pos.html", context)
 
 
 def _formatear_variante(variante):
@@ -32,13 +37,20 @@ def _formatear_variante(variante):
     for precio in precios:
         clave = f"{precio.tipo.lower()}_{precio.moneda.lower()}"
         mapa[clave] = str(precio.precio)
+    
+    # Determinar estado de stock
+    stock_actual = variante.stock_actual or 0
+    stock_status = "sin stock" if stock_actual <= 0 else "disponible"
+    
     return {
         "id": variante.id,
         "sku": variante.sku,
         "producto": variante.producto.nombre,
         "atributos": variante.atributos_display,
-        "stock": variante.stock_actual,
+        "stock": stock_actual,
+        "stock_status": stock_status,
         "precios": mapa,
+        "categoria": variante.producto.categoria.nombre if variante.producto.categoria else "",
     }
 
 
@@ -206,13 +218,56 @@ def crear_venta_api(request):
 
     for item in items:
         variante_id = item.get("variante_id")
-        if not variante_id:
-            return JsonResponse({"error": "Variante inválida"}, status=400)
-
-        variante = ProductoVariante.objects.select_related("producto").get(pk=variante_id)
-
+        es_custom = item.get("es_custom", False)
+        
         cantidad = int(item.get("cantidad", 1))
         cantidad = max(1, cantidad)
+        
+        # Productos varios (sin variante_id)
+        if es_custom or not variante_id:
+            precio_ars = Decimal(str(item.get("precio_unitario_ars", 0)))
+            if precio_ars <= 0:
+                return JsonResponse({"error": "Precio inválido para producto varios"}, status=400)
+            
+            # Para productos varios, priorizar el nombre que viene en "nombre" o "descripcion"
+            nombre = item.get("nombre") or item.get("descripcion") or "Producto varios"
+            sku = item.get("sku", f"VAR-{timezone.now().timestamp()}")
+            # Usar el nombre como descripción para productos varios
+            descripcion = nombre
+            
+            bruto = precio_ars * cantidad
+            
+            descuento_linea_valor = Decimal("0")
+            descuento_linea = item.get("descuento", {})
+            if descuento_linea:
+                tipo = descuento_linea.get("tipo")
+                valor = Decimal(str(descuento_linea.get("valor", 0)))
+                if tipo == "porcentaje":
+                    descuento_linea_valor = (bruto * valor) / Decimal("100")
+                elif tipo == "monto":
+                    descuento_linea_valor = min(bruto, valor)
+            
+            subtotal += bruto
+            descuento_items_total += descuento_linea_valor
+            total_linea = bruto - descuento_linea_valor
+            
+            detalles.append(
+                {
+                    "variante": None,  # Sin variante para productos varios
+                    "sku": sku,
+                    "descripcion": descripcion,
+                    "cantidad": cantidad,
+                    "precio": precio_ars,
+                    "subtotal": total_linea,
+                    "precio_usd_original": None,
+                    "tipo_cambio_usado": None,
+                    "es_custom": True,
+                }
+            )
+            continue
+        
+        # Productos del catálogo (con variante_id)
+        variante = ProductoVariante.objects.select_related("producto").get(pk=variante_id)
 
         if variante.stock_actual is not None and variante.stock_actual < cantidad:
             return JsonResponse(
@@ -226,31 +281,49 @@ def crear_venta_api(request):
         precio_usd_original = None
         tipo_cambio_usado = None
         
+        # Verificar si es iPhone (categoría Celulares)
+        es_iphone = (
+            variante.producto.categoria 
+            and variante.producto.categoria.nombre.lower() == "celulares"
+        )
+        
         if precio_ars is None:
+            # Si no viene precio del frontend, resolverlo
             precio_ars, precio_usd_original, tipo_cambio_usado = _resolver_precio_ars(variante)
         else:
             precio_ars = Decimal(str(precio_ars))
             # Si el precio viene del frontend, verificar si es iPhone y tiene precio USD
-            es_iphone = (
-                variante.producto.categoria 
-                and variante.producto.categoria.nombre.lower() == "celulares"
-            )
             if es_iphone:
                 precio_usd = variante.precios.filter(
                     activo=True,
                     tipo=Precio.Tipo.MINORISTA,
                     moneda=Precio.Moneda.USD,
                 ).order_by("-actualizado").first()
-                if precio_usd and not variante.precios.filter(
+                precio_ars_db = variante.precios.filter(
                     activo=True,
                     tipo=Precio.Tipo.MINORISTA,
                     moneda=Precio.Moneda.ARS,
-                ).exists():
-                    # Solo tiene precio USD, guardar info de conversión
+                ).order_by("-actualizado").first()
+                
+                # Si tiene precio USD pero no ARS, convertir
+                if precio_usd and not precio_ars_db:
                     precio_usd_original = Decimal(precio_usd.precio)
                     dolar_blue = obtener_valor_dolar_blue()
                     if dolar_blue:
                         tipo_cambio_usado = Decimal(str(dolar_blue))
+                        # Convertir el precio USD a ARS usando el tipo de cambio
+                        precio_ars = precio_usd_original * tipo_cambio_usado
+                elif precio_usd and precio_ars_db:
+                    # Tiene ambos precios, usar el USD como referencia si el precio del frontend parece ser USD
+                    # Comparar si el precio del frontend es similar al USD (con margen de error)
+                    precio_usd_val = Decimal(precio_usd.precio)
+                    # Si el precio del frontend es similar al USD (dentro de un 10%), asumir que es USD
+                    if abs(precio_ars - precio_usd_val) < (precio_usd_val * Decimal("0.1")):
+                        precio_usd_original = precio_usd_val
+                        dolar_blue = obtener_valor_dolar_blue()
+                        if dolar_blue:
+                            tipo_cambio_usado = Decimal(str(dolar_blue))
+                            precio_ars = precio_usd_original * tipo_cambio_usado
 
         bruto = precio_ars * cantidad
 
@@ -278,6 +351,7 @@ def crear_venta_api(request):
                 "subtotal": total_linea,
                 "precio_usd_original": precio_usd_original,
                 "tipo_cambio_usado": tipo_cambio_usado,
+                "es_custom": False,
             }
         )
 
@@ -322,7 +396,7 @@ def crear_venta_api(request):
     for detalle in detalles:
         DetalleVenta.objects.create(
             venta=venta,
-            variante=detalle["variante"],
+            variante=detalle["variante"],  # Puede ser None para productos varios
             sku=detalle["sku"],
             descripcion=detalle["descripcion"],
             cantidad=detalle["cantidad"],
@@ -331,9 +405,11 @@ def crear_venta_api(request):
             precio_unitario_usd_original=detalle.get("precio_usd_original"),
             tipo_cambio_usado=detalle.get("tipo_cambio_usado"),
         )
-        ProductoVariante.objects.filter(pk=detalle["variante"].pk).update(
-            stock_actual=F("stock_actual") - detalle["cantidad"]
-        )
+        # Solo descontar stock si es un producto del catálogo (tiene variante)
+        if detalle["variante"]:
+            ProductoVariante.objects.filter(pk=detalle["variante"].pk).update(
+                stock_actual=F("stock_actual") - detalle["cantidad"]
+            )
 
     RegistroHistorial.objects.create(
         usuario=request.user if request.user.is_authenticated else None,
@@ -381,6 +457,30 @@ def crear_venta_api(request):
                 "impuestos_ars": str(impuestos),
                 "total_ars": str(total),
                 "pdf": venta.comprobante_pdf.url if venta.comprobante_pdf else None,
+            },
+        }
+    )
+
+
+@csrf_exempt
+def ultima_venta_api(request):
+    """API para obtener la última venta registrada."""
+    if request.method != "GET":
+        return JsonResponse({"error": "Método no permitido"}, status=405)
+    
+    ultima_venta = Venta.objects.order_by("-fecha").first()
+    
+    if not ultima_venta:
+        return JsonResponse({"error": "No se encontró ninguna venta"}, status=404)
+    
+    return JsonResponse(
+        {
+            "status": "ok",
+            "venta": {
+                "id": ultima_venta.id,
+                "fecha": ultima_venta.fecha.isoformat(),
+                "total_ars": str(ultima_venta.total_ars),
+                "pdf": ultima_venta.comprobante_pdf.url if ultima_venta.comprobante_pdf else None,
             },
         }
     )
