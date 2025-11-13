@@ -102,3 +102,31 @@ class CarritoRemoto(models.Model):
     def __str__(self) -> str:
         total_items = sum(int(item.get("cantidad", 1)) for item in self.items if isinstance(item, dict))
         return f"Carrito de {self.usuario.username} ({total_items} items)"
+
+
+class SolicitudImpresion(models.Model):
+    """Cola de solicitudes de impresión remota (desde celular hacia PC)."""
+    class Estado(models.TextChoices):
+        PENDIENTE = "PENDIENTE", "Pendiente"
+        PROCESANDO = "PROCESANDO", "Procesando"
+        COMPLETADA = "COMPLETADA", "Completada"
+        ERROR = "ERROR", "Error"
+    
+    venta = models.ForeignKey(Venta, on_delete=models.CASCADE, related_name="solicitudes_impresion")
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="solicitudes_impresion"
+    )
+    estado = models.CharField(max_length=20, choices=Estado.choices, default=Estado.PENDIENTE)
+    error = models.TextField(blank=True, help_text="Mensaje de error si falla la impresión")
+    creado = models.DateTimeField(auto_now_add=True)
+    procesado = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ["-creado"]
+        verbose_name = "Solicitud de Impresión"
+        verbose_name_plural = "Solicitudes de Impresión"
+    
+    def __str__(self) -> str:
+        return f"Impresión {self.venta.id} - {self.get_estado_display()}"

@@ -40,10 +40,13 @@ class ImportResult:
     creados: int = 0
     actualizados: int = 0
     errores: list[str] = None
+    omitidos: list[str] = None
 
     def __post_init__(self):
         if self.errores is None:
             self.errores = []
+        if self.omitidos is None:
+            self.omitidos = []
 
 
 def _normalizar_header(header: str) -> str:
@@ -136,16 +139,39 @@ def importar_catalogo_desde_archivo(archivo, actualizar: bool = True) -> ImportR
     for idx, fila in enumerate(filas, start=2):  # encabezado es la fila 1
         data = {k: fila.get(k, "") for k in HEADER_ALIASES}
         # Para MercadoLibre: SKU es obligatorio, si no está, generamos desde nombre + variantes
-        sku = data.get("sku") or ""
-        if not sku:
+        sku = (data.get("sku") or "").strip()
+        
+        # Si hay SKU en la celda, verificar que no esté duplicado
+        if sku:
+            # Verificar si el SKU ya existe
+            if ProductoVariante.objects.filter(sku=sku).exists():
+                # Si existe y no queremos actualizar, generar uno nuevo
+                if not actualizar:
+                    # Generar SKU único agregando sufijo numérico
+                    base_sku = sku
+                    contador = 1
+                    while ProductoVariante.objects.filter(sku=sku).exists():
+                        sku = f"{base_sku}-{contador}"
+                        contador += 1
+                    resultado.errores.append(f"Fila {idx}: SKU '{base_sku}' ya existe, usando '{sku}' en su lugar.")
+        else:
+            # Auto-generar SKU desde nombre + variantes
             nombre = data.get("nombre", "")
             attr1 = data.get("atributo_1", "")
             attr2 = data.get("atributo_2", "")
             attr3 = data.get("atributo_3", "")
-            sku = slugify(f"{nombre}-{attr1}-{attr2}-{attr3}".strip("-"))
-        if not sku:
-            resultado.errores.append(f"Fila {idx}: sin SKU ni nombre.")
-            continue
+            sku_base = slugify(f"{nombre}-{attr1}-{attr2}-{attr3}".strip("-"))
+            
+            if not sku_base:
+                resultado.errores.append(f"Fila {idx}: sin SKU ni nombre.")
+                continue
+            
+            # Verificar que el SKU generado no esté duplicado
+            sku = sku_base
+            contador = 1
+            while ProductoVariante.objects.filter(sku=sku).exists():
+                sku = f"{sku_base}-{contador}"
+                contador += 1
 
         # Validaciones básicas de stock
         try:
@@ -180,12 +206,20 @@ def importar_catalogo_desde_archivo(archivo, actualizar: bool = True) -> ImportR
             "estado": "ACTIVO",
         }
 
-        producto, _ = Producto.objects.get_or_create(nombre=data.get("nombre") or sku, defaults=producto_defaults)
-        for campo, valor in producto_defaults.items():
-            if actualizar and valor and getattr(producto, campo) != valor:
-                setattr(producto, campo, valor)
-        if actualizar:
-            producto.save()
+        # Usar filter().first() para evitar el error "get() returned more than one Producto"
+        nombre_producto = data.get("nombre") or sku
+        producto = Producto.objects.filter(nombre=nombre_producto).first()
+        
+        if producto:
+            # Producto existe, actualizar si es necesario
+            if actualizar:
+                for campo, valor in producto_defaults.items():
+                    if valor and getattr(producto, campo) != valor:
+                        setattr(producto, campo, valor)
+                producto.save()
+        else:
+            # Crear nuevo producto
+            producto = Producto.objects.create(nombre=nombre_producto, **producto_defaults)
 
         defaults_variante = {
             "atributo_1": data.get("atributo_1", ""),

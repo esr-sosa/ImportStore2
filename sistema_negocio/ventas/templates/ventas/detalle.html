@@ -12,14 +12,45 @@
                 <h1 class="text-3xl font-bold text-slate-100">Venta {{ venta.id }}</h1>
                 <p class="text-sm text-slate-400 mt-1">{{ venta.fecha|date:"d/m/Y H:i" }}</p>
             </div>
-            <div class="flex gap-3">
+            <div class="flex gap-3 flex-wrap">
                 <a href="{% url 'ventas:voucher' venta.id %}" target="_blank" class="rounded-full border-2 border-blue-600/40 bg-blue-600/20 px-4 py-2 text-sm font-semibold text-blue-300 hover:bg-blue-600/30 transition flex items-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
                     </svg>
                     Ver comprobante
                 </a>
+                <button onclick="solicitarImpresionRemota('{{ venta.id }}')" class="rounded-full border-2 border-emerald-600/40 bg-emerald-600/20 px-4 py-2 text-sm font-semibold text-emerald-300 hover:bg-emerald-600/30 transition flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                    </svg>
+                    Imprimir
+                </button>
             </div>
+            
+            <script>
+                async function solicitarImpresionRemota(ventaId) {
+                    try {
+                        const response = await fetch('{% url "ventas:solicitar_impresion_remota_api" %}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': '{{ csrf_token }}'
+                            },
+                            body: JSON.stringify({ venta_id: ventaId })
+                        });
+                        
+                        const data = await response.json();
+                        if (response.ok) {
+                            alert('✅ Solicitud de impresión enviada. La PC imprimirá el comprobante automáticamente.');
+                        } else {
+                            alert('❌ Error: ' + (data.error || 'No se pudo enviar la solicitud'));
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        alert('❌ Error al enviar solicitud de impresión');
+                    }
+                }
+            </script>
         </header>
 
         <!-- Información general -->

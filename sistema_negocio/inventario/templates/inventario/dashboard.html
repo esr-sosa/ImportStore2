@@ -97,16 +97,6 @@
               <label class="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-300">Categoría</label>
               {{ form.categoria }}
               {{ form.categoria.errors }}
-              {% if categorias %}
-                <div class="mt-2">
-                  <select id="categoria-etiquetas" class="w-full rounded-2xl border-2 border-slate-600/40 bg-slate-800/90 px-3 py-2 text-sm font-semibold text-slate-100 shadow-lg focus:border-blue-500 focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all">
-                    <option value="">Descargar etiquetas por categoría...</option>
-                    {% for cat in categorias %}
-                      <option value="{% url 'inventario:descargar_etiquetas_categoria' cat.id %}">{{ cat.nombre }}</option>
-                    {% endfor %}
-                  </select>
-                </div>
-              {% endif %}
             </div>
             <div>
               <label class="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-300">Proveedor</label>
@@ -114,6 +104,17 @@
               {{ form.proveedor.errors }}
             </div>
           </div>
+          {% if categorias %}
+            <div class="w-full">
+              <label class="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-300">Etiquetas por categoría</label>
+              <select id="categoria-etiquetas" class="w-full rounded-2xl border-2 border-slate-600/40 bg-slate-800/90 px-3 py-2 text-sm font-semibold text-slate-100 shadow-lg focus:border-blue-500 focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all">
+                <option value="">Seleccionar categoría...</option>
+                {% for cat in categorias %}
+                  <option value="{% url 'inventario:descargar_etiquetas_categoria' cat.id %}">{{ cat.nombre }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          {% endif %}
           <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
             <label class="flex items-center gap-2 text-sm font-medium text-slate-100">
               {{ form.solo_activos }}

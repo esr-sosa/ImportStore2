@@ -150,21 +150,76 @@ def buscar_productos_api(request):
 @csrf_exempt
 @login_required
 def buscar_producto_por_codigo_api(request):
-    """Busca un producto por SKU o código de barras exacto (para escáner)."""
+    """Busca un producto por SKU, código de barras o QR code exacto (para escáner)."""
     codigo = request.GET.get("codigo", "").strip()
     if not codigo:
         return JsonResponse({"error": "Código requerido"}, status=400)
     
-    # Buscar por SKU exacto o código de barras exacto
-    variante = (
-        ProductoVariante.objects.select_related("producto", "producto__categoria", "producto__proveedor")
-        .filter(producto__activo=True)
-        .prefetch_related("precios")
-        .filter(
-            Q(sku=codigo) | Q(codigo_barras=codigo)
+    # Limpiar el código (por si viene con URL completa del QR)
+    codigo_original = codigo
+    codigo_limpio = codigo.strip()
+    
+    # Si es una URL, intentar extraer el código del final
+    if '/' in codigo_limpio:
+        partes = codigo_limpio.split('/')
+        codigo_limpio = partes[-1]
+    
+    # Si tiene parámetros de URL, extraer solo el código
+    if '?' in codigo_limpio:
+        codigo_limpio = codigo_limpio.split('?')[0]
+    
+    # Si tiene hash, extraer solo el código
+    if '#' in codigo_limpio:
+        codigo_limpio = codigo_limpio.split('#')[0]
+    
+    # Buscar por SKU exacto, código de barras exacto o QR code
+    # Intentar primero con el código limpio, luego con el original
+    variante = None
+    
+    # Primera búsqueda: código limpio
+    if codigo_limpio:
+        variante = (
+            ProductoVariante.objects.select_related("producto", "producto__categoria", "producto__proveedor")
+            .filter(producto__activo=True)
+            .prefetch_related("precios")
+            .filter(
+                Q(sku=codigo_limpio) | 
+                Q(codigo_barras=codigo_limpio) |
+                Q(qr_code=codigo_limpio) |
+                Q(qr_code__icontains=codigo_limpio)  # Por si el QR tiene URL completa
+            )
+            .first()
         )
-        .first()
-    )
+    
+    # Segunda búsqueda: código original (si no se encontró con el limpio)
+    if not variante and codigo_original != codigo_limpio:
+        variante = (
+            ProductoVariante.objects.select_related("producto", "producto__categoria", "producto__proveedor")
+            .filter(producto__activo=True)
+            .prefetch_related("precios")
+            .filter(
+                Q(sku=codigo_original) | 
+                Q(codigo_barras=codigo_original) |
+                Q(qr_code=codigo_original) |
+                Q(qr_code__icontains=codigo_original)  # Por si el QR tiene URL completa
+            )
+            .first()
+        )
+    
+    # Tercera búsqueda: búsqueda parcial (solo si las anteriores fallaron)
+    if not variante:
+        # Buscar si el código está contenido en algún campo
+        variante = (
+            ProductoVariante.objects.select_related("producto", "producto__categoria", "producto__proveedor")
+            .filter(producto__activo=True)
+            .prefetch_related("precios")
+            .filter(
+                Q(sku__icontains=codigo_limpio) | 
+                Q(codigo_barras__icontains=codigo_limpio) |
+                Q(qr_code__icontains=codigo_limpio)
+            )
+            .first()
+        )
     
     if not variante:
         return JsonResponse({"error": "Producto no encontrado"}, status=404)
@@ -938,6 +993,121 @@ def generar_voucher_pdf(request, venta_id: str):
     venta.comprobante_pdf.open("rb")
     filename = venta.comprobante_pdf.name.split("/")[-1]
     return FileResponse(venta.comprobante_pdf, as_attachment=True, filename=filename)
+
+
+@login_required
+def imprimir_voucher(request, venta_id: str):
+    """Vista para imprimir el voucher desde el celular - abre el PDF en una nueva ventana con diálogo de impresión."""
+    from django.template.loader import render_to_string
+    from django.http import HttpResponse
+    from django.urls import reverse
+    
+    venta = get_object_or_404(Venta.objects.prefetch_related("detalles"), pk=venta_id)
+    pdf_url = request.build_absolute_uri(reverse('ventas:voucher', args=[venta_id]))
+    
+    # Renderizar template HTML que muestra el PDF y abre el diálogo de impresión
+    html = render_to_string('ventas/imprimir_voucher.html', {
+        'venta': venta,
+        'pdf_url': pdf_url,
+    })
+    return HttpResponse(html)
+
+
+@csrf_exempt
+@login_required
+def solicitar_impresion_remota_api(request):
+    """API para solicitar impresión remota desde el celular (agrega a la cola)."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Método no permitido"}, status=405)
+    
+    try:
+        data = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Payload inválido"}, status=400)
+    
+    venta_id = data.get("venta_id")
+    if not venta_id:
+        return JsonResponse({"error": "venta_id requerido"}, status=400)
+    
+    try:
+        venta = Venta.objects.get(pk=venta_id)
+    except Venta.DoesNotExist:
+        return JsonResponse({"error": "Venta no encontrada"}, status=404)
+    
+    # Crear solicitud de impresión
+    from ventas.models import SolicitudImpresion
+    solicitud = SolicitudImpresion.objects.create(
+        venta=venta,
+        usuario=request.user,
+        estado=SolicitudImpresion.Estado.PENDIENTE
+    )
+    
+    return JsonResponse({
+        "status": "ok",
+        "solicitud_id": solicitud.id,
+        "mensaje": "Solicitud de impresión agregada a la cola"
+    })
+
+
+@login_required
+def obtener_solicitudes_impresion_api(request):
+    """API para obtener solicitudes de impresión pendientes (para la PC)."""
+    from ventas.models import SolicitudImpresion
+    from django.utils import timezone
+    
+    # Obtener solicitudes pendientes del usuario
+    solicitudes = SolicitudImpresion.objects.filter(
+        usuario=request.user,
+        estado=SolicitudImpresion.Estado.PENDIENTE
+    ).select_related("venta").order_by("creado")[:10]  # Máximo 10 a la vez
+    
+    return JsonResponse({
+        "solicitudes": [
+            {
+                "id": s.id,
+                "venta_id": s.venta.id,
+                "creado": s.creado.isoformat(),
+            }
+            for s in solicitudes
+        ]
+    })
+
+
+@csrf_exempt
+@login_required
+def marcar_impresion_completada_api(request):
+    """API para marcar una solicitud de impresión como completada o con error."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Método no permitido"}, status=405)
+    
+    try:
+        data = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Payload inválido"}, status=400)
+    
+    solicitud_id = data.get("solicitud_id")
+    estado = data.get("estado")  # "COMPLETADA" o "ERROR"
+    error = data.get("error", "")
+    
+    if not solicitud_id:
+        return JsonResponse({"error": "solicitud_id requerido"}, status=400)
+    
+    from ventas.models import SolicitudImpresion
+    from django.utils import timezone
+    
+    try:
+        solicitud = SolicitudImpresion.objects.get(pk=solicitud_id, usuario=request.user)
+    except SolicitudImpresion.DoesNotExist:
+        return JsonResponse({"error": "Solicitud no encontrada"}, status=404)
+    
+    solicitud.estado = estado
+    if error:
+        solicitud.error = error
+    if estado == SolicitudImpresion.Estado.COMPLETADA:
+        solicitud.procesado = timezone.now()
+    solicitud.save()
+    
+    return JsonResponse({"status": "ok"})
 
 
 @login_required

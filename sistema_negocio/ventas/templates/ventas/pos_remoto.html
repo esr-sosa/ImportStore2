@@ -98,22 +98,27 @@ const lastProductSku = document.getElementById('last-product-sku');
 const cartCount = document.getElementById('cart-count');
 
 // Actualizar contador de carrito
+let ultimoTotalItems = 0;
 function updateCartCount() {
     fetch('{% url "ventas:obtener_carrito_remoto_api" %}')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error('Error en respuesta');
+            return response.json();
+        })
         .then(data => {
             const total = data.total_items || 0;
             cartCount.textContent = total;
+            ultimoTotalItems = total;
         })
         .catch(err => {
             console.error('Error al obtener carrito:', err);
-            cartCount.textContent = '0';
+            cartCount.textContent = ultimoTotalItems || '0';
         });
 }
 
 // Inicializar contador
 updateCartCount();
-setInterval(updateCartCount, 2000); // Actualizar cada 2 segundos
+setInterval(updateCartCount, 1000); // Actualizar cada 1 segundo para mejor sincronización
 
 // Función para agregar producto al carrito
 async function agregarProductoAlCarrito(varianteId) {
@@ -127,6 +132,11 @@ async function agregarProductoAlCarrito(varianteId) {
             body: JSON.stringify({ variante_id: varianteId })
         });
 
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `Error HTTP: ${response.status}`);
+        }
+
         const data = await response.json();
         
         if (data.status === 'ok') {
@@ -137,13 +147,15 @@ async function agregarProductoAlCarrito(varianteId) {
             
             // Actualizar contador inmediatamente
             cartCount.textContent = data.total_items || 0;
+            ultimoTotalItems = data.total_items || 0;
             
             // Obtener info del producto para mostrar
             const carrito = data.carrito || [];
-            const ultimoItem = carrito[carrito.length - 1];
-            if (ultimoItem) {
-                lastProductName.textContent = ultimoItem.nombre;
-                lastProductSku.textContent = `SKU: ${ultimoItem.sku}`;
+            // Buscar el item que acabamos de agregar (el que tiene el variante_id)
+            const itemAgregado = carrito.find(item => item.variante_id == varianteId);
+            if (itemAgregado) {
+                lastProductName.textContent = itemAgregado.nombre || itemAgregado.descripcion || 'Producto';
+                lastProductSku.textContent = `SKU: ${itemAgregado.sku || 'N/A'}`;
                 lastScanned.classList.remove('hidden');
             }
             
@@ -159,7 +171,7 @@ async function agregarProductoAlCarrito(varianteId) {
             throw new Error(data.error || 'Error desconocido');
         }
     } catch (error) {
-        console.error('Error:', error);
+        console.error('Error al agregar producto:', error);
         statusText.innerHTML = '<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg> Error al agregar producto';
         statusText.className = 'text-sm font-semibold text-rose-400';
         statusDetail.textContent = error.message || 'Intenta nuevamente';
@@ -172,7 +184,10 @@ async function agregarProductoAlCarrito(varianteId) {
             }
         }, 3000);
     } finally {
-        procesandoEscaneo = false;
+        // Permitir escanear nuevamente después de un breve delay
+        setTimeout(() => {
+            procesandoEscaneo = false;
+        }, 500);
     }
 }
 
@@ -180,11 +195,13 @@ async function agregarProductoAlCarrito(varianteId) {
 async function buscarYAgregarProducto(codigo) {
     // Prevenir múltiples escaneos del mismo código
     if (procesandoEscaneo) {
+        console.log('Escaneo en proceso, ignorando código:', codigo);
         return;
     }
     
     // Prevenir escaneos duplicados del mismo código
     if (ultimoCodigoEscaneado === codigo) {
+        console.log('Código duplicado, ignorando:', codigo);
         return;
     }
     
@@ -193,19 +210,47 @@ async function buscarYAgregarProducto(codigo) {
     
     try {
         statusText.textContent = 'Buscando producto...';
-        statusDetail.textContent = `Código: ${codigo}`;
+        statusDetail.textContent = `Código: ${codigo.substring(0, 20)}${codigo.length > 20 ? '...' : ''}`;
         
-        const response = await fetch(`{% url "ventas:buscar_producto_codigo_api" %}?codigo=${encodeURIComponent(codigo)}`);
+        // Limpiar el código (por si viene con URL completa del QR)
+        let codigoLimpio = codigo.trim();
+        
+        // Si es una URL, intentar extraer el código del final
+        if (codigoLimpio.includes('/')) {
+            const partes = codigoLimpio.split('/');
+            codigoLimpio = partes[partes.length - 1];
+        }
+        
+        // Si tiene parámetros de URL, extraer solo el código
+        if (codigoLimpio.includes('?')) {
+            codigoLimpio = codigoLimpio.split('?')[0];
+        }
+        
+        // Si tiene hash, extraer solo el código
+        if (codigoLimpio.includes('#')) {
+            codigoLimpio = codigoLimpio.split('#')[0];
+        }
+        
+        console.log('Buscando producto con código limpio:', codigoLimpio);
+        
+        const response = await fetch(`{% url "ventas:buscar_producto_codigo_api" %}?codigo=${encodeURIComponent(codigoLimpio)}`);
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `Error HTTP: ${response.status}`);
+        }
+        
         const data = await response.json();
         
-        if (data.result) {
+        if (data.result && data.result.id) {
+            console.log('Producto encontrado:', data.result);
             // Producto encontrado, agregar al carrito
             await agregarProductoAlCarrito(data.result.id);
         } else {
             throw new Error(data.error || 'Producto no encontrado');
         }
     } catch (error) {
-        console.error('Error:', error);
+        console.error('Error al buscar producto:', error);
         statusText.innerHTML = '<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg> Producto no encontrado';
         statusText.className = 'text-sm font-semibold text-rose-400';
         statusDetail.textContent = error.message || 'Verifica el código';
@@ -216,14 +261,14 @@ async function buscarYAgregarProducto(codigo) {
                 statusText.className = 'text-sm font-semibold text-slate-300';
                 statusDetail.textContent = 'Apunta la cámara al código';
             }
+        }, 3000);
+    } finally {
+        // Permitir escanear el mismo código después de 3 segundos
+        setTimeout(() => {
+            ultimoCodigoEscaneado = null;
             procesandoEscaneo = false;
         }, 3000);
     }
-    
-    // Permitir escanear el mismo código después de 3 segundos
-    setTimeout(() => {
-        ultimoCodigoEscaneado = null;
-    }, 3000);
 }
 
 // Iniciar escáner
@@ -239,17 +284,25 @@ async function startScanner() {
         await html5QrcodeScanner.start(
             { facingMode: "environment" }, // Cámara trasera
             {
-                fps: 10,
-                qrbox: { width: 250, height: 250 },
-                aspectRatio: 1.0
+                fps: 30, // Aumentar FPS para escaneo más rápido
+                qrbox: { width: 280, height: 280 }, // Área de escaneo más grande
+                aspectRatio: 1.0,
+                disableFlip: true, // Deshabilitar flip para mejor rendimiento
+                videoConstraints: {
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                    facingMode: "environment"
+                }
             },
             (decodedText, decodedResult) => {
                 // Código escaneado exitosamente - NO detener el escáner
+                console.log('Código escaneado:', decodedText);
                 buscarYAgregarProducto(decodedText);
             },
             (errorMessage) => {
-                // Ignorar errores de escaneo (solo log)
+                // Ignorar errores de escaneo (solo log en desarrollo)
                 // No hacer nada para mantener el escáner activo
+                // console.log('Error de escaneo (ignorado):', errorMessage);
             }
         );
         

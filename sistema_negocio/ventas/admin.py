@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import CarritoRemoto, DetalleVenta, Venta
+from .models import CarritoRemoto, DetalleVenta, SolicitudImpresion, Venta
 
 
 class DetalleVentaInline(admin.TabularInline):
@@ -43,3 +43,12 @@ class CarritoRemotoAdmin(admin.ModelAdmin):
             return sum(int(item.get("cantidad", 1)) for item in obj.items if isinstance(item, dict))
         return 0
     total_items.short_description = "Total Items"
+
+
+@admin.register(SolicitudImpresion)
+class SolicitudImpresionAdmin(admin.ModelAdmin):
+    list_display = ("venta", "usuario", "estado", "creado", "procesado")
+    list_filter = ("estado", "creado")
+    search_fields = ("venta__id", "usuario__username")
+    readonly_fields = ("creado", "procesado")
+    ordering = ["-creado"]

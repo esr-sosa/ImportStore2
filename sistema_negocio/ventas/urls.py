@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, reverse
 from . import views
 
 app_name = "ventas"
@@ -12,6 +12,10 @@ urlpatterns = [
     path("anular/<str:venta_id>/", views.anular_venta, name="anular"),
     path("actualizar-estado/<str:venta_id>/", views.actualizar_estado_venta, name="actualizar_estado"),
     path("voucher/<str:venta_id>/", views.generar_voucher_pdf, name="voucher"),
+    path("imprimir/<str:venta_id>/", views.imprimir_voucher, name="imprimir_voucher"),
+    path("api/solicitar-impresion/", views.solicitar_impresion_remota_api, name="solicitar_impresion_remota_api"),
+    path("api/obtener-solicitudes-impresion/", views.obtener_solicitudes_impresion_api, name="obtener_solicitudes_impresion_api"),
+    path("api/marcar-impresion-completada/", views.marcar_impresion_completada_api, name="marcar_impresion_completada_api"),
     path("api/buscar-productos/", views.buscar_productos_api, name="buscar_productos_api"),
     path("api/buscar-producto-codigo/", views.buscar_producto_por_codigo_api, name="buscar_producto_codigo_api"),
     path("api/actualizar-producto-rapido/", views.actualizar_producto_rapido_api, name="actualizar_producto_rapido_api"),
