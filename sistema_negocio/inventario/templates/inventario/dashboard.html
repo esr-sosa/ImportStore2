@@ -50,7 +50,7 @@
             <span class="text-sm text-slate-400">totales</span>
           </div>
           <p class="mt-2 text-xs text-emerald-300/80">
-            {{ stats.total_activos }} activos · {{ stats.total_bajo_stock }} con bajo stock
+            {{ stats.total_activos }} activos · {{ stats.total_sin_stock }} sin stock
           </p>
         </article>
         <article class="glass-panel rounded-3xl p-5 text-slate-100 shadow-xl">
@@ -67,21 +67,16 @@
             <span class="text-3xl font-semibold">${{ inventario_metrics.valor_catalogo_ars|default:0|floatformat:0|intcomma }}</span>
             <span class="text-sm text-slate-400">ARS</span>
           </div>
-          {% if inventario_metrics.valor_catalogo_usd %}
-            <p class="mt-2 text-xs text-slate-400">Referencial: US$ {{ inventario_metrics.valor_catalogo_usd|floatformat:2|intcomma }}</p>
+          {% if inventario_metrics.valor_catalogo_ars_en_usd %}
+            <p class="mt-2 text-xs text-slate-400">US$ {{ inventario_metrics.valor_catalogo_ars_en_usd|floatformat:2|intcomma }}</p>
+          {% elif inventario_metrics.valor_catalogo_usd %}
+            <p class="mt-2 text-xs text-slate-400">US$ {{ inventario_metrics.valor_catalogo_usd|floatformat:2|intcomma }}</p>
+          {% else %}
+            <p class="mt-2 text-xs text-amber-400">Sin cotización</p>
           {% endif %}
-          <p class="mt-2 text-xs text-slate-400">Dólar blue actual: {{ valor_dolar|default:"—" }}</p>
-        </article>
-        <article class="glass-panel rounded-3xl p-5 text-slate-100 shadow-xl">
-          <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Valor estimado ARS</p>
-          <div class="mt-3 flex items-baseline gap-2">
-            {% if stats.valor_total_ars %}
-              <span class="text-3xl font-semibold">$ {{ stats.valor_total_ars|floatformat:0|intcomma }}</span>
-            {% else %}
-              <span class="text-lg font-medium text-slate-400">Sin cotización</span>
-            {% endif %}
-          </div>
-          <p class="mt-2 text-xs text-slate-400">Dólar blue actual: {{ valor_dolar|default:"—" }}</p>
+          {% if valor_dolar %}
+            <p class="mt-1 text-xs text-slate-500">Dólar blue: ${{ valor_dolar|floatformat:2|intcomma }}</p>
+          {% endif %}
         </article>
       </section>
 
@@ -109,8 +104,8 @@
               <label class="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-300">Etiquetas por categoría</label>
               <select id="categoria-etiquetas" class="w-full rounded-2xl border-2 border-slate-600/40 bg-slate-800/90 px-3 py-2 text-sm font-semibold text-slate-100 shadow-lg focus:border-blue-500 focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all">
                 <option value="">Seleccionar categoría...</option>
-                {% for cat in categorias %}
-                  <option value="{% url 'inventario:descargar_etiquetas_categoria' cat.id %}">{{ cat.nombre }}</option>
+                {% for cat_tree in categorias %}
+                  {% include "inventario/_categoria_option.html" with categoria_tree=cat_tree nivel=0 %}
                 {% endfor %}
               </select>
             </div>
@@ -190,7 +185,7 @@
                         <span class="font-semibold text-slate-100 text-sm sm:text-base">{{ v.producto.nombre }}</span>
                         <span class="text-xs text-slate-400">{{ v.atributos_display }}</span>
                         <span class="text-[10px] sm:text-[11px] uppercase tracking-wider text-slate-500">
-                          {% if v.producto.categoria %}{{ v.producto.categoria.nombre }}{% else %}Sin categoría{% endif %}
+                          {% if v.producto.categoria %}{{ v.producto.categoria.nombre_completo }}{% else %}Sin categoría{% endif %}
                           ·
                           {% if v.producto.proveedor %}{{ v.producto.proveedor.nombre }}{% else %}Sin proveedor{% endif %}
                         </span>

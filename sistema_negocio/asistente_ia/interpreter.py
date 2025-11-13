@@ -240,11 +240,11 @@ def run_query_from_json(query_json):
             # --- CÓDIGO CORREGIDO ---
             # Ahora la optimización de la consulta es específica para cada modelo.
             if model_name == 'Precio':
-                queryset = queryset.select_related('variante__producto__categoria')
+                queryset = queryset.select_related('variante__producto')
             elif model_name == 'DetalleIphone':
-                queryset = queryset.select_related('variante__producto__categoria')
+                queryset = queryset.select_related('variante__producto')
             elif model_name == 'ProductoVariante':
-                queryset = queryset.select_related('producto__categoria')
+                queryset = queryset.select_related('producto')
             # --- FIN DE LA CORRECCIÓN ---
             results = list(queryset[:10])
         else:

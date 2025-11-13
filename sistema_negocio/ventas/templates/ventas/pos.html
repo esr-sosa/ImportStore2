@@ -98,6 +98,33 @@
         background: linear-gradient(135deg, #007AFF 0%, #0051D5 100%);
         box-shadow: 0 4px 14px rgba(0, 122, 255, 0.3);
     }
+    /* Custom scrollbar para modal de productos varios */
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(99, 102, 241, 0.4);
+        border-radius: 10px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(99, 102, 241, 0.6);
+    }
+    /* Animaciones para el modal */
+    @keyframes fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @keyframes zoom-in {
+        from { transform: scale(0.95); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+    }
+    .animate-in {
+        animation: fade-in 0.3s ease-out, zoom-in 0.3s ease-out;
+    }
     .modal-content .modal-buttons a:first-child:hover {
         background: linear-gradient(135deg, #0051D5 0%, #003D9E 100%);
         transform: translateY(-1px);
@@ -190,18 +217,27 @@
                     </button>
                 </div>
                 <div class="relative mt-2 sm:mt-3">
-                    <input id="product-search" type="search" placeholder="Nombre, SKU o atributo" class="w-full rounded-xl sm:rounded-2xl border border-transparent bg-white/90 px-3 sm:px-5 py-2 sm:py-3 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
-                    <div id="search-dropdown" class="absolute left-0 top-12 z-20 hidden max-h-72 w-full overflow-y-auto rounded-2xl border border-slate-200/70 bg-white shadow-xl"></div>
+                    <div class="flex items-center rounded-2xl border border-slate-300 bg-white/95 px-3 sm:px-4 focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-400/30 shadow-sm">
+                        <svg class="h-4 w-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M18 10.5a7.5 7.5 0 11-15 0 7.5 7.5 0 0115 0z" />
+                        </svg>
+                        <input id="product-search" type="search" placeholder="Buscá por nombre, SKU o atributo" class="flex-1 bg-transparent px-2 sm:px-3 py-2 sm:py-3 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none">
+                        <button type="button" id="clear-search" class="hidden text-[11px] font-semibold text-indigo-500 hover:text-indigo-600">Limpiar</button>
+                    </div>
+                    <div id="search-dropdown" class="absolute left-0 top-14 z-30 hidden max-h-60 w-full overflow-y-auto rounded-2xl border border-slate-200 bg-white/98 shadow-2xl ring-1 ring-indigo-100">
+                        <div class="p-3 text-xs text-slate-400">Comienza a escribir para buscar productos…</div>
+                    </div>
                 </div>
             </div>
 
             <div class="mt-4 sm:mt-6 overflow-hidden rounded-2xl sm:rounded-3xl border border-white/60 shadow-inner">
                 <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-slate-200/70 text-xs sm:text-sm">
-                    <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <thead class="bg-slate-100 text-xs font-semibold uppercase tracking-wide text-slate-800">
                         <tr>
                             <th class="px-2 sm:px-4 py-2 sm:py-3 text-left">Producto</th>
                             <th class="px-2 sm:px-4 py-2 sm:py-3 text-center">Cant.</th>
+                            <th class="px-2 sm:px-4 py-2 sm:py-3 text-center hidden lg:table-cell">Stock</th>
                             <th class="px-2 sm:px-4 py-2 sm:py-3 text-right hidden sm:table-cell">Precio</th>
                             <th class="px-2 sm:px-4 py-2 sm:py-3 text-right hidden md:table-cell">Desc.</th>
                             <th class="px-2 sm:px-4 py-2 sm:py-3 text-right">Total</th>
@@ -210,7 +246,7 @@
                     </thead>
                     <tbody id="cart-body" class="divide-y divide-slate-200/70 bg-white/80">
                         <tr id="empty-cart" class="text-center text-xs sm:text-sm text-slate-400">
-                            <td colspan="6" class="px-2 sm:px-4 py-8 sm:py-12">Buscá un producto para iniciar la venta.</td>
+                            <td colspan="7" class="px-2 sm:px-4 py-8 sm:py-12">Buscá un producto para iniciar la venta.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -222,7 +258,7 @@
         <aside class="glass-panel flex h-full flex-col gap-4 sm:gap-6 rounded-2xl sm:rounded-3xl border border-white/60 p-3 sm:p-6 shadow-xl">
             <section class="rounded-2xl sm:rounded-3xl border border-slate-200/60 bg-white/90 p-3 sm:p-5 shadow-sm">
                 <h2 class="text-sm sm:text-base font-semibold text-slate-900">Resumen</h2>
-                <dl class="mt-3 sm:mt-4 space-y-2 sm:space-y-3 text-xs sm:text-sm text-slate-600">
+                <dl class="mt-3 sm:mt-4 space-y-2 sm:space-y-3 text-xs sm:text-sm text-slate-700 font-medium">
                     <div class="flex items-center justify-between">
                         <dt>Subtotal</dt>
                         <dd id="summary-subtotal" class="font-semibold text-slate-900">$0.00</dd>
@@ -253,11 +289,50 @@
                 </div>
             </section>
 
+            <section class="rounded-2xl sm:rounded-3xl border border-slate-200/60 bg-white/95 p-3 sm:p-5 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-[11px] font-semibold uppercase tracking-[0.35em] text-indigo-400 mb-1">Productos personalizados</p>
+                        <h3 class="text-sm sm:text-base font-semibold text-slate-900">Agregar productos varios</h3>
+                        <p class="mt-1 text-xs text-slate-500 max-w-md">Cargá múltiples ítems personalizados de forma rápida. Definí el nombre, precio y cantidad de cada uno. Todos se agregarán al carrito automáticamente.</p>
+                    </div>
+                    <button type="button" id="toggle-custom-products" class="rounded-full border border-slate-200/70 bg-white px-3 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-100">Ocultar</button>
+                </div>
+                <div id="custom-products-container" class="mt-4 space-y-3">
+                    <div class="grid grid-cols-12 gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-sm">
+                        <div class="col-span-12 sm:col-span-6">
+                            <label class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Nombre del producto</label>
+                            <input type="text" name="custom-name" placeholder="Ej: Servicio técnico premium" class="mt-1 w-full rounded-xl border border-slate-200/80 bg-slate-50 px-3 py-2 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-300/40">
+                        </div>
+                        <div class="col-span-6 sm:col-span-3">
+                            <label class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Precio</label>
+                            <div class="mt-1 flex items-center rounded-xl border border-slate-200/80 bg-slate-50 focus-within:border-indigo-300 focus-within:ring-2 focus-within:ring-indigo-300/40">
+                                <span class="px-2 text-xs text-slate-500">$</span>
+                                <input type="number" name="custom-price" placeholder="0.00" class="w-full rounded-r-xl bg-transparent px-2 py-2 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none" step="0.01" min="0">
+                            </div>
+                        </div>
+                        <div class="col-span-6 sm:col-span-2">
+                            <label class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Cantidad</label>
+                            <input type="number" name="custom-quantity" placeholder="1" class="mt-1 w-full rounded-xl border border-slate-200/80 bg-slate-50 px-3 py-2 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-300/40" min="1">
+                        </div>
+                        <div class="col-span-12 sm:col-span-1 flex items-end">
+                            <button type="button" class="w-full rounded-xl bg-indigo-500 px-3 py-2 text-xs sm:text-sm font-semibold text-white shadow hover:bg-indigo-600">Agregar</button>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" id="add-custom-row" class="mt-4 inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-100">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Agregar otro producto personalizado
+                </button>
+            </section>
+
             <section class="rounded-2xl sm:rounded-3xl border border-slate-200/60 bg-white/90 p-3 sm:p-5 shadow-sm">
                 <h3 class="text-xs sm:text-sm font-semibold text-slate-900">Ajustes</h3>
                 <div class="mt-3 sm:mt-4 space-y-3 sm:space-y-4 text-xs sm:text-sm">
                     <div>
-                        <label for="sale-status" class="block font-semibold text-slate-600">Estado de la venta</label>
+                        <label for="sale-status" class="block font-semibold text-slate-800">Estado de la venta</label>
                         <select id="sale-status" class="mt-2 w-full rounded-lg sm:rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm">
                             <option value="COMPLETADO">Completado</option>
                             <option value="PENDIENTE_PAGO">Pendiente de pago</option>
@@ -266,7 +341,7 @@
                         </select>
                     </div>
                     <div>
-                        <label class="flex items-center justify-between font-semibold text-slate-600">
+                        <label class="flex items-center justify-between font-semibold text-slate-800">
                             Descuento general
                             <select id="global-discount-type" class="rounded-lg sm:rounded-xl border border-slate-200 bg-white px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm">
                                 <option value="monto">Monto</option>
@@ -276,11 +351,11 @@
                         <input id="global-discount-value" type="number" min="0" step="0.01" class="mt-2 w-full rounded-lg sm:rounded-xl border border-slate-200 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm" placeholder="0">
                     </div>
                     <div class="flex items-center justify-between">
-                        <label class="flex items-center gap-2 text-slate-600"><input type="checkbox" id="toggle-tax" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500">Aplicar IVA</label>
+                        <label class="flex items-center gap-2 text-slate-800 font-semibold"><input type="checkbox" id="toggle-tax" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500">Aplicar IVA</label>
                         <input id="tax-rate" type="number" value="21" min="0" step="0.1" class="w-16 sm:w-20 rounded-lg sm:rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-right" disabled>
                     </div>
                     <div>
-                        <label class="flex items-center gap-2 text-slate-600 mb-2">
+                        <label class="flex items-center gap-2 text-slate-800 mb-2">
                             <input type="checkbox" id="pago-mixto-toggle" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500">
                             <span class="font-semibold">Pago mixto</span>
                         </label>
@@ -293,7 +368,7 @@
                                 <option value="TARJETA">Tarjeta</option>
                             </select>
                             <div class="mt-2 space-y-2">
-                                <label class="flex items-center gap-2 text-xs text-slate-600">
+                                <label class="flex items-center gap-2 text-xs text-slate-800 font-medium">
                                     <input type="checkbox" id="descuento-metodo-pago-toggle" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500">
                                     <span>Descuento por método de pago</span>
                                 </label>
@@ -353,22 +428,22 @@
                         </div>
                     </div>
                     <div>
-                        <label for="sale-note" class="block font-semibold text-slate-600">Nota interna</label>
+                        <label for="sale-note" class="block font-semibold text-slate-800">Nota interna</label>
                         <textarea id="sale-note" rows="3" class="mt-2 w-full rounded-lg sm:rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm" placeholder="Observaciones, referencia de pedido o link de pago"></textarea>
                     </div>
                     <div>
-                        <label for="customer-search" class="block font-semibold text-slate-600">Cliente (opcional)</label>
+                        <label for="customer-search" class="block font-semibold text-slate-800">Cliente (opcional)</label>
                         <div class="relative mt-2">
-                            <input id="customer-search" type="text" class="w-full rounded-lg sm:rounded-xl border border-indigo-100 bg-white/95 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-400/40 focus:outline-none" placeholder="Buscar cliente o dejar en blanco (consumidor final)">
-                            <div id="customer-dropdown" class="absolute left-0 top-full z-20 mt-1 hidden max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl"></div>
+                            <input id="customer-search" type="text" class="w-full rounded-lg sm:rounded-xl border-2 border-indigo-200 bg-white px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-slate-900 placeholder-slate-500 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/40 focus:outline-none" placeholder="Buscar cliente o dejar en blanco (consumidor final)">
+                            <div id="customer-dropdown" class="absolute left-0 top-full z-20 mt-1 hidden max-h-48 w-full overflow-y-auto rounded-xl border-2 border-slate-300 bg-white shadow-2xl"></div>
                         </div>
                         <input type="hidden" id="customer-id" value="">
                         <input id="customer-name" type="hidden" value="">
                         <input id="customer-document" type="hidden" value="">
-                        <div id="selected-customer" class="mt-2 hidden rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                        <div id="selected-customer" class="mt-2 hidden rounded-xl border-2 border-emerald-300 bg-emerald-50 px-3 py-2 text-sm">
                             <div class="flex items-center justify-between">
-                                <span class="font-medium text-slate-900"></span>
-                                <button type="button" id="clear-customer" class="text-xs text-slate-500 hover:text-rose-500">Quitar</button>
+                                <span class="font-semibold text-emerald-900"></span>
+                                <button type="button" id="clear-customer" class="text-xs font-semibold text-slate-600 hover:text-rose-600 underline">Quitar</button>
                             </div>
                         </div>
                     </div>
@@ -388,12 +463,13 @@
                 <p class="text-[10px] text-slate-400 sm:hidden mt-1"><span class="unit-price-mobile">$0.00</span></p>
             </td>
             <td class="px-2 sm:px-4 py-3 sm:py-4 text-center">
-                <input type="number" min="1" class="quantity-input w-16 sm:w-20 rounded-lg sm:rounded-xl border border-slate-200 px-1 sm:px-2 py-1 text-xs sm:text-sm text-center" value="1">
+                <input type="number" min="1" class="quantity-input w-16 sm:w-20 rounded-lg sm:rounded-xl border border-slate-300 px-1 sm:px-2 py-1 text-xs sm:text-sm text-center font-semibold text-slate-900" value="1">
             </td>
+            <td class="cart-stock px-2 sm:px-4 py-3 sm:py-4 text-center font-semibold text-slate-800 hidden lg:table-cell text-xs sm:text-sm">0</td>
             <td class="px-2 sm:px-4 py-3 sm:py-4 text-right font-semibold text-slate-900 hidden sm:table-cell"><span class="unit-price">$0.00</span></td>
-            <td class="px-2 sm:px-4 py-3 sm:py-4 text-right text-emerald-600 hidden md:table-cell"><button class="discount-btn text-[10px] sm:text-xs font-semibold">Configurar</button></td>
+            <td class="px-2 sm:px-4 py-3 sm:py-4 text-right hidden md:table-cell"><button class="discount-btn text-[10px] sm:text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-full border border-slate-300 px-2 sm:px-3 py-1 transition">Configurar</button></td>
             <td class="px-2 sm:px-4 py-3 sm:py-4 text-right font-semibold text-slate-900"><span class="line-total text-xs sm:text-sm">$0.00</span></td>
-            <td class="px-2 sm:px-4 py-3 sm:py-4 text-right"><button class="remove-btn text-slate-400 hover:text-rose-500 text-[10px] sm:text-xs">Eliminar</button></td>
+            <td class="px-2 sm:px-4 py-3 sm:py-4 text-right"><button class="remove-btn text-rose-700 font-semibold hover:text-rose-600 text-[10px] sm:text-xs rounded-full border border-rose-300 bg-rose-50 px-2 sm:px-3 py-1 hover:bg-rose-100 transition">Eliminar</button></td>
         </tr>
     </template>
 
@@ -418,18 +494,40 @@
     </template>
 
     <!-- Modal para productos varios -->
-    <div id="custom-product-modal" class="fixed inset-0 z-40 hidden flex items-center justify-center bg-slate-900/60 px-4">
-        <div class="w-full max-w-lg rounded-3xl border border-white/60 bg-white p-6 shadow-2xl">
-            <h3 class="text-base font-semibold text-slate-900">Agregar productos varios</h3>
-            <p class="mt-1 text-xs text-slate-500">Podés cargar varios ítems personalizados, definir su precio y cantidad. Todos se sumarán al carrito al mismo tiempo.</p>
-            <div id="custom-product-rows" class="mt-4 space-y-3"></div>
-            <button type="button" id="custom-product-add-row" class="mt-3 inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    <div id="custom-product-modal" class="fixed inset-0 z-40 hidden flex items-center justify-center bg-slate-900/80 backdrop-blur-sm px-4 py-8">
+        <div class="w-full max-w-2xl rounded-3xl border border-white/20 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8 shadow-2xl ring-1 ring-white/10 animate-in fade-in zoom-in duration-300">
+            <!-- Header con icono y animación -->
+            <div class="flex items-start gap-4 mb-6">
+                <div class="flex-shrink-0 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 p-3 ring-1 ring-indigo-500/30">
+                    <svg class="h-6 w-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <p class="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-400 mb-1">Productos personalizados</p>
+                    <h3 class="text-2xl font-bold text-slate-100 mb-2">Agregar productos varios</h3>
+                    <p class="text-sm text-slate-300 leading-relaxed">
+                        Cargá múltiples ítems personalizados de forma rápida. Definí el nombre, precio y cantidad de cada uno. 
+                        <span class="text-indigo-400 font-semibold">Todos se agregarán al carrito automáticamente.</span>
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Contenedor de filas -->
+            <div id="custom-product-rows" class="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar"></div>
+            
+            <!-- Botón agregar fila -->
+            <button type="button" id="custom-product-add-row" class="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-3 text-sm font-semibold text-indigo-300 hover:bg-indigo-500/20 hover:border-indigo-400/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                 Añadir otra línea
             </button>
-            <div class="mt-6 flex justify-end gap-3 text-sm font-semibold">
-                <button id="cancel-custom-product" class="rounded-full border border-slate-200 px-4 py-2 text-slate-500">Cancelar</button>
-                <button id="custom-product-save" class="rounded-full bg-slate-900 px-4 py-2 text-white">Agregar al carrito</button>
+            
+            <!-- Botones de acción -->
+            <div class="mt-6 flex justify-end gap-3 pt-6 border-t border-white/10">
+                <button id="cancel-custom-product" class="rounded-xl border border-slate-600/50 bg-slate-800/50 px-6 py-2.5 text-sm font-semibold text-slate-300 hover:bg-slate-700/50 hover:border-slate-500/50 transition-all duration-200">Cancelar</button>
+                <button id="custom-product-save" class="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 hover:from-indigo-500 hover:to-purple-500 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">
+                    Agregar al carrito
+                </button>
             </div>
         </div>
     </div>
@@ -948,6 +1046,24 @@
             return line.variante_id === itemId;
         });
         
+        // Verificar stock antes de agregar (solo para productos del catálogo)
+        if (!item.es_custom && itemId) {
+            const cantidad_a_agregar = existing ? existing.cantidad + 1 : 1;
+            const stock_actual = item.stock_actual ?? item.stock ?? 0;
+            
+            if (stock_actual < cantidad_a_agregar) {
+                // Mostrar modal de stock insuficiente
+                mostrarModalStockInsuficiente({
+                    variante_id: itemId,
+                    nombre: item.nombre || item.producto || 'Producto',
+                    sku: item.sku || 'N/A',
+                    stock_actual: stock_actual,
+                    cantidad_solicitada: cantidad_a_agregar
+                });
+                return;
+            }
+        }
+        
         if (existing) {
             existing.cantidad += 1;
         } else {
@@ -1008,6 +1124,7 @@
                 precio_unitario_ars: precioSeleccionado,
                 precio_usd_original: precioUsdOriginal, // Guardar precio USD si existe
                 es_iphone: esIphone || false, // Marcar si es iPhone
+                stock_actual: item.stock_actual ?? item.stock ?? 0, // Incluir stock actual
                 descuento: null,
                 es_custom: item.es_custom || false,
             });
@@ -1088,6 +1205,25 @@
             const unitPriceMobileEl = row.querySelector('.unit-price-mobile');
             if (unitPriceMobileEl) {
                 unitPriceMobileEl.textContent = precioText;
+            }
+            
+            // Mostrar stock
+            const stockEl = row.querySelector('.cart-stock');
+            if (stockEl) {
+                if (item.es_custom) {
+                    stockEl.textContent = '—';
+                } else {
+                    const stockActual = item.stock_actual || 0;
+                    stockEl.textContent = stockActual;
+                    // Colorear según el stock
+                    if (stockActual <= 0) {
+                        stockEl.classList.add('text-rose-600', 'font-bold');
+                    } else if (stockActual <= 5) {
+                        stockEl.classList.add('text-amber-600', 'font-bold');
+                    } else {
+                        stockEl.classList.add('text-emerald-600');
+                    }
+                }
             }
             
             if (discountBtn) {
@@ -1486,6 +1622,35 @@
         });
 
         const data = await response.json();
+        
+        if (!response.ok) {
+            completeSale.disabled = false;
+            
+            // Si es error de stock insuficiente, mostrar modal
+            if (data.error && data.error.includes('Stock insuficiente')) {
+                // Extraer información del error
+                const match = data.error.match(/Stock insuficiente para (.+?) \(([^)]+)\)\. Disponible: (\d+)/);
+                if (match) {
+                    const [, nombre, sku, stockActual] = match;
+                    // Buscar el item en el carrito para obtener el variante_id
+                    const itemEnCarrito = cart.find(item => item.sku === sku || item.nombre === nombre);
+                    if (itemEnCarrito && itemEnCarrito.variante_id) {
+                        mostrarModalStockInsuficiente({
+                            variante_id: itemEnCarrito.variante_id,
+                            nombre: nombre,
+                            sku: sku,
+                            stock_actual: parseInt(stockActual, 10),
+                            cantidad_solicitada: itemEnCarrito.cantidad
+                        });
+                        return;
+                    }
+                }
+            }
+            
+            alert(data.error || 'Error al crear la venta');
+            return;
+        }
+        
         if (response.ok) {
             cart = [];
             renderCart();
@@ -1608,6 +1773,159 @@
 
     renderCart();
 
+    // ========= MODAL DE STOCK INSUFICIENTE =========
+    let productoStockInsuficiente = null;
+    
+    function mostrarModalStockInsuficiente(data) {
+        productoStockInsuficiente = data;
+        const modal = document.getElementById('stock-insufficient-modal');
+        if (!modal) return;
+        
+        document.getElementById('stock-modal-product-name').textContent = data.nombre;
+        document.getElementById('stock-modal-product-sku').textContent = data.sku;
+        document.getElementById('stock-modal-stock-actual').textContent = data.stock_actual;
+        document.getElementById('stock-modal-cantidad-solicitada').textContent = data.cantidad_solicitada;
+        
+        const nuevoStockInput = document.getElementById('stock-modal-nuevo-stock');
+        if (nuevoStockInput) {
+            nuevoStockInput.value = data.stock_actual;
+            nuevoStockInput.focus();
+        }
+        
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+    
+    function ocultarModalStockInsuficiente() {
+        const modal = document.getElementById('stock-insufficient-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+        productoStockInsuficiente = null;
+    }
+    
+    // Event listeners para el modal de stock - usar delegación de eventos para asegurar que funcionen
+    document.addEventListener('click', (e) => {
+        // Botón cancelar
+        if (e.target && e.target.id === 'stock-modal-cancel') {
+            e.preventDefault();
+            e.stopPropagation();
+            // Si el producto está en el carrito, eliminarlo
+            if (productoStockInsuficiente && productoStockInsuficiente.variante_id) {
+                const index = cart.findIndex(item => {
+                    if (item.es_custom) {
+                        return false; // No eliminar productos varios
+                    }
+                    return item.variante_id === productoStockInsuficiente.variante_id;
+                });
+                
+                if (index !== -1) {
+                    cart.splice(index, 1);
+                    renderCart();
+                }
+            }
+            ocultarModalStockInsuficiente();
+            return;
+        }
+        
+        // Cerrar al hacer click fuera del modal
+        if (e.target && e.target.id === 'stock-insufficient-modal') {
+            ocultarModalStockInsuficiente();
+            return;
+        }
+    });
+    
+    // Botón actualizar stock
+    document.addEventListener('click', async (e) => {
+        if (e.target && e.target.id === 'stock-modal-update') {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            if (!productoStockInsuficiente) return;
+            
+            const nuevoStockInput = document.getElementById('stock-modal-nuevo-stock');
+            const nuevoStock = parseInt(nuevoStockInput?.value || '0', 10);
+            
+            if (isNaN(nuevoStock) || nuevoStock < 0) {
+                alert('Ingresá un stock válido (número entero mayor o igual a 0)');
+                nuevoStockInput?.focus();
+                return;
+            }
+            
+            // Deshabilitar botón mientras se procesa
+            const updateBtn = e.target;
+            const originalText = updateBtn.textContent;
+            updateBtn.disabled = true;
+            updateBtn.textContent = 'Actualizando...';
+            
+            try {
+                const response = await fetch('{% url "ventas:actualizar_stock_variante_api" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        variante_id: productoStockInsuficiente.variante_id,
+                        stock: nuevoStock
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'ok') {
+                    // Actualizar el stock en el objeto del producto si está en la búsqueda
+                    // Y luego intentar agregar al carrito nuevamente
+                    ocultarModalStockInsuficiente();
+                    
+                    // Mostrar mensaje de éxito
+                    console.log('✅ Stock actualizado:', data.mensaje);
+                    
+                    // Buscar el producto actualizado y agregarlo al carrito
+                    try {
+                        const searchResponse = await fetch(`{% url "ventas:buscar_productos_api" %}?q=${encodeURIComponent(productoStockInsuficiente.sku)}`);
+                        const searchData = await searchResponse.json();
+                        
+                        if (searchData.results && searchData.results.length > 0) {
+                            const productoActualizado = searchData.results.find(p => p.id === productoStockInsuficiente.variante_id);
+                            if (productoActualizado) {
+                                // Verificar que el stock sea suficiente antes de agregar
+                                const cantidad_solicitada = productoStockInsuficiente.cantidad_solicitada || 1;
+                                if (productoActualizado.stock_actual >= cantidad_solicitada) {
+                                    addToCart(productoActualizado);
+                                } else {
+                                    // Si aún no hay suficiente stock, mostrar el modal nuevamente
+                                    mostrarModalStockInsuficiente({
+                                        variante_id: productoStockInsuficiente.variante_id,
+                                        nombre: productoStockInsuficiente.nombre,
+                                        sku: productoStockInsuficiente.sku,
+                                        stock_actual: productoActualizado.stock_actual || 0,
+                                        cantidad_solicitada: cantidad_solicitada
+                                    });
+                                }
+                            }
+                        }
+                    } catch (searchError) {
+                        console.error('Error al buscar producto actualizado:', searchError);
+                        // No mostrar error al usuario, solo loguear
+                    }
+                } else {
+                    const errorMsg = data.error || 'Error al actualizar el stock';
+                    console.error('❌ Error al actualizar stock:', errorMsg);
+                    alert(errorMsg);
+                }
+            } catch (error) {
+                console.error('❌ Error al actualizar stock:', error);
+                alert('Error al actualizar el stock. Por favor, intentá nuevamente.');
+            } finally {
+                // Rehabilitar botón
+                updateBtn.disabled = false;
+                updateBtn.textContent = originalText;
+            }
+        }
+    });
+
     // Sincronizar carrito remoto (desde móvil) y actualizar indicador de conexión
     let ultimoCarritoRemotoHash = null;
     let ultimaConexionExitosa = Date.now();
@@ -1728,6 +2046,23 @@
                     );
                     
                     if (!existe) {
+                        const cantidadSolicitada = parseInt(itemRemoto.cantidad || 1);
+                        const stockActual = itemRemoto.stock_actual ?? 0;
+                        
+                        // Verificar stock antes de agregar desde remoto
+                        if (stockActual < cantidadSolicitada && stockActual >= 0) {
+                            // Mostrar modal de stock insuficiente en el POS (PC)
+                            mostrarModalStockInsuficiente({
+                                variante_id: itemRemoto.variante_id,
+                                nombre: itemRemoto.nombre || itemRemoto.descripcion || 'Producto',
+                                sku: itemRemoto.sku || 'N/A',
+                                stock_actual: stockActual,
+                                cantidad_solicitada: cantidadSolicitada
+                            });
+                            console.warn('⚠️ Stock insuficiente desde remoto:', itemRemoto.nombre);
+                            continue; // No agregar este item
+                        }
+                        
                         // Usar directamente los datos del carrito remoto que ya tienen toda la info
                         const nuevoItem = {
                             variante_id: itemRemoto.variante_id,
@@ -1737,8 +2072,9 @@
                             precio_unitario_ars: parseFloat(itemRemoto.precio_unitario_ars || 0),
                             precio_usd_original: itemRemoto.precio_usd_original ? parseFloat(itemRemoto.precio_usd_original) : null,
                             es_iphone: itemRemoto.es_iphone || false,
-                            cantidad: parseInt(itemRemoto.cantidad || 1),
+                            cantidad: cantidadSolicitada,
                             es_custom: itemRemoto.es_custom || false,
+                            stock_actual: stockActual,
                             precios: itemRemoto.precios || {},
                             descuento: null
                         };
@@ -1749,7 +2085,20 @@
                     } else {
                         // Actualizar cantidad si es diferente
                         const cantidadRemota = parseInt(itemRemoto.cantidad || 1);
-                        if (existe.cantidad !== cantidadRemota) {
+                        const stockActual = itemRemoto.stock_actual ?? existe.stock_actual ?? 0;
+                        
+                        // Verificar stock al actualizar cantidad
+                        if (cantidadRemota > stockActual && stockActual >= 0) {
+                            // Mostrar modal de stock insuficiente
+                            mostrarModalStockInsuficiente({
+                                variante_id: existe.variante_id,
+                                nombre: existe.nombre,
+                                sku: existe.sku || 'N/A',
+                                stock_actual: stockActual,
+                                cantidad_solicitada: cantidadRemota
+                            });
+                            console.warn('⚠️ Stock insuficiente al actualizar desde remoto:', existe.nombre);
+                        } else if (existe.cantidad !== cantidadRemota) {
                             existe.cantidad = cantidadRemota;
                             console.log('🔄 Cantidad actualizada desde remoto:', existe.nombre, cantidadRemota);
                         }
@@ -2132,6 +2481,74 @@
                     Cerrar
                 </button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de stock insuficiente -->
+<div id="stock-insufficient-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 backdrop-blur-sm px-4">
+    <div class="glass-card w-full max-w-md rounded-3xl p-8 shadow-2xl animate-fade-in-up">
+        <div class="flex items-center gap-4 mb-6">
+            <div class="relative flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg">
+                <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+            </div>
+            <div>
+                <h3 class="text-2xl font-bold text-slate-100">Producto sin stock</h3>
+                <p class="mt-1 text-sm text-slate-400">El producto no tiene suficiente stock disponible</p>
+            </div>
+        </div>
+        
+        <div class="space-y-4 mb-6">
+            <div class="glass-card rounded-2xl p-4 border border-amber-500/30">
+                <p class="text-sm font-semibold text-slate-300 mb-1">Producto</p>
+                <p class="text-lg font-bold text-slate-100" id="stock-modal-product-name">-</p>
+                <p class="text-xs text-slate-400 mt-1">SKU: <span id="stock-modal-product-sku">-</span></p>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+                <div class="glass-card rounded-2xl p-4">
+                    <p class="text-xs font-semibold text-slate-400 mb-1">Stock disponible</p>
+                    <p class="text-2xl font-bold text-rose-400" id="stock-modal-stock-actual">0</p>
+                </div>
+                <div class="glass-card rounded-2xl p-4">
+                    <p class="text-xs font-semibold text-slate-400 mb-1">Cantidad solicitada</p>
+                    <p class="text-2xl font-bold text-amber-400" id="stock-modal-cantidad-solicitada">0</p>
+                </div>
+            </div>
+            
+            <div class="glass-card rounded-2xl p-4 border border-blue-500/30">
+                <label for="stock-modal-nuevo-stock" class="block text-sm font-semibold text-slate-300 mb-2">
+                    Nuevo stock
+                </label>
+                <input
+                    type="number"
+                    id="stock-modal-nuevo-stock"
+                    min="0"
+                    step="1"
+                    class="w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-lg font-semibold text-slate-100 placeholder-slate-400 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    placeholder="Ingresá el nuevo stock"
+                />
+                <p class="mt-2 text-xs text-slate-400">¿Deseas modificar el stock de este producto?</p>
+            </div>
+        </div>
+        
+        <div class="flex gap-4">
+            <button
+                type="button"
+                id="stock-modal-cancel"
+                class="flex-1 rounded-2xl border border-slate-700 bg-slate-800/50 px-6 py-3 text-sm font-semibold text-slate-300 shadow-lg hover:bg-slate-700/50 transition-all"
+            >
+                Cancelar
+            </button>
+            <button
+                type="button"
+                id="stock-modal-update"
+                class="flex-1 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/30 hover:from-blue-500 hover:to-indigo-500 transition-all"
+            >
+                Actualizar stock
+            </button>
         </div>
     </div>
 </div>

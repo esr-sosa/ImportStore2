@@ -56,7 +56,7 @@ def escaner_productos_view(request):
     return render(request, "ventas/escaner_productos.html", context)
 
 
-def _formatear_variante(variante):
+def _formatear_variante(variante, modo_precio=None):
     precios = variante.precios.filter(activo=True)
     mapa = {}
     for precio in precios:
@@ -70,6 +70,18 @@ def _formatear_variante(variante):
     # Obtener categoría
     categoria = variante.producto.categoria.nombre if variante.producto.categoria else ""
     
+    # Obtener precio según modo_precio (priorizar el tipo seleccionado)
+    tipo_precio = modo_precio if modo_precio in [Precio.Tipo.MINORISTA, Precio.Tipo.MAYORISTA] else Precio.Tipo.MINORISTA
+    precio_principal_ars = precios.filter(tipo=tipo_precio, moneda=Precio.Moneda.ARS, activo=True).first()
+    precio_principal_usd = precios.filter(tipo=tipo_precio, moneda=Precio.Moneda.USD, activo=True).first()
+    
+    # Agregar campos de precio principal para fácil acceso
+    precio_principal = None
+    if precio_principal_ars:
+        precio_principal = str(precio_principal_ars.precio)
+    elif precio_principal_usd:
+        precio_principal = str(precio_principal_usd.precio)
+    
     return {
         "id": variante.id,
         "sku": variante.sku or "",
@@ -78,10 +90,12 @@ def _formatear_variante(variante):
         "stock_actual": stock_actual,
         "stock_status": stock_status,
         "precios": mapa,
+        "precio_principal": precio_principal,  # Precio según modo_precio
+        "tipo_precio": tipo_precio.lower(),  # "minorista" o "mayorista"
         "categoria": categoria,
     }
 
-def _formatear_variante_completa(variante, dolar_blue=None):
+def _formatear_variante_completa(variante, dolar_blue=None, modo_precio=None):
     """Formatea una variante con toda la información detallada para el escáner."""
     precios = variante.precios.filter(activo=True)
     precios_map = {}
@@ -92,22 +106,41 @@ def _formatear_variante_completa(variante, dolar_blue=None):
             "id": precio.id
         }
     
+    # Determinar tipo de precio a usar
+    tipo_precio = modo_precio if modo_precio in [Precio.Tipo.MINORISTA, Precio.Tipo.MAYORISTA] else Precio.Tipo.MINORISTA
+    
     # Obtener precios específicos
     precio_minorista_ars = precios.filter(tipo=Precio.Tipo.MINORISTA, moneda=Precio.Moneda.ARS, activo=True).first()
     precio_mayorista_ars = precios.filter(tipo=Precio.Tipo.MAYORISTA, moneda=Precio.Moneda.ARS, activo=True).first()
     precio_minorista_usd = precios.filter(tipo=Precio.Tipo.MINORISTA, moneda=Precio.Moneda.USD, activo=True).first()
     precio_mayorista_usd = precios.filter(tipo=Precio.Tipo.MAYORISTA, moneda=Precio.Moneda.USD, activo=True).first()
     
+    # Obtener precio principal según modo_precio
+    precio_principal_ars = precios.filter(tipo=tipo_precio, moneda=Precio.Moneda.ARS, activo=True).first()
+    precio_principal_usd = precios.filter(tipo=tipo_precio, moneda=Precio.Moneda.USD, activo=True).first()
+    
     # Convertir USD a ARS si es necesario
     precio_minorista_ars_convertido = None
     precio_mayorista_ars_convertido = None
+    precio_principal_ars_convertido = None
     if precio_minorista_usd and dolar_blue:
         precio_minorista_ars_convertido = float(precio_minorista_usd.precio) * float(dolar_blue)
     if precio_mayorista_usd and dolar_blue:
         precio_mayorista_ars_convertido = float(precio_mayorista_usd.precio) * float(dolar_blue)
+    if precio_principal_usd and dolar_blue:
+        precio_principal_ars_convertido = float(precio_principal_usd.precio) * float(dolar_blue)
     
     stock_actual = variante.stock_actual or 0
     stock_status = "sin stock" if stock_actual <= 0 else "disponible"
+    
+    # Determinar precio principal a mostrar
+    precio_principal_valor = None
+    if precio_principal_ars:
+        precio_principal_valor = str(precio_principal_ars.precio)
+    elif precio_principal_ars_convertido:
+        precio_principal_valor = str(precio_principal_ars_convertido)
+    elif precio_principal_usd:
+        precio_principal_valor = str(precio_principal_usd.precio)
     
     return {
         "id": variante.id,
@@ -116,6 +149,8 @@ def _formatear_variante_completa(variante, dolar_blue=None):
         "qr_code": variante.qr_code or "",
         "nombre": variante.producto.nombre,
         "descripcion": f"{variante.producto.nombre} {variante.atributos_display}".strip(),
+        "precio_principal": precio_principal_valor,  # Precio según modo_precio
+        "tipo_precio": tipo_precio.lower(),  # "minorista" o "mayorista"
         "atributos": variante.atributos_display,
         "stock_actual": stock_actual,
         "stock_status": stock_status,
@@ -155,7 +190,10 @@ def buscar_productos_api(request):
         .order_by("producto__nombre")[:15]
     )
 
-    return JsonResponse({"results": [_formatear_variante(v) for v in variantes]})
+    # Obtener modo_precio de la sesión
+    modo_precio = request.session.get("modo_precio", Precio.Tipo.MINORISTA)
+    
+    return JsonResponse({"results": [_formatear_variante(v, modo_precio) for v in variantes]})
 
 @csrf_exempt
 @login_required
@@ -189,7 +227,7 @@ def buscar_producto_por_codigo_api(request):
     # Primera búsqueda: código limpio
     if codigo_limpio:
         variante = (
-            ProductoVariante.objects.select_related("producto", "producto__categoria", "producto__proveedor")
+            ProductoVariante.objects.select_related("producto", "producto__proveedor")
             .filter(producto__activo=True)
             .prefetch_related("precios")
             .filter(
@@ -204,7 +242,7 @@ def buscar_producto_por_codigo_api(request):
     # Segunda búsqueda: código original (si no se encontró con el limpio)
     if not variante and codigo_original != codigo_limpio:
         variante = (
-            ProductoVariante.objects.select_related("producto", "producto__categoria", "producto__proveedor")
+            ProductoVariante.objects.select_related("producto", "producto__proveedor")
             .filter(producto__activo=True)
             .prefetch_related("precios")
             .filter(
@@ -220,7 +258,7 @@ def buscar_producto_por_codigo_api(request):
     if not variante:
         # Buscar si el código está contenido en algún campo
         variante = (
-            ProductoVariante.objects.select_related("producto", "producto__categoria", "producto__proveedor")
+            ProductoVariante.objects.select_related("producto", "producto__proveedor")
             .filter(producto__activo=True)
             .prefetch_related("precios")
             .filter(
@@ -234,13 +272,16 @@ def buscar_producto_por_codigo_api(request):
     if not variante:
         return JsonResponse({"error": "Producto no encontrado"}, status=404)
     
+    # Obtener modo_precio de la sesión
+    modo_precio = request.session.get("modo_precio", Precio.Tipo.MINORISTA)
+    
     # Si se solicita información completa (para el escáner de productos)
     completo = request.GET.get("completo", "false").lower() == "true"
     if completo:
         dolar_blue = obtener_valor_dolar_blue()
-        return JsonResponse({"result": _formatear_variante_completa(variante, dolar_blue)})
+        return JsonResponse({"result": _formatear_variante_completa(variante, dolar_blue, modo_precio)})
     
-    return JsonResponse({"result": _formatear_variante(variante)})
+    return JsonResponse({"result": _formatear_variante(variante, modo_precio)})
 
 @csrf_exempt
 @login_required
@@ -366,11 +407,14 @@ def actualizar_producto_rapido_api(request):
     variante.refresh_from_db()
     dolar_blue = obtener_valor_dolar_blue()
     
+    # Obtener modo_precio de la sesión
+    modo_precio = request.session.get("modo_precio", Precio.Tipo.MINORISTA)
+    
     return JsonResponse({
         "status": "ok",
         "mensaje": "Producto actualizado correctamente",
         "cambios": cambios,
-        "producto": _formatear_variante_completa(variante, dolar_blue)
+        "producto": _formatear_variante_completa(variante, dolar_blue, modo_precio)
     })
 
 @csrf_exempt
@@ -409,16 +453,31 @@ def agregar_producto_carrito_remoto_api(request):
             item_existente = item
             break
     
+    # Obtener modo_precio de la sesión
+    modo_precio = request.session.get("modo_precio", Precio.Tipo.MINORISTA)
+    
+    # Verificar stock antes de agregar
+    cantidad_a_agregar = 1
+    if item_existente:
+        cantidad_a_agregar = item_existente.get("cantidad", 1) + 1
+    
+    # Verificar stock disponible - Solo retornar mensaje simple para POS remoto
+    stock_actual = variante.stock_actual or 0
+    if stock_actual < cantidad_a_agregar:
+        return JsonResponse({
+            "error": f"Stock insuficiente para {variante.producto.nombre} ({variante.sku}). Disponible: {stock_actual}"
+        }, status=400)
+    
     if item_existente:
         # Incrementar cantidad
         item_existente["cantidad"] = item_existente.get("cantidad", 1) + 1
     else:
         # Agregar nuevo item
-        variante_formateada = _formatear_variante(variante)
+        variante_formateada = _formatear_variante(variante, modo_precio)
         
-        # Obtener precio ARS
+        # Obtener precio ARS según modo_precio
         precio_ars = variante.precios.filter(
-            tipo=Precio.Tipo.MINORISTA,
+            tipo=modo_precio,
             moneda=Precio.Moneda.ARS,
             activo=True
         ).order_by("-actualizado").first()
@@ -459,6 +518,7 @@ def agregar_producto_carrito_remoto_api(request):
             "precio_usd_original": precio_usd_original,
             "es_iphone": es_iphone,
             "es_custom": False,
+            "stock_actual": variante.stock_actual or 0,  # Incluir stock actual
             "precios": variante_formateada.get("precios", {}),
         }
         carrito_remoto.append(nuevo_item)
@@ -474,6 +534,52 @@ def agregar_producto_carrito_remoto_api(request):
         "status": "ok",
         "carrito": carrito_remoto,
         "total_items": total_items
+    })
+
+
+@csrf_exempt
+@login_required
+@transaction.atomic
+def actualizar_stock_variante_api(request):
+    """API para actualizar el stock de una variante rápidamente desde el POS."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Método no permitido"}, status=405)
+    
+    try:
+        data = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Payload inválido"}, status=400)
+    
+    variante_id = data.get("variante_id")
+    nuevo_stock = data.get("stock")
+    
+    if not variante_id:
+        return JsonResponse({"error": "variante_id requerido"}, status=400)
+    
+    if nuevo_stock is None:
+        return JsonResponse({"error": "stock requerido"}, status=400)
+    
+    try:
+        nuevo_stock = int(nuevo_stock)
+        if nuevo_stock < 0:
+            return JsonResponse({"error": "El stock no puede ser negativo"}, status=400)
+    except (ValueError, TypeError):
+        return JsonResponse({"error": "Stock debe ser un número entero"}, status=400)
+    
+    try:
+        variante = ProductoVariante.objects.select_related("producto").get(pk=variante_id)
+    except ProductoVariante.DoesNotExist:
+        return JsonResponse({"error": "Producto no encontrado"}, status=404)
+    
+    # Actualizar stock
+    variante.stock_actual = nuevo_stock
+    variante.save(update_fields=["stock_actual", "actualizado"])
+    
+    return JsonResponse({
+        "status": "ok",
+        "variante_id": variante_id,
+        "stock_actual": nuevo_stock,
+        "mensaje": f"Stock actualizado a {nuevo_stock}"
     })
 
 @login_required
@@ -541,12 +647,19 @@ def _generar_id_venta(prefix: str = "POS") -> str:
     return base
 
 
-def _resolver_precio_ars(variante: ProductoVariante) -> tuple[Decimal, Decimal | None, Decimal | None]:
+def _resolver_precio_ars(variante: ProductoVariante, modo_precio: str = None) -> tuple[Decimal, Decimal | None, Decimal | None]:
     """
     Resuelve el precio en ARS de una variante.
     Si es un iPhone (categoría Celulares) y tiene precio en USD, lo convierte a ARS.
     Retorna: (precio_ars, precio_usd_original, tipo_cambio_usado)
+    
+    Args:
+        variante: La variante del producto
+        modo_precio: "MINORISTA" o "MAYORISTA" (por defecto "MINORISTA")
     """
+    # Usar modo_precio o default a MINORISTA
+    tipo_precio = modo_precio if modo_precio in [Precio.Tipo.MINORISTA, Precio.Tipo.MAYORISTA] else Precio.Tipo.MINORISTA
+    
     # Verificar si es un iPhone (categoría Celulares)
     es_iphone = (
         variante.producto.categoria 
@@ -556,7 +669,7 @@ def _resolver_precio_ars(variante: ProductoVariante) -> tuple[Decimal, Decimal |
     # Primero intentar precio en ARS
     precio_ars = variante.precios.filter(
         activo=True,
-        tipo=Precio.Tipo.MINORISTA,
+        tipo=tipo_precio,
         moneda=Precio.Moneda.ARS,
     ).order_by("-actualizado").first()
     
@@ -566,7 +679,7 @@ def _resolver_precio_ars(variante: ProductoVariante) -> tuple[Decimal, Decimal |
     # Si no hay precio en ARS, buscar en USD
     precio_usd = variante.precios.filter(
         activo=True,
-        tipo=Precio.Tipo.MINORISTA,
+        tipo=tipo_precio,
         moneda=Precio.Moneda.USD,
     ).order_by("-actualizado").first()
     
@@ -730,7 +843,9 @@ def crear_venta_api(request):
         
         if precio_ars is None:
             # Si no viene precio del frontend, resolverlo
-            precio_ars, precio_usd_original, tipo_cambio_usado = _resolver_precio_ars(variante)
+            # Obtener modo_precio de la sesión
+            modo_precio = request.session.get("modo_precio", Precio.Tipo.MINORISTA)
+            precio_ars, precio_usd_original, tipo_cambio_usado = _resolver_precio_ars(variante, modo_precio)
         else:
             precio_ars = Decimal(str(precio_ars))
             # Si el precio viene del frontend, verificar si es iPhone y tiene precio USD

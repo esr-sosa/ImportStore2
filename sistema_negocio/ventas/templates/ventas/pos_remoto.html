@@ -178,7 +178,9 @@ async function agregarProductoAlCarrito(varianteId) {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `Error HTTP: ${response.status}`);
+            
+            // Solo mostrar alerta simple
+            throw new Error(errorData.mensaje || errorData.error || `Error HTTP: ${response.status}`);
         }
 
         const data = await response.json();
@@ -440,6 +442,135 @@ window.addEventListener('beforeunload', () => {
         html5QrcodeScanner.stop().catch(() => {});
     }
 });
+
+// El modal de stock solo se muestra en POS (PC), no en remoto
+
+// Event listeners para el modal de stock
+const stockModalCancel = document.getElementById('stock-modal-cancel');
+const stockModalUpdate = document.getElementById('stock-modal-update');
+const stockModal = document.getElementById('stock-insufficient-modal');
+
+if (stockModalCancel) {
+    stockModalCancel.addEventListener('click', ocultarModalStockInsuficiente);
+}
+
+if (stockModal) {
+    stockModal.addEventListener('click', (e) => {
+        if (e.target === stockModal) {
+            ocultarModalStockInsuficiente();
+        }
+    });
+}
+
+if (stockModalUpdate) {
+    stockModalUpdate.addEventListener('click', async () => {
+        if (!productoStockInsuficiente) return;
+        
+        const nuevoStockInput = document.getElementById('stock-modal-nuevo-stock');
+        const nuevoStock = parseInt(nuevoStockInput?.value || '0', 10);
+        
+        if (isNaN(nuevoStock) || nuevoStock < 0) {
+            alert('Ingresá un stock válido (número entero mayor o igual a 0)');
+            return;
+        }
+        
+        try {
+            const response = await fetch('{% url "ventas:actualizar_stock_variante_api" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    variante_id: productoStockInsuficiente.variante_id,
+                    stock: nuevoStock
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.status === 'ok') {
+                ocultarModalStockInsuficiente();
+                
+                // Intentar agregar al carrito nuevamente
+                await agregarProductoAlCarrito(productoStockInsuficiente.variante_id);
+            } else {
+                alert(data.error || 'Error al actualizar el stock');
+            }
+        } catch (error) {
+            console.error('Error al actualizar stock:', error);
+            alert('Error al actualizar el stock. Por favor, intentá nuevamente.');
+        }
+    });
+}
 </script>
+
+<!-- Modal de stock insuficiente -->
+<div id="stock-insufficient-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 backdrop-blur-sm px-4">
+    <div class="glass-card w-full max-w-md rounded-3xl p-8 shadow-2xl">
+        <div class="flex items-center gap-4 mb-6">
+            <div class="relative flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg">
+                <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+            </div>
+            <div>
+                <h3 class="text-2xl font-bold text-slate-100">Producto sin stock</h3>
+                <p class="mt-1 text-sm text-slate-400">El producto no tiene suficiente stock disponible</p>
+            </div>
+        </div>
+        
+        <div class="space-y-4 mb-6">
+            <div class="glass-card rounded-2xl p-4 border border-amber-500/30">
+                <p class="text-sm font-semibold text-slate-300 mb-1">Producto</p>
+                <p class="text-lg font-bold text-slate-100" id="stock-modal-product-name">-</p>
+                <p class="text-xs text-slate-400 mt-1">SKU: <span id="stock-modal-product-sku">-</span></p>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+                <div class="glass-card rounded-2xl p-4">
+                    <p class="text-xs font-semibold text-slate-400 mb-1">Stock disponible</p>
+                    <p class="text-2xl font-bold text-rose-400" id="stock-modal-stock-actual">0</p>
+                </div>
+                <div class="glass-card rounded-2xl p-4">
+                    <p class="text-xs font-semibold text-slate-400 mb-1">Cantidad solicitada</p>
+                    <p class="text-2xl font-bold text-amber-400" id="stock-modal-cantidad-solicitada">0</p>
+                </div>
+            </div>
+            
+            <div class="glass-card rounded-2xl p-4 border border-blue-500/30">
+                <label for="stock-modal-nuevo-stock" class="block text-sm font-semibold text-slate-300 mb-2">
+                    Nuevo stock
+                </label>
+                <input
+                    type="number"
+                    id="stock-modal-nuevo-stock"
+                    min="0"
+                    step="1"
+                    class="w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-lg font-semibold text-slate-100 placeholder-slate-400 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    placeholder="Ingresá el nuevo stock"
+                />
+                <p class="mt-2 text-xs text-slate-400">¿Deseas modificar el stock de este producto?</p>
+            </div>
+        </div>
+        
+        <div class="flex gap-4">
+            <button
+                type="button"
+                id="stock-modal-cancel"
+                class="flex-1 rounded-2xl border border-slate-700 bg-slate-800/50 px-6 py-3 text-sm font-semibold text-slate-300 shadow-lg hover:bg-slate-700/50 transition-all"
+            >
+                Cancelar
+            </button>
+            <button
+                type="button"
+                id="stock-modal-update"
+                class="flex-1 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/30 hover:from-blue-500 hover:to-indigo-500 transition-all"
+            >
+                Actualizar stock
+            </button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 

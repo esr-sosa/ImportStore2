@@ -10,7 +10,7 @@ from datetime import timedelta
 from django.core.paginator import Paginator
 from django.db.models import Count, Q, Max
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404, redirect
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 import google.generativeai as genai
@@ -128,9 +128,17 @@ def _clientes_context(request, form: ClienteForm):
 @login_required
 def clientes_panel(request):
     if request.method == "POST":
-        form = ClienteForm(request.POST)
+        cliente_id = request.POST.get("cliente_id")
+        if cliente_id:  # Editar cliente existente
+            cliente = get_object_or_404(Cliente, pk=cliente_id)
+            form = ClienteForm(request.POST, instance=cliente)
+            accion = "actualizado"
+        else:  # Crear nuevo cliente
+            form = ClienteForm(request.POST)
+            accion = "agregado"
+        
         if form.is_valid():
-            nuevo_cliente = form.save()
+            cliente = form.save()
             if request.headers.get("HX-Request"):
                 form = ClienteForm()
                 contexto = _clientes_context(request, form)
@@ -138,9 +146,9 @@ def clientes_panel(request):
                 response["HX-Trigger"] = json.dumps(
                     {
                         "clientesActualizados": {
-                            "id": nuevo_cliente.id,
+                            "id": cliente.id,
                             "toast": {
-                                "message": f"Cliente {nuevo_cliente.nombre} agregado correctamente.",
+                                "message": f"Cliente {cliente.nombre} {accion} correctamente.",
                                 "level": "success",
                             },
                         }
@@ -148,7 +156,7 @@ def clientes_panel(request):
                 )
                 return response
 
-            messages.success(request, f"Cliente {nuevo_cliente.nombre} agregado correctamente.")
+            messages.success(request, f"Cliente {cliente.nombre} {accion} correctamente.")
             return redirect("crm:clientes")
     else:
         form = ClienteForm()
@@ -157,6 +165,26 @@ def clientes_panel(request):
 
     template = "crm/clientes/_panel_content.html" if request.headers.get("HX-Request") else "crm/clientes/panel.html"
     return render(request, template, contexto)
+
+@login_required
+def cliente_eliminar(request, cliente_id):
+    """Eliminar un cliente"""
+    if request.method != "POST":
+        return JsonResponse({"error": "Método no permitido"}, status=405)
+    
+    cliente = get_object_or_404(Cliente, pk=cliente_id)
+    
+    # Verificar si tiene conversaciones asociadas
+    if cliente.conversaciones.exists():
+        return JsonResponse({
+            "error": f"No se puede eliminar el cliente {cliente.nombre} porque tiene conversaciones asociadas."
+        }, status=400)
+    
+    nombre = cliente.nombre
+    cliente.delete()
+    
+    messages.success(request, f"Cliente {nombre} eliminado correctamente.")
+    return JsonResponse({"success": True})
 
 @login_required
 def get_conversacion_details(request, conv_id):

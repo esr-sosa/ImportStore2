@@ -7,11 +7,12 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 from crm import views
-from core.views import IosLoginView
+from core.views import IosLoginView, set_precio_modo
 
 urlpatterns = [
     path('acceso/', IosLoginView.as_view(), name='login'),
     path('salir/', LogoutView.as_view(next_page='login'), name='logout'),
+    path('set-precio-modo/', set_precio_modo, name='set_precio_modo'),
     path('admin/', admin.site.urls),
     path('chat/', include('crm.urls')),
     path('ventas/', include('ventas.urls')),

@@ -14,8 +14,20 @@ from .models import CajaDiaria, MovimientoCaja
 
 
 @login_required
-def vista_apertura(request):
-    """Vista para abrir una caja diaria."""
+def vista_caja(request):
+    """Vista combinada para apertura y cierre de caja."""
+    # Buscar caja abierta
+    caja_abierta = CajaDiaria.objects.filter(estado=CajaDiaria.Estado.ABIERTA).first()
+    
+    # Si hay una caja abierta, mostrar vista de cierre
+    if caja_abierta:
+        return _vista_cierre_interna(request, caja_abierta)
+    else:
+        return _vista_apertura_interna(request)
+
+
+def _vista_apertura_interna(request):
+    """Vista interna para apertura de caja."""
     if request.method == "POST":
         local_id = request.POST.get("local_id")
         monto_inicial = Decimal(request.POST.get("monto_inicial_ars", "0"))
@@ -53,23 +65,18 @@ def vista_apertura(request):
         if request.headers.get("HX-Request"):
             return JsonResponse({"status": "ok", "caja_id": caja.pk, "message": f"Caja abierta para {local.nombre}"})
 
-        return redirect("caja:cierre")
+        return redirect("caja:caja")
 
     locales = Local.objects.order_by("nombre")
-    return render(request, "caja/apertura.html", {"locales": locales})
+    context = {
+        "modo": "apertura",
+        "locales": locales,
+    }
+    return render(request, "caja/caja.html", context)
 
 
-@login_required
-def vista_cierre(request, caja_id=None):
-    """Vista para cerrar una caja diaria."""
-    if caja_id:
-        caja = get_object_or_404(CajaDiaria, pk=caja_id)
-    else:
-        # Buscar la primera caja abierta del usuario o del primer local
-        caja = CajaDiaria.objects.filter(estado=CajaDiaria.Estado.ABIERTA).first()
-        if not caja:
-            return render(request, "caja/cierre.html", {"error": "No hay cajas abiertas para cerrar"})
-
+def _vista_cierre_interna(request, caja):
+    """Vista interna para cierre de caja."""
     if request.method == "POST":
         monto_cierre_real = Decimal(request.POST.get("monto_cierre_real_ars", "0"))
 
@@ -93,7 +100,7 @@ def vista_cierre(request, caja_id=None):
                 }
             )
 
-        return redirect("caja:cierre")
+        return redirect("caja:caja")
 
     # Calcular resumen
     movimientos = caja.movimientos.all()
@@ -112,6 +119,7 @@ def vista_cierre(request, caja_id=None):
     total_esperado = caja.total_esperado_ars
 
     context = {
+        "modo": "cierre",
         "caja": caja,
         "total_ventas": total_ventas,
         "desglose_pago": desglose_pago,
@@ -119,7 +127,23 @@ def vista_cierre(request, caja_id=None):
         "monto_inicial": caja.monto_inicial_ars,
     }
 
-    return render(request, "caja/cierre.html", context)
+    return render(request, "caja/caja.html", context)
+
+
+@login_required
+def vista_apertura(request):
+    """Vista legacy para apertura de caja (redirige a vista combinada)."""
+    return redirect("caja:caja")
+
+
+@login_required
+def vista_cierre(request, caja_id=None):
+    """Vista legacy para cierre de caja (redirige a vista combinada)."""
+    if caja_id:
+        caja = get_object_or_404(CajaDiaria, pk=caja_id)
+        if caja.estado == CajaDiaria.Estado.ABIERTA:
+            return _vista_cierre_interna(request, caja)
+    return redirect("caja:caja")
 
 
 @login_required

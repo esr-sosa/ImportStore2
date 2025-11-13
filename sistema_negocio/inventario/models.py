@@ -7,20 +7,56 @@ from django.utils import timezone
 
 
 class Categoria(models.Model):
-    nombre = models.CharField(max_length=120, unique=True)
+    nombre = models.CharField(max_length=120)
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="subcategorias",
+        verbose_name="Categoría padre",
+        help_text="Seleccioná la categoría padre si esta es una subcategoría"
+    )
     descripcion = models.TextField(blank=True)
     garantia_dias = models.PositiveIntegerField(null=True, blank=True, help_text="Días de garantía específicos para esta categoría. Si está vacío, se usa la garantía general.")
 
     class Meta:
         verbose_name = "Categoría"
         verbose_name_plural = "Categorías"
-        ordering = ["nombre"]
+        ordering = ["parent__nombre", "nombre"]
         indexes = [
             models.Index(fields=["nombre"], name="idx_categoria_nombre"),
+            models.Index(fields=["parent"], name="idx_categoria_parent"),
+        ]
+        constraints = [
+            models.UniqueConstraint(fields=["nombre", "parent"], name="unique_categoria_nombre_parent"),
         ]
 
     def __str__(self):
+        if self.parent:
+            return f"{self.parent.nombre} > {self.nombre}"
         return self.nombre
+    
+    @property
+    def nombre_completo(self):
+        """Retorna el nombre completo con la jerarquía completa."""
+        if self.parent:
+            return f"{self.parent.nombre_completo} > {self.nombre}"
+        return self.nombre
+    
+    @property
+    def es_subcategoria(self):
+        """Retorna True si esta categoría es una subcategoría."""
+        return self.parent is not None
+    
+    def get_nivel(self):
+        """Retorna el nivel de profundidad en la jerarquía (0 = categoría principal)."""
+        nivel = 0
+        categoria = self.parent
+        while categoria:
+            nivel += 1
+            categoria = categoria.parent
+        return nivel
 
 
 class Proveedor(models.Model):
@@ -137,7 +173,7 @@ class ProductoVariante(models.Model):
     @property
     def atributos_display(self):
         partes = [parte for parte in [self.atributo_1, self.atributo_2] if parte]
-        return " / ".join(partes) if partes else "Sin especificar"
+        return " / ".join(partes) if partes else ""
 
     def precio_activo(self, tipo: str, moneda: str):
         return (

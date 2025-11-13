@@ -1,8 +1,10 @@
 from decimal import Decimal
+from io import BytesIO
 
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Q
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -18,6 +20,7 @@ from inventario.models import (
     ProductoVariante,
 )
 from inventario.utils import is_detalleiphone_variante_ready
+from inventario.etiquetas import generar_etiqueta
 
 from .forms import AgregarIphoneForm
 
@@ -38,94 +41,18 @@ def _ultimo_precio(variante, tipo, moneda):
 
 
 def _sincronizar_precios(variante, data):
-    combinaciones = [
-        (Precio.Tipo.MINORISTA, Precio.Moneda.USD, data.get("precio_venta_usd")),
-        (Precio.Tipo.MINORISTA, Precio.Moneda.ARS, data.get("precio_venta_ars")),
-        (Precio.Tipo.MAYORISTA, Precio.Moneda.USD, data.get("precio_mayorista_usd") or data.get("precio_venta_usd")),
-        (Precio.Tipo.MAYORISTA, Precio.Moneda.ARS, data.get("precio_mayorista_ars") or data.get("precio_venta_ars")),
-    ]
-
-    for tipo, moneda, valor in combinaciones:
-        if valor is None or valor == "":
-            variante.precios.filter(tipo=tipo, moneda=moneda).update(activo=False)
-            continue
-        try:
-            variante.precios.update_or_create(
-                tipo=tipo,
-                moneda=moneda,
-                defaults={"precio": valor, "activo": True, "tipo": tipo, "moneda": moneda},
-            )
-        except Exception as e:
-            # Si falla por tipo_precio o costo, intentar crear directamente con SQL
-            from django.db import connection
-            from core.db_inspector import column_exists
-            
-            with connection.cursor() as cursor:
-                # Verificar si existe el precio
-                cursor.execute(
-                    "SELECT id FROM inventario_precio WHERE variante_id = %s AND tipo = %s AND moneda = %s",
-                    [variante.id, tipo, moneda]
-                )
-                existing = cursor.fetchone()
-                if existing:
-                    # Actualizar existente - solo campos que existen
-                    try:
-                        cursor.execute(
-                            "UPDATE inventario_precio SET precio = %s, activo = 1, tipo = %s, moneda = %s, actualizado = NOW() WHERE id = %s",
-                            [valor, tipo, moneda, existing[0]]
-                        )
-                    except Exception as e2:
-                        # Si falla, intentar sin actualizar tipo/moneda
-                        cursor.execute(
-                            "UPDATE inventario_precio SET precio = %s, activo = 1, actualizado = NOW() WHERE id = %s",
-                            [valor, existing[0]]
-                        )
-                else:
-                    # Crear nuevo - verificar qué columnas existen
-                    table_name = "inventario_precio"
-                    has_tipo_precio = column_exists(table_name, "tipo_precio")
-                    has_costo = column_exists(table_name, "costo")
-                    has_precio_venta_normal = column_exists(table_name, "precio_venta_normal")
-                    has_precio_venta_minimo = column_exists(table_name, "precio_venta_minimo")
-                    has_precio_venta_descuento = column_exists(table_name, "precio_venta_descuento")
-                    
-                    # Construir INSERT dinámicamente según columnas existentes
-                    columns = ["variante_id", "tipo", "moneda", "precio", "activo", "creado", "actualizado"]
-                    values = [variante.id, tipo, moneda, valor, 1, "NOW()", "NOW()"]
-                    placeholders = ["%s", "%s", "%s", "%s", "%s", "NOW()", "NOW()"]
-                    
-                    if has_tipo_precio:
-                        columns.append("tipo_precio")
-                        values.append(tipo)
-                        placeholders.append("%s")
-                    
-                    if has_costo:
-                        columns.append("costo")
-                        values.append(0)
-                        placeholders.append("%s")
-                    
-                    if has_precio_venta_normal:
-                        columns.append("precio_venta_normal")
-                        values.append(valor)
-                        placeholders.append("%s")
-                    
-                    if has_precio_venta_minimo:
-                        columns.append("precio_venta_minimo")
-                        values.append(valor)
-                        placeholders.append("%s")
-                    
-                    # Construir query SQL
-                    cols_str = ", ".join(columns)
-                    placeholders_str = ", ".join(placeholders)
-                    sql = f"INSERT INTO {table_name} ({cols_str}) VALUES ({placeholders_str})"
-                    
-                    # Preparar valores para placeholders (solo los que son %s)
-                    sql_values = []
-                    for i, ph in enumerate(placeholders):
-                        if ph == "%s":
-                            sql_values.append(values[i])
-                    
-                    cursor.execute(sql, sql_values)
+    """Sincroniza precios usando la función consolidada de inventario."""
+    from inventario.views import _sincronizar_precios as _sincronizar_precios_inventario
+    
+    # Mapear datos de iPhone a formato de inventario
+    data_inventario = {
+        "precio_venta_ars": data.get("precio_venta_ars"),
+        "precio_minorista_ars": data.get("precio_venta_ars"),
+        "precio_mayorista_ars": data.get("precio_mayorista_ars"),
+        "precio_minimo_ars": None,
+    }
+    
+    _sincronizar_precios_inventario(variante, data_inventario)
 
 
 @login_required
@@ -163,7 +90,7 @@ def iphone_dashboard(request):
     detalleiphone_ready = is_detalleiphone_variante_ready()
 
     variantes_qs = (
-        ProductoVariante.objects.select_related("producto", "producto__categoria")
+        ProductoVariante.objects.select_related("producto")
         .prefetch_related("precios")
         .filter(producto__categoria__nombre__iexact="Celulares")
         .order_by("producto__nombre", "sku")
@@ -207,6 +134,8 @@ def iphone_dashboard(request):
         detalle = None
         if detalleiphone_ready:
             detalle = getattr(variante, "detalle_iphone", None)
+        if not detalle:
+            detalle = DetalleIphone.objects.filter(variante=variante).first()
 
         variante.precio_minorista_usd = (
             precio_minorista_usd.precio if precio_minorista_usd else None
@@ -244,9 +173,7 @@ def iphone_dashboard(request):
         if detalle:
             if detalle.precio_venta_usd and not variante.precio_minorista_usd:
                 variante.precio_minorista_usd = detalle.precio_venta_usd
-            variante.detalle_cache = detalle
-        else:
-            variante.detalle_cache = None
+        variante.detalle_cache = detalle
 
     stats = {
         "variantes": len(variantes),
@@ -401,17 +328,50 @@ def agregar_iphone(request):
             if data.get("es_nuevo", False):
                 salud_bateria = 100
             
-            detalle = DetalleIphone.objects.create(
-                variante=variante,
-                imei=data.get("imei"),
-                salud_bateria=salud_bateria,
-                fallas_detectadas=data.get("fallas_observaciones"),
-                es_plan_canje=data.get("es_plan_canje", False),
-                costo_usd=data.get("costo_usd"),
-                precio_venta_usd=data.get("precio_venta_usd"),
-                precio_oferta_usd=data.get("precio_oferta_usd"),
-                notas=data.get("notas"),
-            )
+            # Manejar IMEI: si está vacío, guardar como None para evitar conflictos con unique
+            imei_value = data.get("imei", "").strip()
+            imei_final = imei_value if imei_value else None
+            
+            # Si el IMEI está vacío, verificar si ya existe otro registro con imei=''
+            # y en ese caso, asegurarse de usar None (no '')
+            if not imei_final:
+                from django.db.models import Q
+                otros_con_imei_vacio = DetalleIphone.objects.filter(
+                    Q(imei='') | Q(imei__isnull=True)
+                )
+                if otros_con_imei_vacio.exists():
+                    imei_final = None
+            
+            try:
+                detalle = DetalleIphone.objects.create(
+                    variante=variante,
+                    imei=imei_final,
+                    salud_bateria=salud_bateria,
+                    fallas_detectadas=data.get("fallas_observaciones"),
+                    es_plan_canje=data.get("es_plan_canje", False),
+                    costo_usd=data.get("costo_usd"),
+                    precio_venta_usd=data.get("precio_venta_usd"),
+                    precio_oferta_usd=data.get("precio_oferta_usd"),
+                    notas=data.get("notas"),
+                )
+            except Exception as e:
+                # Si hay un error de unique (por ejemplo, imei='' duplicado),
+                # intentar crear con imei=None explícitamente
+                if "Duplicate entry" in str(e) or "unique" in str(e).lower():
+                    detalle = DetalleIphone.objects.create(
+                        variante=variante,
+                        imei=None,  # Forzar None explícitamente
+                        salud_bateria=salud_bateria,
+                        fallas_detectadas=data.get("fallas_observaciones"),
+                        es_plan_canje=data.get("es_plan_canje", False),
+                        costo_usd=data.get("costo_usd"),
+                        precio_venta_usd=data.get("precio_venta_usd"),
+                        precio_oferta_usd=data.get("precio_oferta_usd"),
+                        notas=data.get("notas"),
+                    )
+                else:
+                    raise
+            
             if data.get("foto"):
                 detalle.foto = data["foto"]
                 detalle.save(update_fields=["foto"])
@@ -505,7 +465,25 @@ def editar_iphone(request, variante_id):
             if detalle is None:
                 detalle = DetalleIphone(variante=variante)
 
-            detalle.imei = data.get("imei")
+            # Manejar IMEI: si está vacío, guardar como None para evitar conflictos con unique
+            imei_value = data.get("imei", "").strip()
+            imei_final = imei_value if imei_value else None
+            
+            # Si el IMEI está vacío y ya existe otro registro con imei='', 
+            # necesitamos verificar y limpiar primero
+            if not imei_final:
+                # Verificar si hay otro registro con imei='' o imei=None
+                from django.db.models import Q
+                otros_con_imei_vacio = DetalleIphone.objects.filter(
+                    Q(imei='') | Q(imei__isnull=True)
+                ).exclude(pk=detalle.pk if detalle.pk else None)
+                
+                # Si hay otros con imei vacío y este también lo será, 
+                # asegurarse de que este sea None (no '')
+                if otros_con_imei_vacio.exists():
+                    imei_final = None
+            
+            detalle.imei = imei_final
             # Si es nuevo, establecer salud_bateria a 100
             salud_bateria = data.get("salud_bateria")
             if data.get("es_nuevo", False):
@@ -519,7 +497,17 @@ def editar_iphone(request, variante_id):
             detalle.notas = data.get("notas")
             if data.get("foto"):
                 detalle.foto = data["foto"]
-            detalle.save()
+            
+            # Guardar usando update_fields para evitar problemas con unique
+            try:
+                detalle.save()
+            except Exception as e:
+                # Si hay un error de unique, intentar limpiar el IMEI a None explícitamente
+                if "Duplicate entry" in str(e) or "unique" in str(e).lower():
+                    detalle.imei = None
+                    detalle.save()
+                else:
+                    raise
 
             RegistroHistorial.objects.create(
                 usuario=request.user,
@@ -664,3 +652,28 @@ def iphone_historial(request):
         "historial": historial,
     }
     return render(request, "iphones/historial.html", context)
+
+
+@login_required
+def descargar_etiqueta_iphone(request, detalle_id: int):
+    """Genera y devuelve la etiqueta térmica PDF para un iPhone específico."""
+    if not is_detalleiphone_variante_ready():
+        messages.error(
+            request,
+            "Aplicá `python manage.py migrate` para habilitar la gestión avanzada de iPhones.",
+        )
+        return redirect("iphones:dashboard")
+
+    detalle = get_object_or_404(
+        DetalleIphone.objects.select_related("variante", "variante__producto"),
+        pk=detalle_id,
+    )
+
+    buffer = BytesIO()
+    generar_etiqueta(buffer, detalle)
+    pdf_bytes = buffer.getvalue()
+
+    sku = detalle.variante.sku if detalle.variante else "iphone"
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = f'inline; filename="etiqueta_{sku}.pdf"'
+    return response

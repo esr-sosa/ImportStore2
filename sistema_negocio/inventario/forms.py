@@ -72,10 +72,75 @@ class ImportacionInventarioForm(forms.Form):
     )
 
 
+def _get_categorias_choices():
+    """Retorna las categorías en formato jerárquico para los selects."""
+    def _build_tree(categoria, nivel=0, exclude_id=None):
+        """Construye el árbol de categorías recursivamente."""
+        choices = []
+        if categoria.pk != exclude_id:  # Evitar referencias circulares
+            indent = "  " * nivel
+            choices.append((categoria.pk, f"{indent}{categoria.nombre}"))
+            for subcat in categoria.subcategorias.all().order_by("nombre"):
+                choices.extend(_build_tree(subcat, nivel + 1, exclude_id))
+        return choices
+    
+    choices = [("", "---------")]
+    categorias_principales = Categoria.objects.filter(parent__isnull=True).order_by("nombre")
+    for cat in categorias_principales:
+        choices.extend(_build_tree(cat))
+    return choices
+
+
 class CategoriaForm(forms.ModelForm):
+    parent = forms.ModelChoiceField(
+        queryset=Categoria.objects.all(),
+        required=False,
+        label="Categoría padre",
+        help_text="Seleccioná una categoría padre si esta es una subcategoría",
+        widget=forms.Select(
+            attrs={
+                "class": "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200/60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
+            }
+        )
+    )
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Excluir la categoría actual y sus subcategorías para evitar referencias circulares
+        exclude_ids = []
+        if self.instance and self.instance.pk:
+            exclude_ids.append(self.instance.pk)
+            # Obtener todas las subcategorías recursivamente
+            def get_all_subcategorias(cat):
+                ids = []
+                for subcat in cat.subcategorias.all():
+                    ids.append(subcat.pk)
+                    ids.extend(get_all_subcategorias(subcat))
+                return ids
+            exclude_ids.extend(get_all_subcategorias(self.instance))
+        
+        # Construir queryset con formato jerárquico
+        def _build_tree_queryset(categoria, nivel=0):
+            """Construye el queryset con formato jerárquico."""
+            if categoria.pk in exclude_ids:
+                return []
+            items = [(categoria.pk, categoria)]
+            for subcat in categoria.subcategorias.all().order_by("nombre"):
+                items.extend(_build_tree_queryset(subcat, nivel + 1))
+            return items
+        
+        categorias_principales = Categoria.objects.filter(parent__isnull=True).order_by("nombre")
+        choices = [("", "---------")]
+        for cat in categorias_principales:
+            for pk, cat_obj in _build_tree_queryset(cat):
+                indent = "  " * cat_obj.get_nivel()
+                choices.append((pk, f"{indent}{cat_obj.nombre}"))
+        
+        self.fields["parent"].choices = choices
+    
     class Meta:
         model = Categoria
-        fields = ["nombre", "descripcion", "garantia_dias"]
+        fields = ["nombre", "parent", "descripcion", "garantia_dias"]
         widgets = {
             "nombre": forms.TextInput(
                 attrs={
@@ -166,6 +231,23 @@ class ProductoForm(forms.ModelForm):
             "id": "codigo-barras-input",
             "readonly": True,
         })
+        
+        # Actualizar el queryset de categorías para mostrar jerarquía
+        def _build_tree_queryset(categoria, nivel=0):
+            """Construye el queryset con formato jerárquico."""
+            items = [(categoria.pk, categoria)]
+            for subcat in categoria.subcategorias.all().order_by("nombre"):
+                items.extend(_build_tree_queryset(subcat, nivel + 1))
+            return items
+        
+        categorias_principales = Categoria.objects.filter(parent__isnull=True).order_by("nombre")
+        choices = [("", "---------")]
+        for cat in categorias_principales:
+            for pk, cat_obj in _build_tree_queryset(cat):
+                indent = "  " * cat_obj.get_nivel()
+                choices.append((pk, f"{indent}{cat_obj.nombre}"))
+        
+        self.fields["categoria"].choices = choices
 
     class Meta:
         model = Producto

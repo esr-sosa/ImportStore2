@@ -57,18 +57,37 @@
                             <dd class="mt-1 text-2xl font-semibold text-slate-100">{{ inventario_metrics.total_activos|default:0|intcomma }}</dd>
                         </div>
                         <div class="glass-card rounded-2xl px-4 py-3">
-                            <dt class="text-xs uppercase tracking-widest text-muted">Bajo stock</dt>
-                            <dd class="mt-1 text-2xl font-semibold text-amber-400">{{ inventario_metrics.total_bajo_stock|default:0|intcomma }}</dd>
+                            <dt class="text-xs uppercase tracking-widest text-muted">Sin stock</dt>
+                            <dd class="mt-1 text-2xl font-semibold text-rose-400">{{ inventario_metrics.total_sin_stock|default:0|intcomma }}</dd>
                         </div>
                         <div class="glass-card rounded-2xl px-4 py-3">
                             <dt class="text-xs uppercase tracking-widest text-muted">Unidades disponibles</dt>
                             <dd class="mt-1 text-2xl font-semibold text-slate-100">{{ inventario_metrics.unidades_totales|default:0|intcomma }}</dd>
                         </div>
                         <div class="glass-card rounded-2xl px-4 py-3">
-                            <dt class="text-xs uppercase tracking-widest text-muted">Valor catálogo (ARS)</dt>
-                            <dd class="mt-1 text-2xl font-semibold text-slate-100">${{ inventario_metrics.valor_catalogo_ars|default:0|floatformat:0|intcomma }}</dd>
-                            {% if inventario_metrics.valor_catalogo_usd %}
-                                <p class="mt-2 text-xs text-muted">Referencial: US$ {{ inventario_metrics.valor_catalogo_usd|floatformat:2|intcomma }}</p>
+                            <dt class="text-xs uppercase tracking-widest text-muted">Valor catálogo · Inventario general</dt>
+                            <div class="mt-3 space-y-3 text-sm">
+                                <div class="flex items-start justify-between gap-4 rounded-xl bg-white/5 px-3 py-3">
+                                    <div>
+                                        <span class="inline-flex items-center gap-1 rounded-full bg-slate-900/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">Minorista</span>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-base font-semibold text-slate-100">${{ inventario_metrics.valor_catalogo_minorista_ars_normal|default:0|floatformat:0|intcomma }}</p>
+                                        <p class="text-xs text-slate-400">US$ {{ inventario_metrics.valor_catalogo_minorista_usd_normal|default:0|floatformat:2|intcomma }}</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-start justify-between gap-4 rounded-xl bg-indigo-500/10 px-3 py-3">
+                                    <div>
+                                        <span class="inline-flex items-center gap-1 rounded-full bg-indigo-500/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.3em] text-indigo-200">Mayorista</span>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-base font-semibold text-indigo-100">${{ inventario_metrics.valor_catalogo_mayorista_ars_normal|default:0|floatformat:0|intcomma }}</p>
+                                        <p class="text-xs text-indigo-200/80">US$ {{ inventario_metrics.valor_catalogo_mayorista_usd_normal|default:0|floatformat:2|intcomma }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            {% if valor_blue %}
+                                <p class="mt-3 text-xs text-slate-500">Dólar blue de referencia: ${{ valor_blue|floatformat:2|intcomma }}</p>
                             {% endif %}
                         </div>
                     </dl>
@@ -136,6 +155,104 @@
             </article>
         </section>
 
+        <!-- Patrimonio e Inventario Total -->
+        {% if inventario_metrics %}
+        <section class="glass-card rounded-3xl p-6">
+            <header class="mb-6">
+                <p class="text-xs font-semibold uppercase tracking-[0.3em] text-muted">Patrimonio</p>
+                <h2 class="text-xl font-semibold text-slate-100">Valor total del inventario</h2>
+                <p class="mt-1 text-sm text-slate-300">Combinación de inventario normal e iPhones con conversiones en tiempo real</p>
+            </header>
+            
+            <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <!-- Inventario Normal (excluyendo iPhones) -->
+                <div class="glass-card rounded-2xl p-5 border border-blue-500/20">
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-xs uppercase tracking-widest text-muted">Inventario General</p>
+                        <svg class="h-5 w-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                        </svg>
+                    </div>
+                    <p class="text-2xl font-bold text-slate-100 mb-1">${{ inventario_metrics.valor_catalogo_ars_normal|default:0|floatformat:0|intcomma }}</p>
+                    <p class="text-xs text-slate-400">ARS</p>
+                    {% if inventario_metrics.valor_catalogo_ars_normal_en_usd %}
+                    <div class="mt-3 pt-3 border-t border-slate-700/50">
+                        <p class="text-lg font-semibold text-blue-300">US$ {{ inventario_metrics.valor_catalogo_ars_normal_en_usd|floatformat:2|intcomma }}</p>
+                        <p class="text-xs text-slate-500">Conversión de ARS a USD</p>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- iPhones -->
+                <div class="glass-card rounded-2xl p-5 border border-purple-500/20">
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-xs uppercase tracking-widest text-muted">iPhones</p>
+                        <svg class="h-5 w-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <p class="text-2xl font-bold text-slate-100 mb-1">US$ {{ inventario_metrics.valor_catalogo_usd_iphones|default:0|floatformat:2|intcomma }}</p>
+                    <p class="text-xs text-slate-400">USD</p>
+                    {% if inventario_metrics.valor_catalogo_ars_iphones %}
+                    <div class="mt-3 pt-3 border-t border-slate-700/50">
+                        <p class="text-lg font-semibold text-purple-300">${{ inventario_metrics.valor_catalogo_ars_iphones|floatformat:0|intcomma }}</p>
+                        <p class="text-xs text-slate-500">Conversión de USD a ARS</p>
+                        {% if valor_blue %}
+                        <p class="text-xs text-slate-600 mt-1">Dólar blue: ${{ valor_blue|floatformat:2 }}</p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Total Combinado -->
+                <div class="glass-card rounded-2xl p-5 bg-gradient-to-br from-emerald-500/10 to-blue-500/10 border-2 border-emerald-500/30">
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-xs uppercase tracking-widest text-emerald-300 font-bold">Patrimonio Total</p>
+                        <svg class="h-6 w-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path>
+                        </svg>
+                    </div>
+                    <p class="text-3xl font-bold text-emerald-400 mb-1">${{ inventario_metrics.valor_catalogo_ars|default:0|floatformat:0|intcomma }}</p>
+                    <p class="text-xs text-slate-400">ARS</p>
+                    {% if inventario_metrics.valor_catalogo_usd %}
+                    <div class="mt-3 pt-3 border-t border-emerald-700/50">
+                        <p class="text-xl font-semibold text-emerald-300">US$ {{ inventario_metrics.valor_catalogo_usd|floatformat:2|intcomma }}</p>
+                        <p class="text-xs text-slate-500">Total equivalente en USD</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Desglose adicional -->
+            <div class="mt-6 grid gap-4 md:grid-cols-2">
+                <div class="glass-card rounded-2xl p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs uppercase tracking-widest text-muted">Variantes activas</p>
+                            <p class="text-xl font-bold text-slate-100 mt-1">{{ inventario_metrics.total_activos|default:0|intcomma }}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xs text-slate-400">Total</p>
+                            <p class="text-sm font-semibold text-slate-300">{{ inventario_metrics.total_variantes|default:0|intcomma }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="glass-card rounded-2xl p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs uppercase tracking-widest text-muted">Unidades en stock</p>
+                            <p class="text-xl font-bold text-slate-100 mt-1">{{ inventario_metrics.unidades_totales|default:0|intcomma }}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xs text-slate-400">Sin stock</p>
+                            <p class="text-sm font-semibold text-rose-400">{{ inventario_metrics.total_sin_stock|default:0|intcomma }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        {% endif %}
+
         <!-- Análisis financiero del mes -->
         {% if analisis_financiero %}
         <section class="glass-card rounded-3xl p-6">
@@ -151,6 +268,9 @@
                 <div class="glass-card rounded-2xl p-5">
                     <p class="text-xs uppercase tracking-widest text-muted mb-2">Costo estimado</p>
                     <p class="text-2xl font-bold text-amber-400">${{ analisis_financiero.total_costo_estimado|floatformat:2|intcomma }}</p>
+                    {% if analisis_financiero.total_costo_estimado_usd %}
+                    <p class="mt-2 text-xs text-muted">US$ {{ analisis_financiero.total_costo_estimado_usd|floatformat:2|intcomma }}</p>
+                    {% endif %}
                 </div>
                 <div class="glass-card rounded-2xl p-5 {% if analisis_financiero.es_ganancia %}bg-emerald-500/10 border border-emerald-500/30{% else %}bg-rose-500/10 border border-rose-500/30{% endif %}">
                     <p class="text-xs uppercase tracking-widest text-muted mb-2">Ganancia / Pérdida</p>
@@ -248,6 +368,94 @@
                 </div>
             </article>
         </section>
+        {% endif %}
+
+        <!-- Análisis financiero de ventas mayoristas -->
+        {% if analisis_mayorista %}
+        <section class="glass-card rounded-3xl p-6 border-2 border-purple-500/30">
+            <header class="mb-6">
+                <p class="text-xs font-semibold uppercase tracking-[0.3em] text-muted">Ventas mayoristas</p>
+                <h2 class="text-xl font-semibold text-slate-100">Análisis financiero del mes actual</h2>
+            </header>
+            <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                <div class="glass-card rounded-2xl p-5">
+                    <p class="text-xs uppercase tracking-widest text-muted mb-2">Total ventas</p>
+                    <p class="text-2xl font-bold text-slate-100">${{ analisis_mayorista.total_ventas_mes|floatformat:2|intcomma }}</p>
+                </div>
+                <div class="glass-card rounded-2xl p-5">
+                    <p class="text-xs uppercase tracking-widest text-muted mb-2">Costo estimado</p>
+                    <p class="text-2xl font-bold text-amber-400">${{ analisis_mayorista.total_costo_estimado|floatformat:2|intcomma }}</p>
+                    {% if analisis_mayorista.total_costo_estimado_usd %}
+                    <p class="mt-2 text-xs text-muted">US$ {{ analisis_mayorista.total_costo_estimado_usd|floatformat:2|intcomma }}</p>
+                    {% endif %}
+                </div>
+                <div class="glass-card rounded-2xl p-5 {% if analisis_mayorista.es_ganancia %}bg-emerald-500/10 border border-emerald-500/30{% else %}bg-rose-500/10 border border-rose-500/30{% endif %}">
+                    <p class="text-xs uppercase tracking-widest text-muted mb-2">Ganancia / Pérdida</p>
+                    <p class="text-2xl font-bold {% if analisis_mayorista.es_ganancia %}text-emerald-400{% else %}text-rose-400{% endif %}">
+                        {% if analisis_mayorista.es_ganancia %}+{% endif %}${{ analisis_mayorista.total_ganancia_estimada|floatformat:2|intcomma }}
+                    </p>
+                </div>
+                <div class="glass-card rounded-2xl p-5">
+                    <p class="text-xs uppercase tracking-widest text-muted mb-2">Margen de ganancia</p>
+                    <p class="text-2xl font-bold text-purple-400">{{ analisis_mayorista.margen_porcentaje|floatformat:1 }}%</p>
+                    {% if analisis_mayorista.items_sin_costo > 0 %}
+                    <p class="text-xs text-amber-400 mt-2">⚠ {{ analisis_mayorista.items_sin_costo }} items sin costo registrado</p>
+                    {% endif %}
+                </div>
+            </div>
+        </section>
+
+        <!-- Márgenes por método de pago - Mayoristas -->
+        {% if margenes_mayorista_por_metodo %}
+        <section class="grid gap-6 lg:grid-cols-2">
+            <article class="glass-card rounded-3xl p-6 border-2 border-purple-500/30">
+                <header class="mb-4">
+                    <p class="text-xs font-semibold uppercase tracking-[0.3em] text-muted">Análisis de rentabilidad</p>
+                    <h2 class="text-lg font-semibold text-slate-100">Márgenes por método de pago (Mayoristas)</h2>
+                </header>
+                <div class="h-80">
+                    <canvas id="margenesMayoristaChart"></canvas>
+                </div>
+            </article>
+            
+            <article class="glass-card rounded-3xl p-6 border-2 border-purple-500/30">
+                <header class="mb-4">
+                    <p class="text-xs font-semibold uppercase tracking-[0.3em] text-muted">Desglose detallado</p>
+                    <h2 class="text-lg font-semibold text-slate-100">Rentabilidad por método (Mayoristas)</h2>
+                </header>
+                <div class="space-y-3">
+                    {% for item in margenes_mayorista_por_metodo %}
+                    <div class="glass-card rounded-2xl p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="font-semibold text-slate-100">{{ item.metodo }}</h3>
+                            <span class="text-xs px-2 py-1 rounded-full bg-purple-500/20 text-purple-300">{{ item.cantidad }} ventas</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                                <p class="text-xs text-muted mb-1">Ventas</p>
+                                <p class="font-semibold text-slate-100">${{ item.total_ventas|floatformat:2|intcomma }}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-muted mb-1">Costo</p>
+                                <p class="font-semibold text-amber-400">${{ item.costo|floatformat:2|intcomma }}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-muted mb-1">Ganancia</p>
+                                <p class="font-semibold {% if item.ganancia >= 0 %}text-emerald-400{% else %}text-rose-400{% endif %}">
+                                    {% if item.ganancia >= 0 %}+{% endif %}${{ item.ganancia|floatformat:2|intcomma }}
+                                </p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-muted mb-1">Margen</p>
+                                <p class="font-semibold text-purple-400">{{ item.margen_porcentaje|floatformat:1 }}%</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </article>
+        </section>
+        {% endif %}
         {% endif %}
 
         <section class="grid gap-6 lg:grid-cols-3">
@@ -355,6 +563,9 @@
 {% endif %}
 {% if margenes_por_metodo %}
 {{ margenes_por_metodo|json_script:"margenes-data" }}
+{% endif %}
+{% if margenes_mayorista_por_metodo %}
+{{ margenes_mayorista_por_metodo|json_script:"margenes-mayorista-data" }}
 {% endif %}
 
 <script>
@@ -567,6 +778,145 @@
                         type: 'line',
                         borderColor: 'rgba(139, 92, 246, 1)',
                         backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                        borderWidth: 3,
+                        fill: false,
+                        tension: 0.4,
+                        yAxisID: 'y1',
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            color: '#cbd5e1',
+                            font: {
+                                size: 11
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        titleColor: '#f1f5f9',
+                        bodyColor: '#cbd5e1',
+                        borderColor: 'rgba(148, 163, 184, 0.2)',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.datasetIndex === 3) {
+                                    // Margen porcentaje
+                                    label += context.parsed.y.toFixed(1) + '%';
+                                } else {
+                                    // Valores en pesos
+                                    label += '$' + context.parsed.y.toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        ticks: {
+                            color: '#cbd5e1',
+                            callback: function(value) {
+                                return '$' + value.toLocaleString('es-AR', {maximumFractionDigits: 0});
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(148, 163, 184, 0.1)'
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        ticks: {
+                            color: '#cbd5e1',
+                            callback: function(value) {
+                                return value.toFixed(1) + '%';
+                            }
+                        },
+                        grid: {
+                            drawOnChartArea: false,
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            color: '#cbd5e1'
+                        },
+                        grid: {
+                            color: 'rgba(148, 163, 184, 0.1)'
+                        }
+                    }
+                }
+        }
+    });
+    }
+    {% endif %}
+
+    // Gráfico de márgenes por método de pago - Mayoristas
+    {% if margenes_mayorista_por_metodo %}
+    const margenesMayoristaCtx = document.getElementById('margenesMayoristaChart');
+    if (margenesMayoristaCtx) {
+        const margenesMayoristaData = JSON.parse(document.getElementById('margenes-mayorista-data').textContent);
+        const labelsMayorista = margenesMayoristaData.map(m => m.metodo);
+        const gananciasMayorista = margenesMayoristaData.map(m => m.ganancia);
+        const costosMayorista = margenesMayoristaData.map(m => m.costo);
+        const ventasMayorista = margenesMayoristaData.map(m => m.total_ventas);
+        const margenesMayorista = margenesMayoristaData.map(m => m.margen_porcentaje);
+
+        new Chart(margenesMayoristaCtx, {
+            type: 'bar',
+            data: {
+                labels: labelsMayorista,
+                datasets: [
+                    {
+                        label: 'Ventas ($)',
+                        data: ventasMayorista,
+                        backgroundColor: 'rgba(168, 85, 247, 0.6)',
+                        borderColor: 'rgba(168, 85, 247, 0.8)',
+                        borderWidth: 2,
+                        yAxisID: 'y',
+                    },
+                    {
+                        label: 'Ganancia ($)',
+                        data: gananciasMayorista,
+                        backgroundColor: 'rgba(16, 185, 129, 0.6)',
+                        borderColor: 'rgba(16, 185, 129, 0.8)',
+                        borderWidth: 2,
+                        yAxisID: 'y',
+                    },
+                    {
+                        label: 'Costo ($)',
+                        data: costosMayorista,
+                        backgroundColor: 'rgba(245, 158, 11, 0.6)',
+                        borderColor: 'rgba(245, 158, 11, 0.8)',
+                        borderWidth: 2,
+                        yAxisID: 'y',
+                    },
+                    {
+                        label: 'Margen (%)',
+                        data: margenesMayorista,
+                        type: 'line',
+                        borderColor: 'rgba(168, 85, 247, 1)',
+                        backgroundColor: 'rgba(168, 85, 247, 0.1)',
                         borderWidth: 3,
                         fill: false,
                         tension: 0.4,

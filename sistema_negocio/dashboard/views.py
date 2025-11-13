@@ -37,22 +37,27 @@ def dashboard_view(request):
 
     if inventario_ready:
         variantes_qs = (
-            ProductoVariante.objects.select_related("producto", "producto__categoria", "producto__proveedor")
+            ProductoVariante.objects.select_related("producto", "producto__proveedor")
             .filter(producto__activo=True)
         )
 
         total_variantes = variantes_qs.count()
         total_activos = variantes_qs.filter(activo=True).count()
-        total_bajo_stock = variantes_qs.filter(stock_minimo__gt=0, stock_actual__lte=F("stock_minimo")).count()
+        # Bajo stock siempre es 0, sin stock cuenta productos con stock_actual = 0
+        total_bajo_stock = 0
+        total_sin_stock = variantes_qs.filter(stock_actual=0).count()
         unidades_totales = variantes_qs.aggregate(total=Coalesce(Sum("stock_actual"), 0))["total"]
 
         valor_blue = obtener_valor_dolar_blue()
 
-        valor_catalogo_usd = Precio.objects.filter(
+        # Valor catálogo inventario normal (excluyendo iPhones)
+        valor_catalogo_usd_normal = Precio.objects.filter(
             activo=True,
             tipo=Precio.Tipo.MINORISTA,
             moneda=Precio.Moneda.USD,
             variante__producto__activo=True,
+        ).exclude(
+            variante__producto__categoria__nombre__iexact="Celulares"
         ).aggregate(
             total=Coalesce(
                 Sum(
@@ -63,12 +68,118 @@ def dashboard_view(request):
             )
         )["total"]
 
-        valor_catalogo_ars = Precio.objects.filter(
+        valor_catalogo_ars_normal = Precio.objects.filter(
             activo=True,
             tipo=Precio.Tipo.MINORISTA,
             moneda=Precio.Moneda.ARS,
             variante__producto__activo=True,
+        ).exclude(
+            variante__producto__categoria__nombre__iexact="Celulares"
         ).aggregate(total=Coalesce(Sum(F("precio") * F("variante__stock_actual")), Decimal("0")))["total"]
+        
+        # Valor catálogo iPhones (en USD, convertir a ARS)
+        valor_catalogo_usd_iphones = Precio.objects.filter(
+            activo=True,
+            tipo=Precio.Tipo.MINORISTA,
+            moneda=Precio.Moneda.USD,
+            variante__producto__activo=True,
+            variante__producto__categoria__nombre__iexact="Celulares",
+        ).aggregate(
+            total=Coalesce(
+                Sum(
+                    F("precio") * F("variante__stock_actual"),
+                    output_field=DecimalField(max_digits=18, decimal_places=2),
+                ),
+                Decimal("0"),
+            )
+        )["total"]
+        
+        # Convertir iPhones USD a ARS
+        valor_catalogo_ars_iphones = Decimal("0")
+        if valor_blue and valor_catalogo_usd_iphones:
+            valor_catalogo_ars_iphones = valor_catalogo_usd_iphones * Decimal(str(valor_blue))
+        
+        # Convertir ARS normal a USD para mostrar referencia
+        valor_catalogo_ars_normal_en_usd = Decimal("0")
+        if valor_blue and valor_catalogo_ars_normal > 0:
+            valor_catalogo_ars_normal_en_usd = valor_catalogo_ars_normal / Decimal(str(valor_blue))
+        
+        # Totales combinados
+        # USD total = USD de iPhones + conversión de ARS normal a USD
+        valor_catalogo_usd_total = valor_catalogo_usd_iphones + valor_catalogo_ars_normal_en_usd + valor_catalogo_usd_normal
+        valor_catalogo_ars_total = valor_catalogo_ars_normal + valor_catalogo_ars_iphones
+
+        # ===== Valores catálogo mayorista =====
+        valor_catalogo_mayorista_usd_normal = Precio.objects.filter(
+            activo=True,
+            tipo=Precio.Tipo.MAYORISTA,
+            moneda=Precio.Moneda.USD,
+            variante__producto__activo=True,
+        ).exclude(
+            variante__producto__categoria__nombre__iexact="Celulares"
+        ).aggregate(
+            total=Coalesce(
+                Sum(
+                    F("precio") * F("variante__stock_actual"),
+                    output_field=DecimalField(max_digits=18, decimal_places=2),
+                ),
+                Decimal("0"),
+            )
+        )["total"]
+
+        valor_catalogo_mayorista_ars_normal = Precio.objects.filter(
+            activo=True,
+            tipo=Precio.Tipo.MAYORISTA,
+            moneda=Precio.Moneda.ARS,
+            variante__producto__activo=True,
+        ).exclude(
+            variante__producto__categoria__nombre__iexact="Celulares"
+        ).aggregate(
+            total=Coalesce(
+                Sum(
+                    F("precio") * F("variante__stock_actual"),
+                    output_field=DecimalField(max_digits=18, decimal_places=2),
+                ),
+                Decimal("0"),
+            )
+        )["total"]
+
+        valor_catalogo_mayorista_usd_iphones = Precio.objects.filter(
+            activo=True,
+            tipo=Precio.Tipo.MAYORISTA,
+            moneda=Precio.Moneda.USD,
+            variante__producto__activo=True,
+            variante__producto__categoria__nombre__iexact="Celulares",
+        ).aggregate(
+            total=Coalesce(
+                Sum(
+                    F("precio") * F("variante__stock_actual"),
+                    output_field=DecimalField(max_digits=18, decimal_places=2),
+                ),
+                Decimal("0"),
+            )
+        )["total"]
+
+        valor_catalogo_mayorista_ars_iphones = Decimal("0")
+        if valor_blue and valor_catalogo_mayorista_usd_iphones:
+            valor_catalogo_mayorista_ars_iphones = valor_catalogo_mayorista_usd_iphones * Decimal(str(valor_blue))
+
+        valor_catalogo_mayorista_ars_normal_en_usd = Decimal("0")
+        if valor_blue and valor_catalogo_mayorista_ars_normal > 0:
+            valor_catalogo_mayorista_ars_normal_en_usd = valor_catalogo_mayorista_ars_normal / Decimal(str(valor_blue))
+
+        valor_catalogo_mayorista_usd_total = (
+            valor_catalogo_mayorista_usd_iphones
+            + valor_catalogo_mayorista_ars_normal_en_usd
+            + valor_catalogo_mayorista_usd_normal
+        )
+        valor_catalogo_mayorista_ars_total = valor_catalogo_mayorista_ars_normal + valor_catalogo_mayorista_ars_iphones
+
+        # Totales normal (sin iPhones) para mostrar en tarjeta principal
+        valor_catalogo_minorista_usd_normal_total = valor_catalogo_usd_normal + valor_catalogo_ars_normal_en_usd
+        valor_catalogo_mayorista_usd_normal_total = (
+            valor_catalogo_mayorista_usd_normal + valor_catalogo_mayorista_ars_normal_en_usd
+        )
 
         low_stock_variantes = list(
             variantes_qs.filter(stock_minimo__gt=0, stock_actual__lte=F("stock_minimo"))
@@ -79,9 +190,21 @@ def dashboard_view(request):
             "total_variantes": total_variantes,
             "total_activos": total_activos,
             "total_bajo_stock": total_bajo_stock,
+            "total_sin_stock": total_sin_stock,
             "unidades_totales": unidades_totales,
-            "valor_catalogo_usd": valor_catalogo_usd,
-            "valor_catalogo_ars": valor_catalogo_ars,
+            "valor_catalogo_usd": valor_catalogo_usd_total,
+            "valor_catalogo_ars": valor_catalogo_ars_total,
+            "valor_catalogo_ars_normal_en_usd": valor_catalogo_ars_normal_en_usd,
+            "valor_catalogo_usd_iphones": valor_catalogo_usd_iphones,
+            "valor_catalogo_ars_iphones": valor_catalogo_ars_iphones,
+            "valor_catalogo_usd_normal": valor_catalogo_usd_normal,
+            "valor_catalogo_ars_normal": valor_catalogo_ars_normal,
+            "valor_catalogo_mayorista_ars": valor_catalogo_mayorista_ars_total,
+            "valor_catalogo_mayorista_usd": valor_catalogo_mayorista_usd_total,
+            "valor_catalogo_minorista_ars_normal": valor_catalogo_ars_normal,
+            "valor_catalogo_minorista_usd_normal": valor_catalogo_minorista_usd_normal_total,
+            "valor_catalogo_mayorista_ars_normal": valor_catalogo_mayorista_ars_normal,
+            "valor_catalogo_mayorista_usd_normal": valor_catalogo_mayorista_usd_normal_total,
         }
     else:
         schema_warnings.append(
@@ -170,7 +293,10 @@ def dashboard_view(request):
             detalles_mes = DetalleVenta.objects.filter(
                 venta__fecha__gte=mes_actual_inicio,
                 variante__isnull=False
-            ).select_related("variante", "venta").prefetch_related("variante__detalle_iphone")
+            ).select_related("variante", "venta").prefetch_related(
+                "variante__detalle_iphone",
+                "variante__precios"
+            )
             
             total_costo_estimado = Decimal("0")
             total_ganancia_estimada = Decimal("0")
@@ -257,9 +383,15 @@ def dashboard_view(request):
             
             margenes_por_metodo = sorted(margenes_por_metodo_raw, key=lambda x: x["total_ventas"], reverse=True)
             
+            # Convertir costo estimado a USD
+            costo_estimado_usd = Decimal("0")
+            if valor_blue and total_costo_estimado > 0:
+                costo_estimado_usd = total_costo_estimado / Decimal(str(valor_blue))
+            
             analisis_financiero = {
                 "total_ventas_mes": float(total_ventas_mes),
                 "total_costo_estimado": float(total_costo_estimado),
+                "total_costo_estimado_usd": float(costo_estimado_usd),
                 "total_ganancia_estimada": float(total_ganancia_estimada),
                 "margen_porcentaje": float(margen_porcentaje),
                 "items_con_costo": items_con_costo,
@@ -293,6 +425,13 @@ def dashboard_view(request):
                     if diferencia <= tolerancia:
                         detalles_mayorista.append(detalle)
             
+            # Inicializar analisis_mayorista siempre, incluso si no hay ventas mayoristas
+            total_ventas_mayorista = Decimal("0")
+            total_costo_mayorista = Decimal("0")
+            total_ganancia_mayorista = Decimal("0")
+            items_mayorista_con_costo = 0
+            items_mayorista_sin_costo = 0
+            
             if detalles_mayorista:
                 # Calcular totales de ventas mayoristas
                 ventas_mayorista_ids = list(set([d.venta_id for d in detalles_mayorista]))
@@ -302,11 +441,6 @@ def dashboard_view(request):
                 )["total"] or Decimal("0")
                 
                 # Calcular costos y ganancias de ventas mayoristas
-                total_costo_mayorista = Decimal("0")
-                total_ganancia_mayorista = Decimal("0")
-                items_mayorista_con_costo = 0
-                items_mayorista_sin_costo = 0
-                
                 for detalle in detalles_mayorista:
                     precio_venta = detalle.precio_unitario_ars_congelado * detalle.cantidad
                     costo_ars = None
@@ -328,10 +462,6 @@ def dashboard_view(request):
                     ganancia = precio_venta - costo_ars
                     total_costo_mayorista += costo_ars
                     total_ganancia_mayorista += ganancia
-                
-                margen_mayorista_porcentaje = Decimal("0")
-                if total_ventas_mayorista > 0:
-                    margen_mayorista_porcentaje = (total_ganancia_mayorista / total_ventas_mayorista) * Decimal("100")
                 
                 # Análisis por método de pago para ventas mayoristas
                 for metodo in Venta.MetodoPago.choices:
@@ -380,16 +510,27 @@ def dashboard_view(request):
                     })
                 
                 margenes_mayorista_por_metodo = sorted(margenes_mayorista_por_metodo, key=lambda x: x["total_ventas"], reverse=True)
-                
-                analisis_mayorista = {
-                    "total_ventas_mes": float(total_ventas_mayorista),
-                    "total_costo_estimado": float(total_costo_mayorista),
-                    "total_ganancia_estimada": float(total_ganancia_mayorista),
-                    "margen_porcentaje": float(margen_mayorista_porcentaje),
-                    "items_con_costo": items_mayorista_con_costo,
-                    "items_sin_costo": items_mayorista_sin_costo,
-                    "es_ganancia": total_ganancia_mayorista >= 0,
-                }
+            
+            # Inicializar analisis_mayorista siempre (con valores en 0 si no hay ventas)
+            margen_mayorista_porcentaje = Decimal("0")
+            if total_ventas_mayorista > 0:
+                margen_mayorista_porcentaje = (total_ganancia_mayorista / total_ventas_mayorista) * Decimal("100")
+            
+            # Convertir costo estimado mayorista a USD
+            costo_estimado_mayorista_usd = Decimal("0")
+            if valor_blue and total_costo_mayorista > 0:
+                costo_estimado_mayorista_usd = total_costo_mayorista / Decimal(str(valor_blue))
+            
+            analisis_mayorista = {
+                "total_ventas_mes": float(total_ventas_mayorista),
+                "total_costo_estimado": float(total_costo_mayorista),
+                "total_costo_estimado_usd": float(costo_estimado_mayorista_usd),
+                "total_ganancia_estimada": float(total_ganancia_mayorista),
+                "margen_porcentaje": float(margen_mayorista_porcentaje),
+                "items_con_costo": items_mayorista_con_costo,
+                "items_sin_costo": items_mayorista_sin_costo,
+                "es_ganancia": total_ganancia_mayorista >= 0,
+            }
         
         ventas_metrics = {
             "total_periodo": total,
@@ -447,8 +588,8 @@ def dashboard_view(request):
         "ventas_por_metodo": ventas_por_metodo,
         "analisis_financiero": analisis_financiero,
         "margenes_por_metodo": margenes_por_metodo,
-        "analisis_mayorista": analisis_mayorista if 'analisis_mayorista' in locals() else {},
-        "margenes_mayorista_por_metodo": margenes_mayorista_por_metodo if 'margenes_mayorista_por_metodo' in locals() else [],
+        "analisis_mayorista": analisis_mayorista,
+        "margenes_mayorista_por_metodo": margenes_mayorista_por_metodo,
     }
 
     return render(request, "dashboard/main.html", context)
@@ -474,7 +615,6 @@ def tienda_preview(request):
 
     productos = (
         Producto.objects.filter(activo=True)
-        .select_related("categoria")
         .prefetch_related(
             Prefetch(
                 "variantes",

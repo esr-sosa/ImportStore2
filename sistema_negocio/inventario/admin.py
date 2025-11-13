@@ -12,9 +12,20 @@ from .models import (
 
 @admin.register(Categoria)
 class CategoriaAdmin(admin.ModelAdmin):
-    list_display = ("nombre", "descripcion")
-    search_fields = ("nombre",)
-    ordering = ("nombre",)
+    list_display = ("nombre_completo_display", "parent", "descripcion", "garantia_dias")
+    list_filter = ("parent", "garantia_dias")
+    search_fields = ("nombre", "descripcion")
+    ordering = ("parent__nombre", "nombre")
+    list_select_related = ("parent",)
+    
+    def nombre_completo_display(self, obj):
+        """Muestra el nombre completo con jerarquía."""
+        nivel = obj.get_nivel()
+        indent = "  " * nivel
+        if obj.parent:
+            return f"{indent}└─ {obj.nombre}"
+        return obj.nombre
+    nombre_completo_display.short_description = "Categoría"
 
 
 @admin.register(Proveedor)

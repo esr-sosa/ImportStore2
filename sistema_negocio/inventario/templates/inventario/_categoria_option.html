@@ -1,0 +1,10 @@
+{% url 'inventario:descargar_etiquetas_categoria' categoria_tree.categoria.id as categoria_url %}
+<option value="{{ categoria_url }}">
+  {% if nivel > 0 %}{% for i in "x"|ljust:nivel %}&nbsp;&nbsp;{% endfor %}└─ {% endif %}{{ categoria_tree.categoria.nombre }}{% if categoria_tree.subcategorias %} ({{ categoria_tree.subcategorias|length }} subcategoría{{ categoria_tree.subcategorias|length|pluralize }}){% endif %}
+</option>
+{% if categoria_tree.subcategorias %}
+  {% for subcat_tree in categoria_tree.subcategorias %}
+    {% include "inventario/_categoria_option.html" with categoria_tree=subcat_tree nivel=nivel|add:1 %}
+  {% endfor %}
+{% endif %}
+

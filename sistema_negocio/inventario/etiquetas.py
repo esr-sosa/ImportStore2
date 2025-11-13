@@ -14,6 +14,10 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 import qrcode
+from reportlab.graphics.barcode import qr as reportlab_qr
+from reportlab.graphics.shapes import Drawing
+from reportlab.graphics import renderPDF
+from reportlab.lib.utils import ImageReader
 
 logger = logging.getLogger(__name__)
 
@@ -170,7 +174,7 @@ def _dibujar_etiqueta(canvas_obj, variante, x, y, width, height):
     
     # Nombre del producto (grande y destacado)
     nombre = variante.producto.nombre
-    if variante.nombre_variante:
+    if variante.nombre_variante and variante.nombre_variante.strip() and variante.nombre_variante.lower() != "único":
         nombre = f"{nombre} {variante.nombre_variante}"
     
     # Atributos como descripción
@@ -221,50 +225,72 @@ def _dibujar_etiqueta(canvas_obj, variante, x, y, width, height):
     else:
         info_cursor -= 12
     
-    # Precio (más protagonista, estilo tag premium)
-    precio_y = max(info_cursor, y + 24)
+    # Precio - posicionarlo más abajo para evitar superposición
+    precio_y = max(info_cursor - 12, y + 22)
     
     precio_x = right_x
-    precio_font_size = min(18, int(height * 0.26))
+    precio_font_size = min(22, int(height * 0.30))
 
     if precio_minorista_ars:
         # Formatear precio: separar parte entera y decimal
         precio_valor = float(precio_minorista_ars.precio)
         precio_formateado = f"${precio_valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         
-        # Etiqueta de precio
-        precio_tag_padding_x = 6
-        precio_tag_padding_y = 4
-        precio_font_size = min(18, int(height * 0.26))
+        # Etiqueta de precio más prominente con diseño profesional
+        precio_tag_padding_x = 8
+        precio_tag_padding_y = 5
         canvas_obj.setFont("Helvetica-Bold", precio_font_size)
-        canvas_obj.setFillColor(colors.HexColor("#0f172a"))
         precio_text_width = canvas_obj.stringWidth(precio_formateado, "Helvetica-Bold", precio_font_size)
-        tag_width = precio_text_width + (precio_tag_padding_x * 2)
+        
+        # Calcular ancho máximo disponible para el recuadro del precio
+        # Espacio desde right_x hasta el borde derecho de la etiqueta (x + width)
+        espacio_disponible = (x + width) - right_x - 8  # 8px de margen del borde
+        
+        # Limitar el ancho del recuadro al espacio disponible
+        tag_width = min(precio_text_width + (precio_tag_padding_x * 2), espacio_disponible)
         tag_height = precio_font_size + (precio_tag_padding_y * 2)
         tag_x = right_x
         tag_y = precio_y - precio_tag_padding_y
         
-        # Dibujar contenedor redondeado
-        canvas_obj.setFillColor(colors.HexColor("#e2e8f0"))
-        canvas_obj.roundRect(tag_x - 2, tag_y - 2, tag_width + 4, tag_height + 4, 6, fill=1, stroke=0)
-        canvas_obj.setFillColor(colors.HexColor("#0f172a"))
-        canvas_obj.drawString(tag_x + precio_tag_padding_x, precio_y + (precio_font_size * 0.1), precio_formateado)
+        # Sombra suave
+        canvas_obj.setFillColor(colors.HexColor("#94a3b8"))
+        canvas_obj.setStrokeColor(colors.HexColor("#94a3b8"))
+        canvas_obj.setLineWidth(0.3)
+        canvas_obj.roundRect(tag_x + 1, tag_y - 1, tag_width + 2, tag_height + 2, 6, fill=1, stroke=0)
         
-        # Precio USD si existe (más pequeño, debajo)
+        # Contenedor principal con gradiente
+        canvas_obj.setFillColor(colors.HexColor("#f8fafc"))
+        canvas_obj.setStrokeColor(colors.HexColor("#cbd5e1"))
+        canvas_obj.setLineWidth(1.5)
+        canvas_obj.roundRect(tag_x, tag_y, tag_width + 2, tag_height + 2, 6, fill=1, stroke=1)
+        
+        # Texto del precio (centrado o ajustado si es muy largo)
+        texto_x = tag_x + precio_tag_padding_x
+        # Si el texto es más ancho que el espacio, reducir el tamaño de fuente
+        if precio_text_width > (tag_width - precio_tag_padding_x * 2):
+            precio_font_size_ajustado = int(precio_font_size * 0.85)
+            canvas_obj.setFont("Helvetica-Bold", precio_font_size_ajustado)
+            texto_x = tag_x + 4
+        
+        canvas_obj.setFillColor(colors.HexColor("#0f172a"))
+        canvas_obj.drawString(texto_x, precio_y + (precio_font_size * 0.10), precio_formateado)
+        
+        # Precio USD si existe (debajo, más pequeño)
         if precio_minorista_usd:
             precio_usd_valor = float(precio_minorista_usd.precio)
             precio_texto_usd = f"USD ${precio_usd_valor:,.2f}"
-            canvas_obj.setFont("Helvetica", 7)
-            canvas_obj.setFillColor(colors.HexColor("#64748b"))
-            canvas_obj.drawString(tag_x, tag_y - 10, precio_texto_usd)
+            canvas_obj.setFont("Helvetica-Bold", 7)
+            canvas_obj.setFillColor(colors.HexColor("#475569"))
+            usd_y = tag_y - 10
+            canvas_obj.drawString(tag_x + 2, usd_y, precio_texto_usd)
     else:
         # Sin precio
-        canvas_obj.setFont("Helvetica-Bold", 12)
+        canvas_obj.setFont("Helvetica-Bold", 14)
         canvas_obj.setFillColor(colors.HexColor("#ef4444"))
         canvas_obj.drawString(right_x, precio_y, "Sin precio")
-        precio_font_size = 12
+        precio_font_size = 14
     
-    # Garantía (abajo del precio)
+    # Garantía (abajo del precio) - más visible y profesional
     from configuracion.models import ConfiguracionTienda
     config_tienda = ConfiguracionTienda.obtener_unica()
     garantia_general = config_tienda.garantia_dias_general if config_tienda else 45
@@ -274,11 +300,19 @@ def _dibujar_etiqueta(canvas_obj, variante, x, y, width, height):
     if variante.producto.categoria and variante.producto.categoria.garantia_dias:
         dias_garantia = variante.producto.categoria.garantia_dias
     
-    garantia_text = f"Garantía de {dias_garantia} días"
-    canvas_obj.setFont("Helvetica", 7)
-    canvas_obj.setFillColor(colors.HexColor("#475569"))
+    garantia_text = f"✓ Garantía {dias_garantia} días"
+    canvas_obj.setFont("Helvetica-Bold", 7)
+    canvas_obj.setFillColor(colors.HexColor("#10b981"))
     garantia_y = y + 14
-    canvas_obj.drawString(precio_x, garantia_y, garantia_text)
+    # Dibujar fondo para la garantía
+    garantia_width = canvas_obj.stringWidth(garantia_text, "Helvetica-Bold", 7)
+    # Limitar el ancho al espacio disponible
+    garantia_width_max = (x + width) - right_x - 8
+    garantia_width = min(garantia_width, garantia_width_max)
+    canvas_obj.setFillColor(colors.HexColor("#d1fae5"))
+    canvas_obj.roundRect(right_x, garantia_y - 2, garantia_width + 4, 10, 4, fill=1, stroke=0)
+    canvas_obj.setFillColor(colors.HexColor("#047857"))
+    canvas_obj.drawString(right_x + 2, garantia_y, garantia_text)
 
 
 def generar_etiqueta_individual_pdf(variante):
@@ -296,15 +330,144 @@ def generar_etiqueta_individual_pdf(variante):
     x = (width - etiqueta_width) / 2
     y = (height - etiqueta_height) / 2
     
-    # Dibujar borde de la etiqueta (opcional, para referencia)
-    c.setStrokeColor(colors.grey)
-    c.setLineWidth(0.5)
+    # Dibujar borde de la etiqueta más sutil
+    c.setStrokeColor(colors.HexColor("#cbd5e1"))
+    c.setLineWidth(1)
+    c.setDash([3, 2])  # Línea punteada
     c.rect(x, y, etiqueta_width, etiqueta_height, stroke=1, fill=0)
+    c.setDash([])  # Volver a línea sólida
     
     # Dibujar contenido de la etiqueta
     _dibujar_etiqueta(c, variante, x, y, etiqueta_width, etiqueta_height)
     
     c.save()
     buffer.seek(0)
-    return ContentFile(buffer.read(), name="etiqueta.pdf")
+    return buffer  # Retornar BytesIO directamente
 
+
+def generar_etiqueta(buffer, detalle_iphone):
+    """
+    Genera una etiqueta térmica profesional (50mm x 30mm) para un iPhone específico.
+    
+    Args:
+        buffer (BytesIO): Buffer sobre el que se escribirá el PDF.
+        detalle_iphone (DetalleIphone): Instancia con información del iPhone.
+    """
+    page_width = 50 * mm
+    page_height = 30 * mm
+    c = canvas.Canvas(buffer, pagesize=(page_width, page_height))
+
+    # Fondo
+    c.setFillColor(colors.white)
+    c.rect(0, 0, page_width, page_height, fill=1, stroke=0)
+
+    variante = detalle_iphone.variante
+    producto = variante.producto if variante else None
+
+    modelo = producto.nombre if producto else "iPhone"
+    capacidad = variante.atributo_1 or ""
+    header_text = f"{modelo} - {capacidad}".strip(" -")
+    color_text = variante.atributo_2 if variante and variante.atributo_2 else "Sin especificar"
+    bateria = detalle_iphone.salud_bateria
+    bateria_text = f"{int(bateria)}%" if bateria is not None else "—"
+    imei = detalle_iphone.imei or "SIN IMEI"
+    sku = variante.sku if variante and variante.sku else "SKU"
+
+    def mm_to_pt(value_mm: float) -> float:
+        return value_mm * 72 / 25.4
+
+    def svg_x(x_mm: float) -> float:
+        return mm_to_pt(x_mm)
+
+    def svg_y(y_mm: float) -> float:
+        return page_height - mm_to_pt(y_mm)
+
+    # Encabezado (tamaño base 3.8 mm, ajustar si excede anchura)
+    font_size_header_mm = 3.8
+    font_size_header = mm_to_pt(font_size_header_mm)
+    c.setFont("Helvetica-Bold", font_size_header)
+    max_header_width = svg_x(48) - svg_x(2)
+    header_width = c.stringWidth(header_text, "Helvetica-Bold", font_size_header)
+    if header_width > max_header_width:
+        scale = max_header_width / header_width
+        font_size_header *= scale
+        c.setFont("Helvetica-Bold", font_size_header)
+    c.setFillColor(colors.black)
+    c.drawString(svg_x(2), svg_y(6), header_text)
+
+    # Línea separadora
+    c.setStrokeColor(colors.black)
+    c.setLineWidth(mm_to_pt(0.3))
+    c.line(svg_x(2), svg_y(8), svg_x(48), svg_y(8))
+
+    # Color
+    c.setFont("Helvetica", mm_to_pt(2.8))
+    c.setFillColor(colors.black)
+    c.drawString(svg_x(2), svg_y(13), f"Color: {color_text}")
+
+    # Batería
+    c.setFont("Helvetica-Bold", mm_to_pt(2.8))
+    c.drawString(svg_x(2), svg_y(17), f"Bat: {bateria_text}")
+
+    # Marco QR (dashed)
+    qr_frame_size = 17
+    qr_frame_x = 31
+    qr_frame_y = 9
+    c.setStrokeColor(colors.black)
+    c.setLineWidth(mm_to_pt(0.2))
+    c.setDash(mm_to_pt(1), mm_to_pt(1))
+    c.rect(svg_x(qr_frame_x), svg_y(qr_frame_y + qr_frame_size), mm_to_pt(qr_frame_size), mm_to_pt(qr_frame_size), stroke=1, fill=0)
+    c.setDash()
+
+    # QR interno (14 mm)
+    qr_inner_size = 14
+    qr_inner_x = 32.5
+    qr_inner_y = 10.5
+    try:
+        qr = qrcode.QRCode(
+            version=2,
+            error_correction=qrcode.constants.ERROR_CORRECT_M,
+            box_size=3,
+            border=0,
+        )
+        qr.add_data(sku)
+        qr.make(fit=True)
+        qr_img = qr.make_image(fill_color="black", back_color="white")
+        qr_buffer = BytesIO()
+        qr_img.save(qr_buffer, format="PNG")
+        qr_buffer.seek(0)
+        qr_reader = ImageReader(qr_buffer)
+        c.drawImage(
+            qr_reader,
+            svg_x(qr_inner_x),
+            svg_y(qr_inner_y + qr_inner_size),
+            width=mm_to_pt(qr_inner_size),
+            height=mm_to_pt(qr_inner_size),
+            preserveAspectRatio=True,
+            anchor='sw',
+        )
+    except Exception as exc:  # pragma: no cover
+        logger.error("Error generando QR: %s", exc)
+        c.setStrokeColor(colors.black)
+        c.rect(
+            svg_x(qr_inner_x),
+            svg_y(qr_inner_y + qr_inner_size),
+            mm_to_pt(qr_inner_size),
+            mm_to_pt(qr_inner_size),
+            stroke=1,
+            fill=0,
+        )
+
+    # IMEI (abajo izquierda, Courier)
+    c.setFont("Courier", mm_to_pt(2.2))
+    c.setFillColor(colors.black)
+    c.drawString(svg_x(2), svg_y(28.5), f"IMEI: {imei}")
+
+    # SKU (abajo derecha, pequeño)
+    c.setFont("Helvetica", mm_to_pt(2.0))
+    c.setFillColor(colors.HexColor("#555555"))
+    c.drawRightString(svg_x(48), svg_y(28.5), f"SKU: {sku}")
+
+    c.showPage()
+    c.save()
+    buffer.seek(0)

@@ -1,0 +1,63 @@
+{% load humanize %}
+<div class="{% if nivel > 0 %}ml-6 border-l-2 border-indigo-500/30 pl-4{% endif %}">
+  <div class="flex items-start justify-between gap-4 px-5 py-4 transition-all hover:bg-slate-800/30 {% if nivel > 0 %}bg-slate-800/10 rounded-r-xl{% endif %}">
+    <div class="flex-1">
+      <div class="flex items-center gap-2">
+        {% if nivel > 0 %}
+          <svg class="h-4 w-4 flex-shrink-0 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+        {% else %}
+          <div class="h-4 w-4 flex-shrink-0 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500"></div>
+        {% endif %}
+        <div class="flex-1">
+          <p class="font-semibold text-slate-100">
+            {{ categoria_tree.categoria.nombre }}
+            {% if categoria_tree.categoria.es_subcategoria %}
+              <span class="ml-2 rounded-full bg-indigo-500/20 px-2 py-0.5 text-xs font-normal text-indigo-300">Subcategoría</span>
+            {% else %}
+              <span class="ml-2 rounded-full bg-purple-500/20 px-2 py-0.5 text-xs font-normal text-purple-300">Principal</span>
+            {% endif %}
+          </p>
+          <p class="mt-1 text-xs text-slate-400">
+            {{ categoria_tree.categoria.descripcion|default:"Sin descripción" }}
+            {% if categoria_tree.categoria.garantia_dias %}
+              · <span class="text-indigo-400 font-semibold">{{ categoria_tree.categoria.garantia_dias }} días de garantía</span>
+            {% endif %}
+            {% if categoria_tree.categoria.parent %}
+              · <span class="text-slate-500">Padre: {{ categoria_tree.categoria.parent.nombre }}</span>
+            {% endif %}
+          </p>
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      {% if categoria_tree.subcategorias %}
+        <div class="flex items-center gap-2 rounded-full bg-indigo-500/20 px-3 py-1 text-xs font-semibold text-indigo-300 mr-2">
+          <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+          </svg>
+          {{ categoria_tree.subcategorias|length }} subcategoría{{ categoria_tree.subcategorias|length|pluralize }}
+        </div>
+      {% endif %}
+      <button onclick="editarCategoria({{ categoria_tree.categoria.id }}, '{{ categoria_tree.categoria.nombre|escapejs }}', '{{ categoria_tree.categoria.descripcion|escapejs }}', {{ categoria_tree.categoria.garantia_dias|default:'null' }}, {{ categoria_tree.categoria.parent.id|default:'null' }})" class="rounded-lg bg-blue-500/20 px-3 py-1.5 text-xs font-semibold text-blue-300 hover:bg-blue-500/30 transition-all" title="Editar">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+        </svg>
+      </button>
+      <button onclick="eliminarCategoria({{ categoria_tree.categoria.id }}, '{{ categoria_tree.categoria.nombre|escapejs }}')" class="rounded-lg bg-rose-500/20 px-3 py-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/30 transition-all" title="Eliminar">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+  {% if categoria_tree.subcategorias %}
+    <div class="space-y-1">
+      {% for subcat_tree in categoria_tree.subcategorias %}
+        {% include "inventario/maestros/_categoria_item.html" with categoria_tree=subcat_tree nivel=nivel|add:1 %}
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
+

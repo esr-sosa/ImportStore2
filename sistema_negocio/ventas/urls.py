@@ -26,4 +26,5 @@ urlpatterns = [
     path("api/buscar-clientes/", views.buscar_clientes_api, name="buscar_clientes_api"),
     path("api/crear/", views.crear_venta_api, name="crear_venta_api"),
     path("api/ultima-venta/", views.ultima_venta_api, name="ultima_venta_api"),
+    path("api/actualizar-stock-variante/", views.actualizar_stock_variante_api, name="actualizar_stock_variante_api"),
 ]

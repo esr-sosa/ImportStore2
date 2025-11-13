@@ -14,4 +14,5 @@ urlpatterns = [
     path('eliminar/<int:variante_id>/', views.eliminar_iphone, name='eliminar_iphone'),
     path('toggle-status/<int:variante_id>/', views.toggle_iphone_status, name='toggle_iphone_status'),
     path('historial/', views.iphone_historial, name='historial'),
+    path('etiqueta/<int:detalle_id>/', views.descargar_etiqueta_iphone, name='descargar_etiqueta_iphone'),
 ]
