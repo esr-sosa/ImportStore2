@@ -161,7 +161,7 @@ class Precio(models.Model):
             models.Index(fields=["activo"], name="idx_precio_activo"),
             models.Index(fields=["variante", "tipo", "moneda"], name="idx_precio_var_tipo_mon"),
         ]
-        # ⚠️ Antes de activar este UniqueConstraint en una migración, verificá duplicados.
+        # NOTA: Antes de activar este UniqueConstraint en una migración, verificá duplicados.
         # constraints = [
         #     models.UniqueConstraint(
         #         fields=["variante", "tipo", "moneda"],

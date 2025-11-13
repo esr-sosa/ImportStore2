@@ -3,10 +3,9 @@ from django import forms
 from .models import ConfiguracionSistema, ConfiguracionTienda, PreferenciaUsuario
 
 TEXT_INPUT_BASE = (
-    "mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm "
-    "font-medium text-slate-700 shadow-sm focus:border-slate-400 focus:outline-none "
-    "focus:ring-2 focus:ring-slate-200/60 dark:border-slate-700 dark:bg-slate-900 "
-    "dark:text-slate-100 dark:focus:border-slate-500"
+    "mt-1 w-full rounded-2xl border-2 border-slate-600/40 bg-slate-800/90 px-3 py-2 text-sm "
+    "font-medium text-slate-100 shadow-lg placeholder-slate-400 focus:border-blue-500 focus:bg-slate-800 focus:outline-none "
+    "focus:ring-2 focus:ring-blue-500/30 transition-all"
 )
 
 
@@ -67,13 +66,13 @@ class ConfiguracionSistemaForm(forms.ModelForm):
             if nombre == "color_principal":
                 campo.widget.attrs.setdefault(
                     "class",
-                    "h-10 w-20 rounded-full border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900",
+                    "h-10 w-20 rounded-full border-2 border-slate-600/40 bg-slate-800/90",
                 )
                 continue
             if isinstance(campo.widget, forms.CheckboxInput):
                 campo.widget.attrs.update(
                     {
-                        "class": "h-5 w-5 rounded border-slate-300 text-slate-700 focus:ring-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200",
+                        "class": "h-5 w-5 rounded border-slate-500 bg-slate-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-800",
                     }
                 )
                 continue
@@ -98,7 +97,7 @@ class PreferenciaUsuarioForm(forms.ModelForm):
         widgets = {
             "usa_modo_oscuro": forms.CheckboxInput(
                 attrs={
-                    "class": "h-5 w-5 rounded border-slate-300 text-slate-700 focus:ring-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200",
+                    "class": "h-5 w-5 rounded border-slate-500 bg-slate-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-800",
                 }
             ),
         }

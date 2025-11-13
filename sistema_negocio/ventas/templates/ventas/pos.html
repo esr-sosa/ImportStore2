@@ -9,6 +9,10 @@
     @media (max-width: 1024px) {
         #pos-layout { grid-template-columns: minmax(0, 1fr); }
     }
+    @media (max-width: 640px) {
+        #pos-layout { gap: 1rem; }
+        .glass-panel { padding: 1rem !important; }
+    }
     /* Modal de confirmación */
     #sale-success-modal {
         display: none;
@@ -81,70 +85,102 @@
         border-radius: 0.75rem;
         transition: all 0.2s;
     }
+    /* Estilo iOS para el modal */
+    .modal-content {
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+    }
+    .modal-content h3 {
+        font-weight: 700;
+        letter-spacing: -0.5px;
+    }
+    .modal-content .modal-buttons a:first-child {
+        background: linear-gradient(135deg, #007AFF 0%, #0051D5 100%);
+        box-shadow: 0 4px 14px rgba(0, 122, 255, 0.3);
+    }
+    .modal-content .modal-buttons a:first-child:hover {
+        background: linear-gradient(135deg, #0051D5 0%, #003D9E 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(0, 122, 255, 0.4);
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="min-h-screen w-full px-4 py-8 sm:px-6 lg:px-10">
-    <header class="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+<div class="min-h-screen w-full px-2 sm:px-4 py-4 sm:py-8 lg:px-10">
+    <header class="mb-4 sm:mb-8 flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
             <p class="text-xs font-semibold uppercase tracking-wider text-indigo-500">POS · ImportStore</p>
-            <h1 class="text-3xl font-bold text-slate-900 sm:text-4xl">Terminal de ventas táctil</h1>
-            <p class="mt-2 max-w-3xl text-sm text-slate-600">Construí carritos con variantes, aplicá descuentos por producto u operación, registrá métodos de pago mixtos y obtené totales con impuestos.</p>
+            <h1 class="text-xl sm:text-3xl font-bold text-slate-900 lg:text-4xl">Terminal de ventas táctil</h1>
+            <p class="mt-1 sm:mt-2 max-w-3xl text-xs sm:text-sm text-slate-600">Construí carritos con variantes, aplicá descuentos por producto u operación, registrá métodos de pago mixtos y obtené totales con impuestos.</p>
         </div>
-        <div class="flex flex-col items-end gap-3">
-            <div id="dolar-indicator" class="hidden rounded-full border-2 border-green-500 bg-green-50 px-4 py-2 text-xs font-semibold text-green-700 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-end gap-2 sm:gap-3">
+            <div id="pos-remoto-status" class="flex items-center gap-2 rounded-full border-2 border-rose-500/40 bg-rose-500/20 px-3 py-1.5 text-xs font-semibold text-rose-300 shadow-sm">
+                <span class="h-2 w-2 rounded-full bg-rose-400 animate-pulse"></span>
+                <span class="hidden sm:inline">POS remoto desconectado</span>
+                <span class="sm:hidden">Remoto desconectado</span>
+            </div>
+            <div id="dolar-indicator" class="hidden rounded-full border-2 border-green-500 bg-green-50 px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-semibold text-green-700 shadow-sm">
                 <span class="font-bold">Dólar Blue:</span> <span id="dolar-value" data-value="{{ dolar_blue|default:"0" }}">${{ dolar_blue|default:"0"|floatformat:2 }}</span>
             </div>
-            <div class="flex flex-wrap gap-3 text-xs font-semibold">
-                <button id="load-last" class="rounded-full border border-slate-200 bg-white/70 px-4 py-2 text-slate-600 hover:text-slate-900">Última venta</button>
-                <button id="export-cart" class="rounded-full bg-slate-900 px-4 py-2 text-white shadow-lg shadow-slate-900/20 hover:bg-slate-800 disabled:bg-slate-400" disabled>Descargar comprobante</button>
+            <div class="flex flex-wrap gap-2 sm:gap-3 text-xs font-semibold">
+                <a href="{% url 'ventas:pos_remoto' %}" target="_blank" class="rounded-full border-2 border-blue-600/40 bg-blue-600/20 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-blue-600 hover:bg-blue-600/30 transition shadow-sm flex items-center gap-1.5 sm:gap-2">
+                    <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                    </svg>
+                    <span class="hidden sm:inline">POS Remoto</span>
+                    <span class="sm:hidden">Remoto</span>
+                </a>
+                <button id="load-last" class="rounded-full border border-slate-200 bg-white/70 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-slate-600 hover:text-slate-900">Última venta</button>
+                <button id="export-cart" class="rounded-full bg-slate-900 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-white shadow-lg shadow-slate-900/20 hover:bg-slate-800 disabled:bg-slate-400" disabled>Comprobante</button>
             </div>
         </div>
     </header>
 
-    <div id="pos-layout" class="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+    <div id="pos-layout" class="grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <!-- Lado izquierdo: buscador y carrito -->
-        <section class="glass-panel rounded-3xl border border-white/60 p-6 shadow-xl">
-            <div class="rounded-3xl border border-slate-200/70 bg-white/90 p-5 shadow-sm">
-                <div class="flex items-center justify-between mb-2">
+        <section class="glass-panel rounded-2xl sm:rounded-3xl border border-white/60 p-3 sm:p-6 shadow-xl">
+            <div class="rounded-2xl sm:rounded-3xl border border-slate-200/70 bg-white/90 p-3 sm:p-5 shadow-sm">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                     <label for="product-search" class="text-xs font-semibold uppercase tracking-wide text-slate-500">Buscar producto</label>
-                    <button id="add-custom-product" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 px-3 py-1 rounded-lg hover:bg-indigo-50 transition">
+                    <button id="add-custom-product" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 px-2 sm:px-3 py-1 rounded-lg hover:bg-indigo-50 transition">
                         + Producto varios
                     </button>
                 </div>
-                <div class="relative mt-3">
-                    <input id="product-search" type="search" placeholder="Nombre, SKU o atributo" class="w-full rounded-2xl border border-transparent bg-slate-100 px-5 py-3 text-sm text-slate-900 focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
+                <div class="relative mt-2 sm:mt-3">
+                    <input id="product-search" type="search" placeholder="Nombre, SKU o atributo" class="w-full rounded-xl sm:rounded-2xl border border-transparent bg-slate-100 px-3 sm:px-5 py-2 sm:py-3 text-xs sm:text-sm text-slate-900 focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
                     <div id="search-dropdown" class="absolute left-0 top-12 z-20 hidden max-h-72 w-full overflow-y-auto rounded-2xl border border-slate-200/70 bg-white shadow-xl"></div>
                 </div>
             </div>
 
-            <div class="mt-6 overflow-hidden rounded-3xl border border-white/60 shadow-inner">
-                <table class="min-w-full divide-y divide-slate-200/70 text-sm">
+            <div class="mt-4 sm:mt-6 overflow-hidden rounded-2xl sm:rounded-3xl border border-white/60 shadow-inner">
+                <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-200/70 text-xs sm:text-sm">
                     <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
                         <tr>
-                            <th class="px-4 py-3 text-left">Producto</th>
-                            <th class="px-4 py-3 text-center">Cant.</th>
-                            <th class="px-4 py-3 text-right">Precio</th>
-                            <th class="px-4 py-3 text-right">Desc.</th>
-                            <th class="px-4 py-3 text-right">Total</th>
-                            <th class="px-4 py-3"></th>
+                            <th class="px-2 sm:px-4 py-2 sm:py-3 text-left">Producto</th>
+                            <th class="px-2 sm:px-4 py-2 sm:py-3 text-center">Cant.</th>
+                            <th class="px-2 sm:px-4 py-2 sm:py-3 text-right hidden sm:table-cell">Precio</th>
+                            <th class="px-2 sm:px-4 py-2 sm:py-3 text-right hidden md:table-cell">Desc.</th>
+                            <th class="px-2 sm:px-4 py-2 sm:py-3 text-right">Total</th>
+                            <th class="px-2 sm:px-4 py-2 sm:py-3"></th>
                         </tr>
                     </thead>
                     <tbody id="cart-body" class="divide-y divide-slate-200/70 bg-white/80">
-                        <tr id="empty-cart" class="text-center text-sm text-slate-400">
-                            <td colspan="6" class="px-4 py-12">Buscá un producto para iniciar la venta.</td>
+                        <tr id="empty-cart" class="text-center text-xs sm:text-sm text-slate-400">
+                            <td colspan="6" class="px-2 sm:px-4 py-8 sm:py-12">Buscá un producto para iniciar la venta.</td>
                         </tr>
                     </tbody>
                 </table>
+                </div>
             </div>
         </section>
 
         <!-- Lado derecho: resumen -->
-        <aside class="glass-panel flex h-full flex-col gap-6 rounded-3xl border border-white/60 p-6 shadow-xl">
-            <section class="rounded-3xl border border-slate-200/60 bg-white/90 p-5 shadow-sm">
-                <h2 class="text-base font-semibold text-slate-900">Resumen</h2>
-                <dl class="mt-4 space-y-3 text-sm text-slate-600">
+        <aside class="glass-panel flex h-full flex-col gap-4 sm:gap-6 rounded-2xl sm:rounded-3xl border border-white/60 p-3 sm:p-6 shadow-xl">
+            <section class="rounded-2xl sm:rounded-3xl border border-slate-200/60 bg-white/90 p-3 sm:p-5 shadow-sm">
+                <h2 class="text-sm sm:text-base font-semibold text-slate-900">Resumen</h2>
+                <dl class="mt-3 sm:mt-4 space-y-2 sm:space-y-3 text-xs sm:text-sm text-slate-600">
                     <div class="flex items-center justify-between">
                         <dt>Subtotal</dt>
                         <dd id="summary-subtotal" class="font-semibold text-slate-900">$0.00</dd>
@@ -162,21 +198,21 @@
                         <dd id="summary-tax" class="font-semibold text-slate-900">$0.00</dd>
                     </div>
                 </dl>
-                <div class="mt-5 rounded-2xl border border-slate-200 bg-slate-900 p-5 text-white shadow-lg">
-                    <div class="flex items-center justify-between text-sm uppercase tracking-wide text-slate-300">
+                <div class="mt-4 sm:mt-5 rounded-xl sm:rounded-2xl border border-slate-200 bg-slate-900 p-3 sm:p-5 text-white shadow-lg">
+                    <div class="flex items-center justify-between text-xs sm:text-sm uppercase tracking-wide text-slate-300">
                         <span>Total a cobrar</span>
                         <span id="summary-items" class="font-semibold">0 ítems</span>
                     </div>
-                    <p id="summary-total" class="mt-2 text-3xl font-bold">$0.00</p>
+                    <p id="summary-total" class="mt-2 text-2xl sm:text-3xl font-bold">$0.00</p>
                 </div>
             </section>
 
-            <section class="rounded-3xl border border-slate-200/60 bg-white/90 p-5 shadow-sm">
-                <h3 class="text-sm font-semibold text-slate-900">Ajustes</h3>
-                <div class="mt-4 space-y-4 text-sm">
+            <section class="rounded-2xl sm:rounded-3xl border border-slate-200/60 bg-white/90 p-3 sm:p-5 shadow-sm">
+                <h3 class="text-xs sm:text-sm font-semibold text-slate-900">Ajustes</h3>
+                <div class="mt-3 sm:mt-4 space-y-3 sm:space-y-4 text-xs sm:text-sm">
                     <div>
                         <label for="sale-status" class="block font-semibold text-slate-600">Estado de la venta</label>
-                        <select id="sale-status" class="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm">
+                        <select id="sale-status" class="mt-2 w-full rounded-lg sm:rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm">
                             <option value="COMPLETADO">Completado</option>
                             <option value="PENDIENTE_PAGO">Pendiente de pago</option>
                             <option value="PENDIENTE_ENVIO">Pendiente de envío</option>
@@ -186,16 +222,16 @@
                     <div>
                         <label class="flex items-center justify-between font-semibold text-slate-600">
                             Descuento general
-                            <select id="global-discount-type" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
+                            <select id="global-discount-type" class="rounded-lg sm:rounded-xl border border-slate-200 bg-white px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm">
                                 <option value="monto">Monto</option>
                                 <option value="porcentaje">Porcentaje</option>
                             </select>
                         </label>
-                        <input id="global-discount-value" type="number" min="0" step="0.01" class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2 text-sm" placeholder="0">
+                        <input id="global-discount-value" type="number" min="0" step="0.01" class="mt-2 w-full rounded-lg sm:rounded-xl border border-slate-200 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm" placeholder="0">
                     </div>
                     <div class="flex items-center justify-between">
                         <label class="flex items-center gap-2 text-slate-600"><input type="checkbox" id="toggle-tax" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500">Aplicar IVA</label>
-                        <input id="tax-rate" type="number" value="21" min="0" step="0.1" class="w-20 rounded-xl border border-slate-200 px-3 py-2 text-sm text-right" disabled>
+                        <input id="tax-rate" type="number" value="21" min="0" step="0.1" class="w-16 sm:w-20 rounded-lg sm:rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-right" disabled>
                     </div>
                     <div>
                         <label class="flex items-center gap-2 text-slate-600 mb-2">
@@ -204,50 +240,80 @@
                         </label>
                         <div id="pago-simple" class="space-y-2">
                             <label for="payment-method" class="block text-xs text-slate-500">Método de pago</label>
-                            <select id="payment-method" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm">
+                            <select id="payment-method" class="w-full rounded-lg sm:rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm">
                                 <option value="EFECTIVO_ARS">Efectivo (ARS)</option>
                                 <option value="EFECTIVO_USD">Efectivo (USD)</option>
                                 <option value="TRANSFERENCIA">Transferencia</option>
                                 <option value="TARJETA">Tarjeta</option>
                             </select>
+                            <div class="mt-2 space-y-2">
+                                <label class="flex items-center gap-2 text-xs text-slate-600">
+                                    <input type="checkbox" id="descuento-metodo-pago-toggle" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500">
+                                    <span>Descuento por método de pago</span>
+                                </label>
+                                <div id="descuento-metodo-pago-container" class="hidden flex items-center gap-2">
+                                    <input type="number" id="descuento-metodo-pago-porcentaje" min="0" max="100" step="0.01" value="15" class="flex-1 rounded-lg sm:rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm" placeholder="15">
+                                    <span class="text-xs text-slate-500 whitespace-nowrap">%</span>
+                                </div>
+                            </div>
                         </div>
                         <div id="pago-mixto" class="hidden space-y-3 mt-3">
                             <div>
                                 <label for="payment-method-1" class="block text-xs font-semibold text-slate-600 mb-1">Medio de pago 1</label>
-                                <select id="payment-method-1" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm">
+                                <select id="payment-method-1" class="w-full rounded-lg sm:rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm">
                                     <option value="EFECTIVO_ARS">Efectivo (ARS)</option>
                                     <option value="EFECTIVO_USD">Efectivo (USD)</option>
                                     <option value="TRANSFERENCIA">Transferencia</option>
                                     <option value="TARJETA">Tarjeta</option>
                                 </select>
+                                <div class="mt-2 space-y-2">
+                                    <label class="flex items-center gap-2 text-xs text-slate-600">
+                                        <input type="checkbox" id="descuento-metodo-pago-1-toggle" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500">
+                                        <span>Descuento por método de pago 1</span>
+                                    </label>
+                                    <div id="descuento-metodo-pago-1-container" class="hidden flex items-center gap-2">
+                                        <input type="number" id="descuento-metodo-pago-1-porcentaje" min="0" max="100" step="0.01" value="15" class="w-full rounded-lg sm:rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm" placeholder="15">
+                                        <span class="text-xs text-slate-500">%</span>
+                                    </div>
+                                </div>
                             </div>
                             <div>
                                 <label for="monto-pago-1" class="block text-xs font-semibold text-slate-600 mb-1">Monto pago 1</label>
-                                <input type="number" id="monto-pago-1" min="0" step="0.01" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="0.00">
+                                <input type="number" id="monto-pago-1" min="0" step="0.01" class="w-full rounded-lg sm:rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm" placeholder="0.00">
                             </div>
                             <div>
                                 <label for="payment-method-2" class="block text-xs font-semibold text-slate-600 mb-1">Medio de pago 2 (restante)</label>
-                                <select id="payment-method-2" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm">
+                                <select id="payment-method-2" class="w-full rounded-lg sm:rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm">
                                     <option value="EFECTIVO_ARS">Efectivo (ARS)</option>
                                     <option value="EFECTIVO_USD">Efectivo (USD)</option>
                                     <option value="TRANSFERENCIA">Transferencia</option>
                                     <option value="TARJETA">Tarjeta</option>
                                 </select>
+                                <div class="mt-2 space-y-2">
+                                    <label class="flex items-center gap-2 text-xs text-slate-600">
+                                        <input type="checkbox" id="descuento-metodo-pago-2-toggle" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500">
+                                        <span>Descuento por método de pago 2</span>
+                                    </label>
+                                    <div id="descuento-metodo-pago-2-container" class="hidden flex items-center gap-2">
+                                        <input type="number" id="descuento-metodo-pago-2-porcentaje" min="0" max="100" step="0.01" value="15" class="w-full rounded-lg sm:rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm" placeholder="15">
+                                        <span class="text-xs text-slate-500">%</span>
+                                    </div>
+                                </div>
                             </div>
                             <div>
                                 <label for="monto-pago-2" class="block text-xs font-semibold text-slate-600 mb-1">Monto pago 2 (calculado automáticamente)</label>
-                                <input type="number" id="monto-pago-2" readonly class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm" placeholder="0.00">
+                                <input type="text" id="monto-pago-2" readonly class="w-full rounded-lg sm:rounded-xl border border-slate-200 bg-slate-100 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-slate-900" placeholder="0.00">
                             </div>
                         </div>
                     </div>
                     <div>
                         <label for="sale-note" class="block font-semibold text-slate-600">Nota interna</label>
-                        <textarea id="sale-note" rows="3" class="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Observaciones, referencia de pedido o link de pago"></textarea>
+                        <textarea id="sale-note" rows="3" class="mt-2 w-full rounded-lg sm:rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm" placeholder="Observaciones, referencia de pedido o link de pago"></textarea>
                     </div>
                     <div>
                         <label for="customer-search" class="block font-semibold text-slate-600">Cliente (opcional)</label>
                         <div class="relative mt-2">
-                            <input id="customer-search" type="text" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Buscar cliente o dejar en blanco (consumidor final)">
+                            <input id="customer-search" type="text" class="w-full rounded-lg sm:rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm" placeholder="Buscar cliente o dejar en blanco (consumidor final)">
                             <div id="customer-dropdown" class="absolute left-0 top-full z-20 mt-1 hidden max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl"></div>
                         </div>
                         <input type="hidden" id="customer-id" value="">
@@ -263,24 +329,25 @@
                 </div>
             </section>
 
-            <button id="complete-sale" class="rounded-3xl bg-slate-900 py-4 text-lg font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:bg-slate-800 disabled:bg-slate-400 disabled:shadow-none">Registrar venta</button>
+            <button id="complete-sale" class="rounded-2xl sm:rounded-3xl bg-slate-900 py-3 sm:py-4 text-sm sm:text-lg font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:bg-slate-800 disabled:bg-slate-400 disabled:shadow-none">Registrar venta</button>
             <a id="last-sale-link" href="#" class="hidden text-center text-xs font-semibold text-indigo-600 hover:text-indigo-500">Ver último comprobante</a>
         </aside>
     </div>
 
     <template id="cart-row-template">
         <tr class="item-row">
-            <td class="px-4 py-4">
-                <p class="font-semibold text-slate-900"></p>
-                <p class="text-xs text-slate-500"></p>
+            <td class="px-2 sm:px-4 py-3 sm:py-4">
+                <p class="font-semibold text-slate-900 text-xs sm:text-sm"></p>
+                <p class="text-[10px] sm:text-xs text-slate-500"></p>
+                <p class="text-[10px] text-slate-400 sm:hidden mt-1"><span class="unit-price-mobile">$0.00</span></p>
             </td>
-            <td class="px-4 py-4 text-center">
-                <input type="number" min="1" class="quantity-input w-20 rounded-xl border border-slate-200 px-2 py-1 text-center" value="1">
+            <td class="px-2 sm:px-4 py-3 sm:py-4 text-center">
+                <input type="number" min="1" class="quantity-input w-16 sm:w-20 rounded-lg sm:rounded-xl border border-slate-200 px-1 sm:px-2 py-1 text-xs sm:text-sm text-center" value="1">
             </td>
-            <td class="px-4 py-4 text-right font-semibold text-slate-900"><span class="unit-price">$0.00</span></td>
-            <td class="px-4 py-4 text-right text-emerald-600"><button class="discount-btn text-xs font-semibold">Configurar</button></td>
-            <td class="px-4 py-4 text-right font-semibold text-slate-900"><span class="line-total">$0.00</span></td>
-            <td class="px-4 py-4 text-right"><button class="remove-btn text-slate-400 hover:text-rose-500">Eliminar</button></td>
+            <td class="px-2 sm:px-4 py-3 sm:py-4 text-right font-semibold text-slate-900 hidden sm:table-cell"><span class="unit-price">$0.00</span></td>
+            <td class="px-2 sm:px-4 py-3 sm:py-4 text-right text-emerald-600 hidden md:table-cell"><button class="discount-btn text-[10px] sm:text-xs font-semibold">Configurar</button></td>
+            <td class="px-2 sm:px-4 py-3 sm:py-4 text-right font-semibold text-slate-900"><span class="line-total text-xs sm:text-sm">$0.00</span></td>
+            <td class="px-2 sm:px-4 py-3 sm:py-4 text-right"><button class="remove-btn text-slate-400 hover:text-rose-500 text-[10px] sm:text-xs">Eliminar</button></td>
         </tr>
     </template>
 
@@ -345,6 +412,13 @@
     const toggleTax = document.getElementById('toggle-tax');
     const taxRate = document.getElementById('tax-rate');
     const paymentMethod = document.getElementById('payment-method');
+    const pagoMixtoToggle = document.getElementById('pago-mixto-toggle');
+    const pagoSimple = document.getElementById('pago-simple');
+    const pagoMixto = document.getElementById('pago-mixto');
+    const paymentMethod1 = document.getElementById('payment-method-1');
+    const paymentMethod2 = document.getElementById('payment-method-2');
+    const montoPago1 = document.getElementById('monto-pago-1');
+    const montoPago2 = document.getElementById('monto-pago-2');
     const saleNote = document.getElementById('sale-note');
     const completeSale = document.getElementById('complete-sale');
     const loadLast = document.getElementById('load-last');
@@ -655,21 +729,30 @@
             const clone = cartRowTemplate.content.cloneNode(true);
             const row = clone.querySelector('tr');
             row.dataset.index = index;
-            row.querySelector('p.font-semibold').textContent = item.nombre;
-            row.querySelector('p.text-xs').textContent = `${item.descripcion || 'Sin atributos'} · SKU ${item.sku}`;
+            const nombreEl = row.querySelector('p.font-semibold');
+            if (nombreEl) nombreEl.textContent = item.nombre;
+            const descEl = row.querySelector('p.text-xs, p.text-\\[10px\\]');
+            if (descEl) descEl.textContent = `${item.descripcion || 'Sin atributos'} · SKU ${item.sku}`;
             const quantityInput = row.querySelector('.quantity-input');
-            quantityInput.value = item.cantidad;
-            quantityInput.addEventListener('change', (event) => {
-                const value = Math.max(1, parseInt(event.target.value, 10) || 1);
-                cart[index].cantidad = value;
-                renderCart();
-            });
+            if (quantityInput) {
+                quantityInput.value = item.cantidad;
+                quantityInput.addEventListener('change', (event) => {
+                    const value = Math.max(1, parseInt(event.target.value, 10) || 1);
+                    cart[index].cantidad = value;
+                    renderCart();
+                });
+            }
             const discountBtn = row.querySelector('.discount-btn');
-            discountBtn.addEventListener('click', () => openDiscountModal(index));
-            row.querySelector('.remove-btn').addEventListener('click', () => {
-                cart.splice(index, 1);
-                renderCart();
-            });
+            if (discountBtn) {
+                discountBtn.addEventListener('click', () => openDiscountModal(index));
+            }
+            const removeBtn = row.querySelector('.remove-btn');
+            if (removeBtn) {
+                removeBtn.addEventListener('click', () => {
+                    cart.splice(index, 1);
+                    renderCart();
+                });
+            }
 
             const lineTotals = calculateLineTotal(item);
             
@@ -678,10 +761,22 @@
             if (item.es_iphone && item.precio_usd_original) {
                 precioText = `US$${item.precio_usd_original.toFixed(2)} / $${lineTotals.precio.toFixed(2)}`;
             }
-            row.querySelector('.unit-price').textContent = precioText;
+            const unitPriceEl = row.querySelector('.unit-price');
+            if (unitPriceEl) {
+                unitPriceEl.textContent = precioText;
+            }
+            const unitPriceMobileEl = row.querySelector('.unit-price-mobile');
+            if (unitPriceMobileEl) {
+                unitPriceMobileEl.textContent = precioText;
+            }
             
-            discountBtn.textContent = lineTotals.descuento > 0 ? `-$${lineTotals.descuento.toFixed(2)}` : 'Configurar';
-            row.querySelector('.line-total').textContent = `$${lineTotals.total.toFixed(2)}`;
+            if (discountBtn) {
+                discountBtn.textContent = lineTotals.descuento > 0 ? `-$${lineTotals.descuento.toFixed(2)}` : 'Configurar';
+            }
+            const lineTotalEl = row.querySelector('.line-total');
+            if (lineTotalEl) {
+                lineTotalEl.textContent = `$${lineTotals.total.toFixed(2)}`;
+            }
             cartBody.appendChild(clone);
         });
 
@@ -771,19 +866,81 @@
             descuentoGeneral = (subtotal - descuentoItems) * (descuentoGeneral / 100);
         }
 
+        // Calcular descuento por método de pago
+        let descuentoMetodoPago = 0;
+        const baseAntesDescuentoMetodo = subtotal - descuentoItems - descuentoGeneral;
+        
+        if (pagoMixtoToggle.checked) {
+            // Pago mixto: calcular descuento proporcional para cada método
+            const descuentoMetodo1Toggle = document.getElementById('descuento-metodo-pago-1-toggle');
+            const descuentoMetodo1Porcentaje = document.getElementById('descuento-metodo-pago-1-porcentaje');
+            const descuentoMetodo2Toggle = document.getElementById('descuento-metodo-pago-2-toggle');
+            const descuentoMetodo2Porcentaje = document.getElementById('descuento-metodo-pago-2-porcentaje');
+            
+            const monto1 = parseNumber(montoPago1.value) || 0;
+            const monto2 = parseNumber(montoPago2.value) || 0;
+            const totalAntesDescuentoMetodo = baseAntesDescuentoMetodo;
+            
+            if (descuentoMetodo1Toggle && descuentoMetodo1Toggle.checked && monto1 > 0 && totalAntesDescuentoMetodo > 0) {
+                const porcentaje1 = parseFloat(descuentoMetodo1Porcentaje.value || 15);
+                // Calcular proporción del monto1 sobre el total antes de descuentos
+                const proporcion1 = monto1 / totalAntesDescuentoMetodo;
+                // Aplicar descuento proporcionalmente
+                descuentoMetodoPago += baseAntesDescuentoMetodo * proporcion1 * (porcentaje1 / 100);
+            }
+            
+            if (descuentoMetodo2Toggle && descuentoMetodo2Toggle.checked && monto2 > 0 && totalAntesDescuentoMetodo > 0) {
+                const porcentaje2 = parseFloat(descuentoMetodo2Porcentaje.value || 15);
+                // Calcular proporción del monto2 sobre el total antes de descuentos
+                const proporcion2 = monto2 / totalAntesDescuentoMetodo;
+                // Aplicar descuento proporcionalmente
+                descuentoMetodoPago += baseAntesDescuentoMetodo * proporcion2 * (porcentaje2 / 100);
+            }
+        } else {
+            // Pago simple: calcular descuento para el método seleccionado
+            const descuentoMetodoPagoToggle = document.getElementById('descuento-metodo-pago-toggle');
+            const descuentoMetodoPagoPorcentaje = document.getElementById('descuento-metodo-pago-porcentaje');
+            
+            if (descuentoMetodoPagoToggle && descuentoMetodoPagoToggle.checked) {
+                const porcentaje = parseFloat(descuentoMetodoPagoPorcentaje.value || 15);
+                descuentoMetodoPago = baseAntesDescuentoMetodo * (porcentaje / 100);
+            }
+        }
+
         if (!toggleTax.checked) {
             taxRate.disabled = true;
         } else {
             taxRate.disabled = false;
         }
 
-        const base = subtotal - descuentoItems - descuentoGeneral;
+        const base = baseAntesDescuentoMetodo - descuentoMetodoPago;
         const impuesto = toggleTax.checked ? base * (parseFloat(taxRate.value || 0) / 100) : 0;
         const total = base + impuesto;
 
         summarySubtotal.textContent = `$${subtotal.toFixed(2)}`;
         summaryItemDiscount.textContent = `-$${descuentoItems.toFixed(2)}`;
         summaryGlobalDiscount.textContent = `-$${descuentoGeneral.toFixed(2)}`;
+        
+        // Mostrar descuento por método de pago si existe
+        const descuentoMetodoPagoElement = document.getElementById('summary-descuento-metodo-pago');
+        if (descuentoMetodoPago > 0) {
+            if (!descuentoMetodoPagoElement) {
+                // Crear elemento si no existe
+                const descuentoRow = document.createElement('div');
+                descuentoRow.id = 'summary-descuento-metodo-pago';
+                descuentoRow.className = 'flex justify-between text-sm';
+                descuentoRow.innerHTML = `
+                    <span class="text-slate-600">Descuento por método de pago</span>
+                    <span class="font-semibold text-emerald-600">-$0.00</span>
+                `;
+                summaryGlobalDiscount.parentElement.insertBefore(descuentoRow, summaryGlobalDiscount.nextSibling);
+            }
+            descuentoMetodoPagoElement.querySelector('span.font-semibold').textContent = `-$${descuentoMetodoPago.toFixed(2)}`;
+            descuentoMetodoPagoElement.classList.remove('hidden');
+        } else if (descuentoMetodoPagoElement) {
+            descuentoMetodoPagoElement.classList.add('hidden');
+        }
+        
         summaryTax.textContent = `$${impuesto.toFixed(2)}`;
         summaryTotal.textContent = `$${total.toFixed(2)}`;
         summaryItems.textContent = `${itemsCount} ítems`;
@@ -793,11 +950,197 @@
     globalDiscountValue.addEventListener('input', updateSummary);
     toggleTax.addEventListener('change', updateSummary);
     taxRate.addEventListener('input', updateSummary);
+    
+    // Manejar toggle de pago mixto
+    pagoMixtoToggle.addEventListener('change', () => {
+        if (pagoMixtoToggle.checked) {
+            pagoSimple.classList.add('hidden');
+            pagoMixto.classList.remove('hidden');
+            updateMontoPago2();
+        } else {
+            pagoSimple.classList.remove('hidden');
+            pagoMixto.classList.add('hidden');
+        }
+        updateSummary();
+    });
+    
+    // Manejar descuentos por método de pago
+    const descuentoMetodoPagoToggle = document.getElementById('descuento-metodo-pago-toggle');
+    const descuentoMetodoPagoContainer = document.getElementById('descuento-metodo-pago-container');
+    const descuentoMetodoPagoPorcentaje = document.getElementById('descuento-metodo-pago-porcentaje');
+    
+    if (descuentoMetodoPagoToggle) {
+        descuentoMetodoPagoToggle.addEventListener('change', () => {
+            if (descuentoMetodoPagoToggle.checked) {
+                descuentoMetodoPagoContainer.classList.remove('hidden');
+            } else {
+                descuentoMetodoPagoContainer.classList.add('hidden');
+            }
+            updateSummary();
+        });
+        descuentoMetodoPagoPorcentaje?.addEventListener('input', updateSummary);
+    }
+    
+    // Manejar descuentos por método de pago en pago mixto
+    const descuentoMetodoPago1Toggle = document.getElementById('descuento-metodo-pago-1-toggle');
+    const descuentoMetodoPago1Container = document.getElementById('descuento-metodo-pago-1-container');
+    const descuentoMetodoPago1Porcentaje = document.getElementById('descuento-metodo-pago-1-porcentaje');
+    
+    if (descuentoMetodoPago1Toggle) {
+        descuentoMetodoPago1Toggle.addEventListener('change', () => {
+            if (descuentoMetodoPago1Toggle.checked) {
+                descuentoMetodoPago1Container.classList.remove('hidden');
+            } else {
+                descuentoMetodoPago1Container.classList.add('hidden');
+            }
+            updateSummary();
+        });
+        descuentoMetodoPago1Porcentaje?.addEventListener('input', updateSummary);
+    }
+    
+    const descuentoMetodoPago2Toggle = document.getElementById('descuento-metodo-pago-2-toggle');
+    const descuentoMetodoPago2Container = document.getElementById('descuento-metodo-pago-2-container');
+    const descuentoMetodoPago2Porcentaje = document.getElementById('descuento-metodo-pago-2-porcentaje');
+    
+    if (descuentoMetodoPago2Toggle) {
+        descuentoMetodoPago2Toggle.addEventListener('change', () => {
+            if (descuentoMetodoPago2Toggle.checked) {
+                descuentoMetodoPago2Container.classList.remove('hidden');
+            } else {
+                descuentoMetodoPago2Container.classList.add('hidden');
+            }
+            updateSummary();
+        });
+        descuentoMetodoPago2Porcentaje?.addEventListener('input', updateSummary);
+    }
+    
+    // Actualizar cuando cambia el método de pago
+    paymentMethod?.addEventListener('change', updateSummary);
+    paymentMethod1?.addEventListener('change', updateSummary);
+    paymentMethod2?.addEventListener('change', updateSummary);
+    
+    // Función auxiliar para parsear números con formato argentino o inglés
+    function parseNumber(text) {
+        if (!text) return 0;
+        let clean = text.toString().replace('$', '').trim();
+        
+        // Si tiene coma, asumir formato argentino: "10.000,00" o "10000,00"
+        if (clean.includes(',')) {
+            // Eliminar puntos (separadores de miles) y reemplazar coma por punto
+            clean = clean.replace(/\./g, '').replace(',', '.');
+            return parseFloat(clean) || 0;
+        }
+        
+        // Si tiene punto, verificar si es separador de miles o decimal
+        // Si tiene más de un punto o el punto está antes de los últimos 3 dígitos, es separador de miles
+        const parts = clean.split('.');
+        if (parts.length > 2) {
+            // Múltiples puntos = separador de miles: "10.000.000"
+            clean = clean.replace(/\./g, '');
+            return parseFloat(clean) || 0;
+        } else if (parts.length === 2) {
+            // Un punto: verificar si la parte después del punto tiene 2 dígitos (probable decimal)
+            // o más de 3 dígitos (probable separador de miles)
+            if (parts[1].length <= 2) {
+                // Probable decimal: "10000.00"
+                return parseFloat(clean) || 0;
+            } else {
+                // Probable separador de miles: "10.000"
+                clean = clean.replace(/\./g, '');
+                return parseFloat(clean) || 0;
+            }
+        }
+        
+        // Sin puntos ni comas
+        return parseFloat(clean) || 0;
+    }
+    
+    // Actualizar monto pago 2 cuando cambia el total o el monto pago 1
+    function updateMontoPago2() {
+        if (!pagoMixtoToggle.checked) return;
+        
+        // Calcular la base antes de descuentos por método de pago
+        const subtotal = parseNumber(summarySubtotal.textContent.replace(/[^0-9.-]/g, '')) || 0;
+        const descuentoItems = parseNumber(summaryItemDiscount.textContent.replace(/[^0-9.-]/g, '')) || 0;
+        const descuentoGeneral = parseNumber(summaryGlobalDiscount.textContent.replace(/[^0-9.-]/g, '')) || 0;
+        const baseAntesDescuentoMetodo = subtotal - Math.abs(descuentoItems) - Math.abs(descuentoGeneral);
+        
+        // Parsear monto1
+        const monto1 = parseNumber(montoPago1.value) || 0;
+        
+        // El monto2 debe ser la base menos el monto1
+        const monto2 = Math.max(0, baseAntesDescuentoMetodo - monto1);
+        // Formatear con punto como separador decimal (para parseFloat)
+        montoPago2.value = monto2.toFixed(2);
+    }
+    
+    montoPago1.addEventListener('input', updateMontoPago2);
+    // También actualizar cuando cambia el resumen
+    const originalUpdateSummary = updateSummary;
+    updateSummary = function() {
+        originalUpdateSummary();
+        setTimeout(updateMontoPago2, 100); // Pequeño delay para asegurar que el DOM se actualizó
+    };
 
     completeSale.addEventListener('click', async () => {
         if (!cart.length) return;
         completeSale.disabled = true;
 
+        // Preparar datos de pago
+        const esPagoMixto = pagoMixtoToggle.checked;
+        let metodoPagoData = {};
+        
+        if (esPagoMixto) {
+            // Calcular la base antes de descuentos por método de pago
+            const subtotal = parseNumber(summarySubtotal.textContent.replace(/[^0-9.-]/g, '')) || 0;
+            const descuentoItems = parseNumber(summaryItemDiscount.textContent.replace(/[^0-9.-]/g, '')) || 0;
+            const descuentoGeneral = parseNumber(summaryGlobalDiscount.textContent.replace(/[^0-9.-]/g, '')) || 0;
+            const baseAntesDescuentoMetodo = subtotal - Math.abs(descuentoItems) - Math.abs(descuentoGeneral);
+            
+            const monto1 = parseNumber(montoPago1.value);
+            const monto2 = parseNumber(montoPago2.value);
+            
+            if (monto1 <= 0 || monto1 > baseAntesDescuentoMetodo) {
+                alert(`El monto del pago 1 debe ser mayor a 0 y menor o igual a la base ($${baseAntesDescuentoMetodo.toFixed(2)})`);
+                completeSale.disabled = false;
+                return;
+            }
+            
+            // Validar que los montos sumen la base ANTES de aplicar descuentos por método de pago
+            const suma = monto1 + monto2;
+            if (Math.abs(suma - baseAntesDescuentoMetodo) > 0.01) {
+                alert(`Los montos no suman la base correcta. Base: $${baseAntesDescuentoMetodo.toFixed(2)}, Suma: $${suma.toFixed(2)}. Los montos deben sumar la base antes de aplicar descuentos por método de pago.`);
+                completeSale.disabled = false;
+                return;
+            }
+            
+            // Obtener descuentos por método de pago
+            const descuentoMetodo1Toggle = document.getElementById('descuento-metodo-pago-1-toggle');
+            const descuentoMetodo1Porcentaje = document.getElementById('descuento-metodo-pago-1-porcentaje');
+            const descuentoMetodo2Toggle = document.getElementById('descuento-metodo-pago-2-toggle');
+            const descuentoMetodo2Porcentaje = document.getElementById('descuento-metodo-pago-2-porcentaje');
+            
+            metodoPagoData = {
+                es_pago_mixto: true,
+                metodo_pago: paymentMethod1.value,
+                metodo_pago_2: paymentMethod2.value,
+                monto_pago_1: monto1,
+                monto_pago_2: monto2,
+                descuento_metodo_pago_1: descuentoMetodo1Toggle && descuentoMetodo1Toggle.checked ? parseFloat(descuentoMetodo1Porcentaje.value || 15) : null,
+                descuento_metodo_pago_2: descuentoMetodo2Toggle && descuentoMetodo2Toggle.checked ? parseFloat(descuentoMetodo2Porcentaje.value || 15) : null,
+            };
+        } else {
+            // Obtener descuento por método de pago simple
+            const descuentoMetodoPagoToggle = document.getElementById('descuento-metodo-pago-toggle');
+            const descuentoMetodoPagoPorcentaje = document.getElementById('descuento-metodo-pago-porcentaje');
+            
+            metodoPagoData = {
+                es_pago_mixto: false,
+                metodo_pago: paymentMethod.value,
+                descuento_metodo_pago: descuentoMetodoPagoToggle && descuentoMetodoPagoToggle.checked ? parseFloat(descuentoMetodoPagoPorcentaje.value || 15) : null,
+            };
+        }
+        
         const payload = {
             items: cart.map(item => ({
                 variante_id: item.variante_id,
@@ -813,13 +1156,13 @@
             descuento_general: { tipo: globalDiscountType.value, valor: parseFloat(globalDiscountValue.value || 0) },
             aplicar_iva: toggleTax.checked,
             iva_porcentaje: parseFloat(taxRate.value || 0),
-            metodo_pago: paymentMethod.value,
             nota: saleNote.value,
             status: saleStatus.value,
             cliente_id: customerId.value || null,
             cliente_nombre: customerSearch.value.trim() || customerName.value || '',
             cliente_telefono: customerDocument.value || customerSearch.value.trim() || '',
             cliente_documento: customerDocument.value || '',
+            ...metodoPagoData,
         };
 
         const response = await fetch('{% url "ventas:crear_venta_api" %}', {
@@ -835,6 +1178,14 @@
         if (response.ok) {
             cart = [];
             renderCart();
+            
+            // Limpiar carrito remoto también
+            fetch('{% url "ventas:limpiar_carrito_remoto_api" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                }
+            }).catch(err => console.error('Error al limpiar carrito remoto:', err));
             saleNote.value = '';
             globalDiscountValue.value = '';
             toggleTax.checked = false;
@@ -844,6 +1195,31 @@
             customerName.value = '';
             customerDocument.value = '';
             selectedCustomer.classList.add('hidden');
+            // Resetear pago mixto
+            pagoMixtoToggle.checked = false;
+            pagoSimple.classList.remove('hidden');
+            pagoMixto.classList.add('hidden');
+            montoPago1.value = '';
+            montoPago2.value = '';
+            // Resetear descuentos por método de pago
+            const descuentoMetodoPagoToggle = document.getElementById('descuento-metodo-pago-toggle');
+            const descuentoMetodoPagoContainer = document.getElementById('descuento-metodo-pago-container');
+            if (descuentoMetodoPagoToggle) {
+                descuentoMetodoPagoToggle.checked = false;
+                if (descuentoMetodoPagoContainer) descuentoMetodoPagoContainer.classList.add('hidden');
+            }
+            const descuentoMetodoPago1Toggle = document.getElementById('descuento-metodo-pago-1-toggle');
+            const descuentoMetodoPago1Container = document.getElementById('descuento-metodo-pago-1-container');
+            if (descuentoMetodoPago1Toggle) {
+                descuentoMetodoPago1Toggle.checked = false;
+                if (descuentoMetodoPago1Container) descuentoMetodoPago1Container.classList.add('hidden');
+            }
+            const descuentoMetodoPago2Toggle = document.getElementById('descuento-metodo-pago-2-toggle');
+            const descuentoMetodoPago2Container = document.getElementById('descuento-metodo-pago-2-container');
+            if (descuentoMetodoPago2Toggle) {
+                descuentoMetodoPago2Toggle.checked = false;
+                if (descuentoMetodoPago2Container) descuentoMetodoPago2Container.classList.add('hidden');
+            }
             updateSummary();
             lastPdfUrl = data.venta.pdf;
             if (lastPdfUrl) {
@@ -917,8 +1293,212 @@
 
     renderCart();
 
+    // Sincronizar carrito remoto (desde móvil) y actualizar indicador de conexión
+    let ultimoCarritoRemotoHash = null;
+    let ultimaConexionExitosa = Date.now();
+    let ultimoTimestampActualizado = null;
+    const posRemotoStatus = document.getElementById('pos-remoto-status');
+    
+    function actualizarIndicadorConexion(conectado, timestampActualizado = null) {
+        if (!posRemotoStatus) return;
+        
+        if (conectado) {
+            posRemotoStatus.className = 'flex items-center gap-2 rounded-full border-2 border-emerald-500/60 bg-emerald-500/30 px-3 py-1.5 text-xs font-semibold text-emerald-300 shadow-lg';
+            posRemotoStatus.style.boxShadow = '0 0 10px rgba(16, 185, 129, 0.5), 0 0 20px rgba(16, 185, 129, 0.3)';
+            posRemotoStatus.innerHTML = '<span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" style="box-shadow: 0 0 8px rgba(16, 185, 129, 0.8);"></span><span class="hidden sm:inline">POS remoto conectado</span><span class="sm:hidden">Remoto conectado</span>';
+            ultimaConexionExitosa = Date.now();
+            if (timestampActualizado) {
+                ultimoTimestampActualizado = new Date(timestampActualizado).getTime();
+            }
+        } else {
+            const tiempoDesdeUltimaConexion = Date.now() - ultimaConexionExitosa;
+            // Si pasaron más de 3 segundos desde la última conexión exitosa, mostrar desconectado
+            if (tiempoDesdeUltimaConexion > 3000) {
+                posRemotoStatus.className = 'flex items-center gap-2 rounded-full border-2 border-rose-500/40 bg-rose-500/20 px-3 py-1.5 text-xs font-semibold text-rose-300 shadow-sm';
+                posRemotoStatus.style.boxShadow = '';
+                posRemotoStatus.innerHTML = '<span class="h-2 w-2 rounded-full bg-rose-400 animate-pulse"></span><span class="hidden sm:inline">POS remoto desconectado</span><span class="sm:hidden">Remoto desconectado</span>';
+            }
+        }
+    }
+    
+    async function sincronizarCarritoRemoto() {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000); // Timeout de 3 segundos
+            
+            const response = await fetch('{% url "ventas:obtener_carrito_remoto_api" %}', {
+                signal: controller.signal,
+                cache: 'no-cache'
+            });
+            clearTimeout(timeoutId);
+            
+            if (!response.ok) {
+                throw new Error('Error en la respuesta');
+            }
+            
+            const data = await response.json();
+            actualizarIndicadorConexion(true, data.actualizado);
+            
+            const carritoRemoto = data.carrito || [];
+            
+            // Verificar si hay cambios basándose en el timestamp de actualización
+            if (data.actualizado) {
+                const nuevoTimestamp = new Date(data.actualizado).getTime();
+                if (ultimoTimestampActualizado && nuevoTimestamp <= ultimoTimestampActualizado) {
+                    // No hay cambios, solo actualizar indicador
+                    return;
+                }
+                ultimoTimestampActualizado = nuevoTimestamp;
+            }
+            
+            // Crear hash del carrito para detectar cambios (solo IDs y cantidades)
+            const carritoHash = JSON.stringify(carritoRemoto.map(item => ({
+                variante_id: item.variante_id,
+                cantidad: item.cantidad
+            })));
+            
+            let huboCambios = false;
+            
+            if (carritoHash !== ultimoCarritoRemotoHash) {
+                ultimoCarritoRemotoHash = carritoHash;
+                huboCambios = true;
+                
+                // Sincronizar productos del carrito remoto con el local
+                // Primero, eliminar items que ya no están en el remoto (solo los que vinieron del remoto)
+                const itemsRemotosIds = new Set(carritoRemoto.map(item => item.variante_id).filter(Boolean));
+                cart = cart.filter(item => {
+                    // Mantener items custom y items que no vinieron del remoto
+                    if (item.es_custom || !item.variante_id) return true;
+                    // Mantener solo si está en el carrito remoto
+                    return itemsRemotosIds.has(item.variante_id);
+                });
+                
+                // Agregar o actualizar productos del carrito remoto
+                for (const itemRemoto of carritoRemoto) {
+                    if (!itemRemoto.variante_id) continue;
+                    
+                    // Buscar si ya existe en el carrito local
+                    const existe = cart.find(item => 
+                        item.variante_id === itemRemoto.variante_id && !item.es_custom
+                    );
+                    
+                    if (!existe) {
+                        // Usar directamente los datos del carrito remoto que ya tienen toda la info
+                        const nuevoItem = {
+                            variante_id: itemRemoto.variante_id,
+                            sku: itemRemoto.sku,
+                            nombre: itemRemoto.nombre || itemRemoto.descripcion || 'Producto',
+                            descripcion: itemRemoto.descripcion || itemRemoto.nombre || '',
+                            precio_unitario_ars: parseFloat(itemRemoto.precio_unitario_ars || 0),
+                            precio_usd_original: itemRemoto.precio_usd_original ? parseFloat(itemRemoto.precio_usd_original) : null,
+                            es_iphone: itemRemoto.es_iphone || false,
+                            cantidad: parseInt(itemRemoto.cantidad || 1),
+                            es_custom: itemRemoto.es_custom || false,
+                            precios: itemRemoto.precios || {},
+                            descuento: null
+                        };
+                        
+                        // Agregar directamente al carrito
+                        cart.push(nuevoItem);
+                        console.log('✅ Producto agregado desde remoto:', nuevoItem);
+                    } else {
+                        // Actualizar cantidad si es diferente
+                        const cantidadRemota = parseInt(itemRemoto.cantidad || 1);
+                        if (existe.cantidad !== cantidadRemota) {
+                            existe.cantidad = cantidadRemota;
+                            console.log('🔄 Cantidad actualizada desde remoto:', existe.nombre, cantidadRemota);
+                        }
+                    }
+                }
+            }
+            
+            // Renderizar el carrito si hubo cambios
+            if (huboCambios) {
+                renderCart();
+                updateSummary();
+            }
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                console.warn('Timeout al sincronizar carrito remoto');
+            } else {
+                console.error('Error al sincronizar carrito remoto:', error);
+            }
+            actualizarIndicadorConexion(false);
+        }
+    }
+    
+    // Sincronizar cada 500ms para mejor tiempo real
+    setInterval(sincronizarCarritoRemoto, 500);
+    sincronizarCarritoRemoto(); // Sincronizar inmediatamente
+    
+    // Actualizar indicador de conexión periódicamente
+    setInterval(() => {
+        const tiempoDesdeUltimaConexion = Date.now() - ultimaConexionExitosa;
+        if (tiempoDesdeUltimaConexion > 3000) { // 3 segundos sin respuesta = desconectado
+            actualizarIndicadorConexion(false);
+        }
+    }, 1000);
+
+    // Cargar productos desde localStorage (desde preview)
+    function cargarProductosDesdePreview() {
+        try {
+            const productosPOS = JSON.parse(localStorage.getItem('productos_para_pos') || '[]');
+            if (productosPOS.length > 0) {
+                // Limpiar productos procesados
+                localStorage.removeItem('productos_para_pos');
+                
+                // Agregar cada producto al carrito
+                productosPOS.forEach(producto => {
+                    if (producto.variante_id) {
+                        // Buscar el producto en el sistema
+                        fetch(`/ventas/api/buscar-productos/?q=${encodeURIComponent(producto.sku)}`)
+                            .then(response => response.json())
+                            .then(data => {
+                                const resultados = data.results || [];
+                                const encontrado = resultados.find(r => r.id === producto.variante_id || r.sku === producto.sku);
+                                if (encontrado) {
+                                    addToCart(encontrado);
+                                } else {
+                                    // Si no se encuentra, crear producto varios
+                                    const customProduct = {
+                                        id: `custom-${Date.now()}`,
+                                        variante_id: null,
+                                        sku: producto.sku,
+                                        nombre: `Producto ${producto.sku}`,
+                                        descripcion: `Producto ${producto.sku}`,
+                                        precio_unitario_ars: producto.precio_ars || 0,
+                                        stock_actual: 999,
+                                        es_custom: true
+                                    };
+                                    addToCart(customProduct);
+                                }
+                            })
+                            .catch(err => {
+                                console.error('Error al buscar producto:', err);
+                            });
+                    }
+                });
+                
+                // Mostrar notificación
+                const notification = document.createElement('div');
+                notification.className = 'fixed top-4 right-4 z-50 rounded-2xl border-2 border-blue-600/40 bg-blue-600/20 px-4 py-3 text-sm font-semibold text-blue-300 shadow-lg';
+                notification.innerHTML = `<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> ${productosPOS.length} producto${productosPOS.length > 1 ? 's' : ''} agregado${productosPOS.length > 1 ? 's' : ''} al carrito`;
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    notification.remove();
+                }, 3000);
+            }
+        } catch (e) {
+            console.error('Error al cargar productos desde preview:', e);
+        }
+    }
+
     // Configurar event listeners cuando el DOM esté listo
     document.addEventListener('DOMContentLoaded', function() {
+        // Cargar productos desde preview
+        cargarProductosDesdePreview();
+        
         const saleModal = document.getElementById('sale-success-modal');
         const saleModalClose = document.getElementById('sale-modal-close');
         const saleModalPrint = document.getElementById('sale-modal-print');
@@ -954,18 +1534,19 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                 </svg>
             </div>
-            <h3 class="text-2xl font-bold mb-2" style="color: #0f172a !important;">¡Venta registrada!</h3>
-            <p class="mb-2 text-base" style="color: #475569 !important;">Comprobante <span id="sale-modal-venta-id" class="font-semibold" style="color: #0f172a !important;"></span></p>
-            <p class="text-3xl font-bold mb-6" id="sale-modal-total" style="color: #16a34a !important;"></p>
+            <h3 class="text-2xl font-bold mb-3" style="color: #0f172a !important; letter-spacing: -0.5px;">¡Venta registrada!</h3>
+            <p class="mb-1 text-sm font-medium" style="color: #64748b !important;">Comprobante</p>
+            <p class="mb-4 text-lg font-semibold" style="color: #0f172a !important;"><span id="sale-modal-venta-id"></span></p>
+            <p class="text-4xl font-bold mb-8" id="sale-modal-total" style="color: #16a34a !important; letter-spacing: -1px;"></p>
             
             <div class="modal-buttons">
-                <a id="sale-modal-view" href="#" target="_blank" class="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-center text-white shadow-lg hover:from-blue-500 hover:to-indigo-500 transition-all">
+                <a id="sale-modal-view" href="#" target="_blank" class="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-center text-white shadow-lg hover:from-blue-500 hover:to-indigo-500 transition-all font-semibold">
                     Ver comprobante
                 </a>
-                <a id="sale-modal-print" href="#" target="_blank" class="rounded-xl border-2 border-slate-300 bg-white text-center hover:bg-slate-50 transition-all" style="color: #334155 !important;">
+                <a id="sale-modal-print" href="#" target="_blank" class="rounded-xl border-2 border-slate-300 bg-white text-center hover:bg-slate-50 transition-all font-semibold" style="color: #334155 !important;">
                     Imprimir
                 </a>
-                <button id="sale-modal-close" class="rounded-xl border-2 border-slate-300 bg-white hover:bg-slate-50 transition-all" style="color: #334155 !important;">
+                <button id="sale-modal-close" class="rounded-xl border-2 border-slate-300 bg-white hover:bg-slate-50 transition-all font-semibold" style="color: #334155 !important;">
                     Cerrar
                 </button>
             </div>

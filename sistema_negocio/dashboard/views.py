@@ -206,19 +206,34 @@ def tienda_preview(request):
     for producto in productos:
         variantes_info = []
         for variante in producto.variantes.all():
-            precio = variante.precios.filter(
+            # Priorizar precio ARS, luego USD
+            precio_ars = variante.precios.filter(
+                tipo=Precio.Tipo.MINORISTA,
+                moneda=Precio.Moneda.ARS,
+                activo=True,
+            ).order_by("-actualizado").first()
+            
+            precio_usd = variante.precios.filter(
                 tipo=Precio.Tipo.MINORISTA,
                 moneda=Precio.Moneda.USD,
                 activo=True,
             ).order_by("-actualizado").first()
+            
+            # Usar ARS si existe, sino USD
+            precio = precio_ars or precio_usd
             if not precio:
                 precio = variante.precios.filter(activo=True).order_by("-actualizado").first()
+            
             variantes_info.append(
                 {
+                    "id": variante.id,
                     "sku": variante.sku,
                     "atributos": variante.atributos_display,
+                    "precio_ars": precio_ars.precio if precio_ars else None,
+                    "precio_usd": precio_usd.precio if precio_usd else None,
                     "precio": precio.precio if precio else None,
                     "moneda": precio.moneda if precio else None,
+                    "stock_actual": variante.stock_actual or 0,
                 }
             )
 
@@ -232,9 +247,11 @@ def tienda_preview(request):
     configuracion_sistema = ConfiguracionSistema.carga()
     configuracion_tienda = ConfiguracionTienda.obtener_unica()
     locales = Local.objects.order_by("nombre")
+    dolar_blue = obtener_valor_dolar_blue()
     return render(request, "dashboard/preview.html", {
         "catalogo": catalogo,
         "configuracion_sistema": configuracion_sistema,
         "configuracion_tienda": configuracion_tienda,
         "locales": locales,
+        "dolar_blue": dolar_blue,
     })

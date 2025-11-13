@@ -67,7 +67,7 @@ class Venta(models.Model):
 
 class DetalleVenta(models.Model):
     venta = models.ForeignKey(Venta, related_name="detalles", on_delete=models.CASCADE)
-    variante = models.ForeignKey(ProductoVariante, on_delete=models.PROTECT, related_name="detalles_venta", null=True, blank=True, help_text="Null para productos varios")
+    variante = models.ForeignKey(ProductoVariante, on_delete=models.SET_NULL, related_name="detalles_venta", null=True, blank=True, help_text="Null para productos varios o productos eliminados")
     sku = models.CharField(max_length=60)
     descripcion = models.CharField(max_length=200)
     cantidad = models.PositiveIntegerField()
@@ -83,3 +83,22 @@ class DetalleVenta(models.Model):
 
     def __str__(self) -> str:
         return f"{self.descripcion} x{self.cantidad}"
+
+
+class CarritoRemoto(models.Model):
+    """Carrito remoto compartido por usuario (para sincronización entre dispositivos)."""
+    usuario = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="carrito_remoto"
+    )
+    items = models.JSONField(default=list, help_text="Lista de items en el carrito remoto")
+    actualizado = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Carrito Remoto"
+        verbose_name_plural = "Carritos Remotos"
+    
+    def __str__(self) -> str:
+        total_items = sum(int(item.get("cantidad", 1)) for item in self.items if isinstance(item, dict))
+        return f"Carrito de {self.usuario.username} ({total_items} items)"

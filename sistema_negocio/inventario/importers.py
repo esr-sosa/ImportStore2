@@ -164,9 +164,16 @@ def importar_catalogo_desde_archivo(archivo, actualizar: bool = True) -> ImportR
             if any(term in visibilidad for term in ["ocult", "hidden", "no", "desactiv", "draft", "inactivo", "0"]):
                 is_visible = False
 
+        categoria_obj = _obtener_categoria(data.get("categoria"))
+        
+        # Filtrar iPhones (categoría "Celulares") - no importar
+        if categoria_obj and categoria_obj.nombre.lower() == "celulares":
+            resultado.omitidos.append(f"Fila {idx}: Producto '{data.get('nombre', sku)}' es un iPhone (categoría Celulares) - omitido")
+            continue
+        
         producto_defaults = {
             "descripcion": data.get("descripcion", ""),
-            "categoria": _obtener_categoria(data.get("categoria")),
+            "categoria": categoria_obj,
             "proveedor": _obtener_proveedor(data.get("proveedor")),
             "codigo_barras": data.get("codigo_barras", ""),
             "activo": is_visible,
@@ -194,21 +201,76 @@ def importar_catalogo_desde_archivo(archivo, actualizar: bool = True) -> ImportR
             else:
                 defaults_variante["atributo_2"] = data.get("atributo_3", "")
 
-        variante, creada = ProductoVariante.objects.get_or_create(sku=sku, defaults={"producto": producto, **defaults_variante})
-        if creada:
-            resultado.creados += 1
-        else:
-            if actualizar:
-                for campo, valor in defaults_variante.items():
-                    setattr(variante, campo, valor)
-                if variante.producto_id != producto.id:
-                    resultado.errores.append(f"Fila {idx}: el SKU {sku} ya está asociado a otro producto.")
+        # Verificar si existe el campo 'stock' antiguo en la base de datos
+        from core.db_inspector import column_exists
+        from django.db import connection
+        
+        tiene_stock_antiguo = column_exists("inventario_productovariante", "stock")
+        
+        if tiene_stock_antiguo:
+            # Si existe el campo stock, usar SQL directo para insertar
+            from django.utils import timezone
+            ahora = timezone.now()
+            
+            # Verificar si la variante ya existe
+            variante_existente = ProductoVariante.objects.filter(sku=sku).first()
+            
+            if variante_existente:
+                if actualizar:
+                    for campo, valor in defaults_variante.items():
+                        setattr(variante_existente, campo, valor)
+                    if variante_existente.producto_id != producto.id:
+                        resultado.errores.append(f"Fila {idx}: el SKU {sku} ya está asociado a otro producto.")
+                        continue
+                    variante_existente.save()
+                    # Actualizar también el campo stock antiguo
+                    with connection.cursor() as cursor:
+                        cursor.execute(
+                            "UPDATE inventario_productovariante SET stock = %s WHERE id = %s",
+                            [stock_val, variante_existente.pk]
+                        )
+                    resultado.actualizados += 1
+                else:
+                    resultado.errores.append(f"Fila {idx}: el SKU {sku} ya existe y no se actualizó.")
                     continue
-                variante.save()
-                resultado.actualizados += 1
+                variante = variante_existente
             else:
-                resultado.errores.append(f"Fila {idx}: el SKU {sku} ya existe y no se actualizó.")
-                continue
+                # Crear nueva variante con SQL directo
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        INSERT INTO inventario_productovariante 
+                        (producto_id, sku, nombre_variante, codigo_barras, qr_code, atributo_1, atributo_2, 
+                         stock_actual, stock_minimo, stock, activo, creado, actualizado)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, [
+                        producto.pk, sku, defaults_variante.get("nombre_variante", ""), 
+                        defaults_variante.get("codigo_barras") or None,
+                        defaults_variante.get("qr_code") or None,
+                        defaults_variante.get("atributo_1", ""),
+                        defaults_variante.get("atributo_2", ""),
+                        stock_val, stock_min_val, stock_val,
+                        1 if is_visible else 0, ahora, ahora
+                    ])
+                    variante_id = cursor.lastrowid
+                variante = ProductoVariante.objects.get(pk=variante_id)
+                resultado.creados += 1
+        else:
+            # Si no existe el campo stock, usar el método normal
+            variante, creada = ProductoVariante.objects.get_or_create(sku=sku, defaults={"producto": producto, **defaults_variante})
+            if creada:
+                resultado.creados += 1
+            else:
+                if actualizar:
+                    for campo, valor in defaults_variante.items():
+                        setattr(variante, campo, valor)
+                    if variante.producto_id != producto.id:
+                        resultado.errores.append(f"Fila {idx}: el SKU {sku} ya está asociado a otro producto.")
+                        continue
+                    variante.save()
+                    resultado.actualizados += 1
+                else:
+                    resultado.errores.append(f"Fila {idx}: el SKU {sku} ya existe y no se actualizó.")
+                    continue
 
         precio_minorista = _parse_decimal(data.get("precio_minorista_ars"))
         if precio_minorista is None:
@@ -278,7 +340,10 @@ def exportar_catalogo_a_excel() -> io.BytesIO:
         cell.font = header_font
         cell.alignment = Alignment(horizontal="center", vertical="center")
     
-    variantes = ProductoVariante.objects.select_related("producto", "producto__categoria", "producto__proveedor").prefetch_related("precios")
+    # Filtrar iPhones (categoría "Celulares") - solo exportar otros productos
+    variantes = ProductoVariante.objects.select_related("producto", "producto__categoria", "producto__proveedor").prefetch_related("precios").exclude(
+        producto__categoria__nombre__iexact="celulares"
+    )
     
     row = 2
     for variante in variantes:
@@ -349,7 +414,10 @@ def exportar_catalogo_a_csv() -> io.BytesIO:
         ]
     )
 
-    variantes = ProductoVariante.objects.select_related("producto", "producto__categoria", "producto__proveedor").prefetch_related("precios")
+    # Filtrar iPhones (categoría "Celulares") - solo exportar otros productos
+    variantes = ProductoVariante.objects.select_related("producto", "producto__categoria", "producto__proveedor").prefetch_related("precios").exclude(
+        producto__categoria__nombre__iexact="celulares"
+    )
     for variante in variantes:
         def precio(tipo, moneda):
             registro = variante.precios.filter(tipo=tipo, moneda=moneda, activo=True).order_by("-actualizado").first()

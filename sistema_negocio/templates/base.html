@@ -58,6 +58,10 @@
             z-index: 40;
             padding-left: 0.75rem;
             padding-right: 0.75rem;
+            height: 100vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
         }
         .app-sidebar:hover {
             width: 14rem;
@@ -151,6 +155,13 @@
         #app-content {
             padding: 2.5rem 1.5rem 2.5rem 1.5rem;
             background: transparent;
+            width: 100%;
+            overflow-x: hidden;
+        }
+        @media (max-width: 640px) {
+            #app-content {
+                padding: 1rem 0.75rem 1rem 0.75rem;
+            }
         }
         ::-webkit-scrollbar {
             width: 8px;
@@ -283,9 +294,15 @@
                 position: fixed;
                 inset: 0 auto 0 0;
                 transform: translateX(-100%);
-                width: 5rem;
+                width: 16rem;
                 transition: transform .25s ease;
                 z-index: 60;
+                height: 100vh;
+                overflow-y: auto;
+                overflow-x: hidden;
+                -webkit-overflow-scrolling: touch;
+                padding-top: 1rem;
+                padding-bottom: 1rem;
             }
             .app-sidebar[data-open="true"] {
                 transform: translateX(0);
@@ -303,6 +320,16 @@
             }
             #app-content {
                 padding-top: 5rem;
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+            .app-sidebar .sidebar-label {
+                max-width: 200px;
+                opacity: 1;
+                margin-left: 0.75rem;
+            }
+            .app-sidebar .sidebar-tooltip {
+                display: none !important;
             }
         }
     </style>
@@ -345,6 +372,9 @@
             <a href="{% url 'iphones:dashboard' %}" class="group relative flex items-center w-full px-3"><div class="p-2.5 rounded-2xl sidebar-icon flex-shrink-0"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg></div><span class="sidebar-label">iPhones</span><span class="sidebar-tooltip absolute left-full ml-4 min-w-max rounded-xl bg-slate-900/95 px-3 py-1.5 text-xs font-semibold text-slate-100 shadow-2xl">iPhones</span></a>
 
             <a href="{% url 'ventas:pos' %}" class="group relative flex items-center w-full px-3"><div class="p-2.5 rounded-2xl sidebar-icon flex-shrink-0"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg></div><span class="sidebar-label">Punto de Venta</span><span class="sidebar-tooltip absolute left-full ml-4 min-w-max rounded-xl bg-slate-900/95 px-3 py-1.5 text-xs font-semibold text-slate-100 shadow-2xl">Punto de Venta</span></a>
+
+            <a href="{% url 'ventas:pos_remoto' %}" class="group relative flex items-center w-full px-3"><div class="p-2.5 rounded-2xl sidebar-icon flex-shrink-0"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg></div><span class="sidebar-label">POS Remoto</span><span class="sidebar-tooltip absolute left-full ml-4 min-w-max rounded-xl bg-slate-900/95 px-3 py-1.5 text-xs font-semibold text-slate-100 shadow-2xl">POS Remoto (Escáner móvil)</span></a>
+            <a href="{% url 'ventas:escaner_productos' %}" class="group relative flex items-center w-full px-3"><div class="p-2.5 rounded-2xl sidebar-icon flex-shrink-0"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg></div><span class="sidebar-label">Escáner Productos</span><span class="sidebar-tooltip absolute left-full ml-4 min-w-max rounded-xl bg-slate-900/95 px-3 py-1.5 text-xs font-semibold text-slate-100 shadow-2xl">Escáner de Productos (Info completa)</span></a>
 
             <a href="{% url 'ventas:listado' %}" class="group relative flex items-center w-full px-3"><div class="p-2.5 rounded-2xl sidebar-icon flex-shrink-0"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg></div><span class="sidebar-label">Listado Ventas</span><span class="sidebar-tooltip absolute left-full ml-4 min-w-max rounded-xl bg-slate-900/95 px-3 py-1.5 text-xs font-semibold text-slate-100 shadow-2xl">Listado Ventas</span></a>
 

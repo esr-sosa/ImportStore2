@@ -35,10 +35,16 @@
                     En línea
                 </span>
                 <span class="inline-flex items-center gap-2 rounded-full bg-blue-100 px-4 py-2 text-blue-700">
-                    ✅ Gemini Pro conectado
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    Gemini Pro conectado
                 </span>
                 <span class="inline-flex items-center gap-2 rounded-full bg-indigo-100 px-4 py-2 text-indigo-700">
-                    🔁 Última sincronización hace <span id="sync-age" class="font-bold">30s</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    Última sincronización hace <span id="sync-age" class="font-bold">30s</span>
                 </span>
             </div>
         </header>
@@ -350,7 +356,7 @@
                 data.suggested.forEach(item => addFlag(`${item.categoria}: ${item.titulo}`));
             }
         } catch (error) {
-            appendMessage(`⚠️ ${error.message}`, 'assistant');
+            appendMessage(`<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg> ${error.message}`, 'assistant');
         } finally {
             toggleTyping(false);
             sendButton.disabled = false;

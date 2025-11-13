@@ -4,52 +4,52 @@
 {% block title %}Listado de ventas{% endblock %}
 
 {% block content %}
-<div class="min-h-screen w-full px-4 py-8 sm:px-6 lg:px-10">
+<div class="min-h-screen w-full px-2 sm:px-4 py-4 sm:py-8 lg:px-10">
     <div class="mx-auto max-w-7xl">
-        <header class="mb-8">
-            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
+        <header class="mb-4 sm:mb-8">
+            <div class="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-4">
                 <div>
-                    <p class="text-xs font-semibold uppercase tracking-[0.35em] text-muted">Ventas</p>
-                    <h1 class="mt-2 text-3xl font-bold text-slate-100">Listado de ventas</h1>
+                    <p class="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Ventas</p>
+                    <h1 class="mt-1 sm:mt-2 text-xl sm:text-2xl lg:text-3xl font-bold text-slate-100">Listado de ventas</h1>
                 </div>
-                <a href="{% url 'ventas:pos' %}" class="glass-card rounded-full px-5 py-2 text-center text-sm font-semibold text-slate-100 hover:bg-white/10 transition">
+                <a href="{% url 'ventas:pos' %}" class="glass-card rounded-full px-4 sm:px-5 py-2 text-center text-xs sm:text-sm font-semibold text-slate-100 hover:bg-white/10 transition">
                     Nueva venta
                 </a>
             </div>
             
-            <div class="glass-card rounded-2xl p-6 mb-6">
-                <div class="grid grid-cols-1 gap-4 text-center md:grid-cols-3">
+            <div class="glass-card rounded-xl sm:rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6">
+                <div class="grid grid-cols-1 gap-3 sm:gap-4 text-center sm:grid-cols-3">
                     <div>
-                        <p class="text-xs uppercase tracking-widest text-muted">Total ventas</p>
-                        <p class="text-2xl font-bold text-slate-100 mt-1">{{ total_ventas|intcomma }}</p>
+                        <p class="text-[10px] sm:text-xs uppercase tracking-widest text-slate-400">Total ventas</p>
+                        <p class="text-xl sm:text-2xl font-bold text-slate-100 mt-1">{{ total_ventas|intcomma }}</p>
                     </div>
                     <div>
-                        <p class="text-xs uppercase tracking-widest text-muted">Facturación ARS</p>
-                        <p class="text-2xl font-bold text-slate-100 mt-1">${{ total_facturado|floatformat:2|intcomma }}</p>
+                        <p class="text-[10px] sm:text-xs uppercase tracking-widest text-slate-400">Facturación ARS</p>
+                        <p class="text-xl sm:text-2xl font-bold text-slate-100 mt-1">${{ total_facturado|floatformat:2|intcomma }}</p>
                     </div>
                     <div>
-                        <p class="text-xs uppercase tracking-widest text-muted">Ticket promedio</p>
-                        <p class="text-2xl font-bold text-slate-100 mt-1">${{ promedio_ticket|floatformat:2|intcomma }}</p>
+                        <p class="text-[10px] sm:text-xs uppercase tracking-widest text-slate-400">Ticket promedio</p>
+                        <p class="text-xl sm:text-2xl font-bold text-slate-100 mt-1">${{ promedio_ticket|floatformat:2|intcomma }}</p>
                     </div>
                 </div>
             </div>
             
-            <form method="get" class="glass-card rounded-2xl p-6 grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            <form method="get" class="glass-card rounded-xl sm:rounded-2xl p-4 sm:p-6 grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-5">
                 <div>
-                    <label class="block text-xs font-semibold text-muted mb-1">Buscar</label>
-                    <input type="text" name="q" value="{{ filtros.q }}" placeholder="Orden, cliente..." class="glass-input w-full rounded-xl px-4 py-2 text-sm text-slate-100 placeholder-slate-400">
+                    <label class="block text-[10px] sm:text-xs font-semibold text-slate-400 mb-1">Buscar</label>
+                    <input type="text" name="q" value="{{ filtros.q }}" placeholder="Orden, cliente..." class="glass-input w-full rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 text-xs sm:text-sm text-slate-100 placeholder-slate-400 bg-slate-800/90 border border-slate-700">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-muted mb-1">Desde</label>
-                    <input type="date" name="fecha_desde" value="{{ filtros.fecha_desde }}" class="glass-input w-full rounded-xl px-4 py-2 text-sm text-slate-100">
+                    <label class="block text-[10px] sm:text-xs font-semibold text-slate-400 mb-1">Desde</label>
+                    <input type="date" name="fecha_desde" value="{{ filtros.fecha_desde }}" class="glass-input w-full rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 text-xs sm:text-sm text-slate-100 bg-slate-800/90 border border-slate-700">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-muted mb-1">Hasta</label>
-                    <input type="date" name="fecha_hasta" value="{{ filtros.fecha_hasta }}" class="glass-input w-full rounded-xl px-4 py-2 text-sm text-slate-100">
+                    <label class="block text-[10px] sm:text-xs font-semibold text-slate-400 mb-1">Hasta</label>
+                    <input type="date" name="fecha_hasta" value="{{ filtros.fecha_hasta }}" class="glass-input w-full rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 text-xs sm:text-sm text-slate-100 bg-slate-800/90 border border-slate-700">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-muted mb-1">Estado</label>
-                    <select name="estado" class="glass-input w-full rounded-xl px-4 py-2 text-sm text-slate-100">
+                    <label class="block text-[10px] sm:text-xs font-semibold text-slate-400 mb-1">Estado</label>
+                    <select name="estado" class="glass-input w-full rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 text-xs sm:text-sm text-slate-100 bg-slate-800/90 border border-slate-700">
                         <option value="">Todos</option>
                         {% for value, label in estados %}
                             <option value="{{ value }}" {% if filtros.estado == value %}selected{% endif %}>{{ label }}</option>
@@ -57,60 +57,63 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-muted mb-1">Método pago</label>
-                    <select name="metodo_pago" class="glass-input w-full rounded-xl px-4 py-2 text-sm text-slate-100">
+                    <label class="block text-[10px] sm:text-xs font-semibold text-slate-400 mb-1">Método pago</label>
+                    <select name="metodo_pago" class="glass-input w-full rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 text-xs sm:text-sm text-slate-100 bg-slate-800/90 border border-slate-700">
                         <option value="">Todos</option>
                         {% for value, label in metodos_pago %}
                             <option value="{{ value }}" {% if filtros.metodo_pago == value %}selected{% endif %}>{{ label }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="md:col-span-2 lg:col-span-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
-                    <a href="{% url 'ventas:listado' %}" class="glass-input rounded-full px-4 py-2 text-center text-sm font-semibold text-slate-100 hover:bg-white/10 transition">Limpiar</a>
-                    <button type="submit" class="glass-input rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-white/20 transition">Filtrar</button>
+                <div class="sm:col-span-2 lg:col-span-5 flex flex-col gap-2 sm:gap-3 sm:flex-row sm:justify-end">
+                    <a href="{% url 'ventas:listado' %}" class="glass-input rounded-full px-4 py-2 text-center text-xs sm:text-sm font-semibold text-slate-100 hover:bg-white/10 transition">Limpiar</a>
+                    <button type="submit" class="glass-input rounded-full bg-white/10 px-4 py-2 text-xs sm:text-sm font-semibold text-slate-100 hover:bg-white/20 transition">Filtrar</button>
                 </div>
             </form>
         </header>
 
-        <div class="glass-card rounded-3xl overflow-hidden">
-            <div class="overflow-x-auto">
+        <div class="glass-card rounded-xl sm:rounded-3xl overflow-hidden">
+            <div class="overflow-x-auto -mx-2 sm:mx-0">
                 <table class="min-w-full divide-y divide-white/10">
                     <thead class="bg-white/5">
                         <tr>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted">Orden</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted">Fecha</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted">Cliente</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted">Items</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted">Método pago</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted">Estado</th>
-                            <th class="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-muted">Total ARS</th>
-                            <th class="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider text-muted">Acciones</th>
+                            <th class="px-3 sm:px-6 py-3 sm:py-4 text-left text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">Orden</th>
+                            <th class="px-3 sm:px-6 py-3 sm:py-4 text-left text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400 hidden sm:table-cell">Fecha</th>
+                            <th class="px-3 sm:px-6 py-3 sm:py-4 text-left text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">Cliente</th>
+                            <th class="px-3 sm:px-6 py-3 sm:py-4 text-left text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400 hidden md:table-cell">Items</th>
+                            <th class="px-3 sm:px-6 py-3 sm:py-4 text-left text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400 hidden lg:table-cell">Método pago</th>
+                            <th class="px-3 sm:px-6 py-3 sm:py-4 text-left text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">Estado</th>
+                            <th class="px-3 sm:px-6 py-3 sm:py-4 text-right text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">Total ARS</th>
+                            <th class="px-3 sm:px-6 py-3 sm:py-4 text-center text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">Acciones</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-white/10">
                         {% for venta in ventas %}
                             <tr class="hover:bg-white/5 transition">
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="text-sm font-semibold text-slate-100">{{ venta.id }}</span>
+                                <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                                    <span class="text-xs sm:text-sm font-semibold text-slate-100">{{ venta.id }}</span>
+                                    <div class="text-[10px] sm:text-xs text-slate-400 mt-0.5 sm:hidden">{{ venta.fecha|date:"d/m/Y H:i" }}</div>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="text-sm text-muted">{{ venta.fecha|date:"d/m/Y H:i" }}</span>
+                                <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap hidden sm:table-cell">
+                                    <span class="text-xs sm:text-sm text-slate-400">{{ venta.fecha|date:"d/m/Y H:i" }}</span>
                                 </td>
-                                <td class="px-6 py-4">
-                                    <div class="text-sm text-slate-100">{{ venta.cliente_nombre|default:"-" }}</div>
+                                <td class="px-3 sm:px-6 py-3 sm:py-4">
+                                    <div class="text-xs sm:text-sm text-slate-100">{{ venta.cliente_nombre|default:"-" }}</div>
                                     {% if venta.cliente_documento %}
-                                        <div class="text-xs text-muted">{{ venta.cliente_documento }}</div>
+                                        <div class="text-[10px] sm:text-xs text-slate-400">{{ venta.cliente_documento }}</div>
                                     {% endif %}
+                                    <div class="text-[10px] sm:text-xs text-slate-400 mt-0.5 md:hidden">{{ venta.detalles.count }} items</div>
+                                    <div class="text-[10px] sm:text-xs text-slate-400 mt-0.5 lg:hidden">{{ venta.get_metodo_pago_display }}</div>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="text-sm text-muted">{{ venta.detalles.count }} items</span>
+                                <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap hidden md:table-cell">
+                                    <span class="text-xs sm:text-sm text-slate-400">{{ venta.detalles.count }} items</span>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="text-xs px-2 py-1 rounded-full bg-white/10 text-slate-200">{{ venta.get_metodo_pago_display }}</span>
+                                <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap hidden lg:table-cell">
+                                    <span class="text-[10px] sm:text-xs px-2 py-1 rounded-full bg-white/10 text-slate-200">{{ venta.get_metodo_pago_display }}</span>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
+                                <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                                     {% with venta.status as estado %}
-                                        <span class="text-xs px-2 py-1 rounded-full
+                                        <span class="text-[10px] sm:text-xs px-2 py-1 rounded-full
                                             {% if estado == 'COMPLETADO' or estado == 'PAGADO' %}bg-emerald-500/20 text-emerald-300
                                             {% elif estado == 'PENDIENTE_PAGO' or estado == 'PENDIENTE_ENVIO' %}bg-amber-500/20 text-amber-300
                                             {% elif estado == 'CANCELADO' %}bg-rose-500/20 text-rose-300
@@ -119,11 +122,14 @@
                                         </span>
                                     {% endwith %}
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right">
-                                    <span class="text-lg font-bold text-slate-100">${{ venta.total_ars|floatformat:2|intcomma }}</span>
+                                <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-right">
+                                    <span class="text-sm sm:text-lg font-bold text-slate-100">${{ venta.total_ars|floatformat:2|intcomma }}</span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-center">
                                     <div class="flex flex-col items-center gap-2">
+                                        <a href="{% url 'ventas:detalle' venta.id %}" class="glass-card rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-100 hover:bg-white/10 transition inline-block">
+                                            Ver detalles
+                                        </a>
                                         <a href="{% url 'ventas:voucher' venta.id %}" class="glass-card rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-100 hover:bg-white/10 transition inline-block">
                                             Voucher
                                         </a>

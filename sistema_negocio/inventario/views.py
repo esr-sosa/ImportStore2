@@ -6,8 +6,8 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.http import HttpResponse
 from django.db import models, transaction
-from django.db.models import DecimalField, OuterRef, Subquery
-from django.db.models.functions import Cast
+from django.db.models import DecimalField, OuterRef, Subquery, F, Sum
+from django.db.models.functions import Cast, Coalesce
 from django.shortcuts import get_object_or_404, redirect, render
 
 from core.db_inspector import column_exists
@@ -76,12 +76,37 @@ def _sincronizar_precios(variante: ProductoVariante, data: dict) -> None:
         if valor in (None, ""):
             variante.precios.filter(tipo=tipo, moneda=moneda).update(activo=False)
             continue
-        Precio.objects.update_or_create(
-            variante=variante,
-            tipo=tipo,
-            moneda=moneda,
-            defaults={"precio": valor, "activo": True},
-        )
+        try:
+            Precio.objects.update_or_create(
+                variante=variante,
+                tipo=tipo,
+                moneda=moneda,
+                defaults={"precio": valor, "activo": True, "tipo": tipo, "moneda": moneda},
+            )
+        except Exception as e:
+            # Si falla con ORM, usar SQL directo
+            from django.db import connection
+            from core.db_inspector import column_exists
+            
+            # Verificar si existe el registro
+            precio_existente = Precio.objects.filter(
+                variante=variante,
+                tipo=tipo,
+                moneda=moneda
+            ).first()
+            
+            if precio_existente:
+                precio_existente.precio = valor
+                precio_existente.activo = True
+                precio_existente.save()
+            else:
+                # Crear nuevo precio con SQL directo
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        INSERT INTO inventario_precio 
+                        (variante_id, tipo, moneda, precio, activo, creado, actualizado)
+                        VALUES (%s, %s, %s, %s, %s, NOW(), NOW())
+                    """, [variante.pk, tipo, moneda, valor, True])
     
     # Precio mínimo se guarda como minorista con un flag especial o simplemente como minorista
     # Por ahora, si hay precio_minimo_ars, lo guardamos como minorista también
@@ -140,9 +165,11 @@ def inventario_dashboard(request):
     if detalleiphone_ready:
         qs = qs.select_related("detalle_iphone")
 
+    # Excluir iPhones (categoría "Celulares") del inventario general
     qs = (
         qs.prefetch_related("precios")
         .filter(producto__activo=True)
+        .exclude(producto__categoria__nombre__iexact="Celulares")
         .order_by("producto__nombre", "sku")
     )
 
@@ -201,6 +228,38 @@ def inventario_dashboard(request):
     valor_total_ars = (
         (valor_total_usd * dolar_decimal) if dolar_decimal is not None else None
     )
+    
+    # Calcular valor catálogo (similar a dashboard_view)
+    valor_catalogo_usd = Precio.objects.filter(
+        activo=True,
+        tipo=Precio.Tipo.MINORISTA,
+        moneda=Precio.Moneda.USD,
+        variante__producto__activo=True,
+    ).exclude(
+        variante__producto__categoria__nombre__iexact="Celulares"
+    ).aggregate(
+        total=Coalesce(
+            Sum(
+                F("precio") * F("variante__stock_actual"),
+                output_field=DecimalField(max_digits=18, decimal_places=2),
+            ),
+            Decimal("0"),
+        )
+    )["total"]
+
+    valor_catalogo_ars = Precio.objects.filter(
+        activo=True,
+        tipo=Precio.Tipo.MINORISTA,
+        moneda=Precio.Moneda.ARS,
+        variante__producto__activo=True,
+    ).exclude(
+        variante__producto__categoria__nombre__iexact="Celulares"
+    ).aggregate(total=Coalesce(Sum(F("precio") * F("variante__stock_actual")), Decimal("0")))["total"]
+    
+    inventario_metrics = {
+        "valor_catalogo_usd": valor_catalogo_usd,
+        "valor_catalogo_ars": valor_catalogo_ars,
+    }
 
     paginator = Paginator(variantes, 20)
     page_number = request.GET.get("page") or 1
@@ -225,8 +284,10 @@ def inventario_dashboard(request):
     ctx = {
         "form": form,
         "page_obj": page_obj,
+        "categorias": Categoria.objects.exclude(nombre__iexact="Celulares").order_by("nombre"),
         "total": paginator.count,
         "valor_dolar": valor_dolar,
+        "inventario_metrics": inventario_metrics,
         "stats": {
             "total_variantes": total_variantes,
             "total_activos": total_activos,
@@ -250,6 +311,12 @@ def producto_crear(request):
     variante_form = ProductoVarianteForm(request.POST or None)
 
     if request.method == "POST":
+        # Debug: mostrar errores si los hay
+        if not producto_form.is_valid():
+            messages.error(request, f"Errores en el formulario de producto: {producto_form.errors}")
+        if not variante_form.is_valid():
+            messages.error(request, f"Errores en el formulario de variante: {variante_form.errors}")
+        
         if producto_form.is_valid() and variante_form.is_valid():
             # Generar SKU automático si está habilitado o si está vacío
             sku_valor = variante_form.cleaned_data.get("sku", "").strip()
@@ -326,17 +393,32 @@ def producto_crear(request):
                     from django.utils import timezone
                     ahora = timezone.now()
                     
-                    # Construir el INSERT con el campo stock
-                    cursor.execute("""
-                        INSERT INTO inventario_productovariante 
-                        (producto_id, sku, nombre_variante, codigo_barras, qr_code, atributo_1, atributo_2, 
-                         stock_actual, stock_minimo, stock, activo, creado, actualizado)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """, [
-                        producto.pk, sku_val, nombre_var_val, codigo_barras_val, qr_code_val,
-                        atributo_1_val, atributo_2_val, stock_actual_val, stock_minimo_val,
-                        stock_actual_val, activo_val, ahora, ahora
-                    ])
+                    # Verificar si existe el campo 'peso' también
+                    tiene_peso = column_exists("inventario_productovariante", "peso")
+                    
+                    # Construir el INSERT dinámicamente según los campos que existan
+                    if tiene_peso:
+                        cursor.execute("""
+                            INSERT INTO inventario_productovariante 
+                            (producto_id, sku, nombre_variante, codigo_barras, qr_code, atributo_1, atributo_2, 
+                             stock_actual, stock_minimo, stock, peso, activo, creado, actualizado)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """, [
+                            producto.pk, sku_val, nombre_var_val, codigo_barras_val, qr_code_val,
+                            atributo_1_val, atributo_2_val, stock_actual_val, stock_minimo_val,
+                            stock_actual_val, 0, activo_val, ahora, ahora
+                        ])
+                    else:
+                        cursor.execute("""
+                            INSERT INTO inventario_productovariante 
+                            (producto_id, sku, nombre_variante, codigo_barras, qr_code, atributo_1, atributo_2, 
+                             stock_actual, stock_minimo, stock, activo, creado, actualizado)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """, [
+                            producto.pk, sku_val, nombre_var_val, codigo_barras_val, qr_code_val,
+                            atributo_1_val, atributo_2_val, stock_actual_val, stock_minimo_val,
+                            stock_actual_val, activo_val, ahora, ahora
+                        ])
                     variante.pk = cursor.lastrowid
             else:
                 # Si no existe el campo stock, guardar normalmente
@@ -551,3 +633,58 @@ def proveedor_toggle_activo(request, pk: int):
         f"Proveedor {proveedor.nombre} ahora está {'activo' if proveedor.activo else 'inactivo'}.",
     )
     return redirect("inventario:maestros")
+
+
+@login_required
+def descargar_etiqueta(request, variante_id):
+    """Descarga una etiqueta individual en PDF."""
+    from .etiquetas import generar_etiqueta_individual_pdf
+    
+    variante = get_object_or_404(ProductoVariante, pk=variante_id)
+    pdf_file = generar_etiqueta_individual_pdf(variante)
+    
+    response = HttpResponse(pdf_file.read(), content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="etiqueta_{variante.sku}.pdf"'
+    return response
+
+
+@login_required
+def descargar_etiquetas_multiples(request):
+    """Descarga etiquetas de múltiples productos seleccionados."""
+    from .etiquetas import generar_etiqueta_pdf
+    
+    variante_ids = request.GET.getlist('variantes')
+    if not variante_ids:
+        messages.error(request, "No se seleccionaron productos.")
+        return redirect("inventario:dashboard")
+    
+    variantes = ProductoVariante.objects.filter(pk__in=variante_ids).select_related('producto', 'producto__categoria').prefetch_related('precios')
+    pdf_file = generar_etiqueta_pdf(list(variantes))
+    
+    response = HttpResponse(pdf_file.read(), content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="etiquetas_productos.pdf"'
+    return response
+
+
+@login_required
+def descargar_etiquetas_categoria(request, categoria_id):
+    """Descarga etiquetas de todos los productos de una categoría."""
+    from .etiquetas import generar_etiqueta_pdf
+    
+    categoria = get_object_or_404(Categoria, pk=categoria_id)
+    variantes = ProductoVariante.objects.filter(
+        producto__categoria=categoria,
+        producto__activo=True
+    ).exclude(
+        producto__categoria__nombre__iexact="Celulares"
+    ).select_related('producto', 'producto__categoria').prefetch_related('precios').order_by('producto__nombre', 'sku')
+    
+    if not variantes.exists():
+        messages.error(request, f"No hay productos activos en la categoría {categoria.nombre}.")
+        return redirect("inventario:dashboard")
+    
+    pdf_file = generar_etiqueta_pdf(list(variantes))
+    
+    response = HttpResponse(pdf_file.read(), content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="etiquetas_{categoria.nombre}.pdf"'
+    return response

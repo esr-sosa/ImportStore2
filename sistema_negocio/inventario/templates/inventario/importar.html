@@ -3,35 +3,42 @@
 {% block title %}Importar inventario{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-slate-100 py-12">
-  <div class="mx-auto max-w-3xl rounded-3xl bg-white p-8 shadow-xl">
-    <h1 class="text-2xl font-semibold text-slate-900">Importar catálogo</h1>
-    <p class="mt-2 text-sm text-slate-500">Subí el archivo <strong>listado_de_producto</strong> exportado desde tu tienda (CSV o XLSX). El sistema creará o actualizará productos y variantes, incluyendo precios minoristas/mayoristas.</p>
+<div class="min-h-screen w-full px-4 py-8 sm:px-6 lg:px-10">
+  <div class="mx-auto max-w-3xl">
+    <header class="mb-8">
+      <p class="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Inventario</p>
+      <h1 class="mt-2 text-3xl font-semibold text-slate-100">Importar catálogo</h1>
+      <p class="mt-2 text-sm text-slate-300">Subí el archivo <strong>listado_de_producto</strong> exportado desde tu tienda (CSV o XLSX). El sistema creará o actualizará productos y variantes, incluyendo precios minoristas/mayoristas.</p>
+    </header>
 
-    <form method="post" enctype="multipart/form-data" class="mt-6 space-y-6">
-      {% csrf_token %}
-      <div>
-        <label class="text-xs font-semibold uppercase tracking-widest text-slate-500">Archivo</label>
-        {{ form.archivo }}
-        {% if form.archivo.help_text %}<p class="mt-1 text-xs text-slate-400">{{ form.archivo.help_text }}</p>{% endif %}
-        {{ form.archivo.errors }}
-      </div>
-      <div class="flex items-center gap-3">
-        {{ form.actualizar_existentes }}
-        <span class="text-sm text-slate-600">Actualizar variantes existentes cuando coincida el SKU</span>
-      </div>
-      <button type="submit" class="rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-slate-800">Procesar archivo</button>
-      <a href="{% url 'inventario:exportar' %}" class="inline-flex items-center rounded-full border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50">Descargar inventario actual</a>
-    </form>
+    <div class="glass-panel rounded-3xl p-8 shadow-xl">
+      <form method="post" enctype="multipart/form-data" class="space-y-6">
+        {% csrf_token %}
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-widest text-slate-300 mb-2">Archivo</label>
+          <input type="file" name="archivo" required class="w-full rounded-2xl border-2 border-slate-600/40 bg-slate-800/90 px-4 py-3 text-sm font-medium text-slate-100 shadow-lg file:mr-4 file:rounded-full file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-blue-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all">
+          {% if form.archivo.help_text %}<p class="mt-1 text-xs text-slate-400">{{ form.archivo.help_text }}</p>{% endif %}
+          {{ form.archivo.errors }}
+        </div>
+        <div class="flex items-center gap-3">
+          <input type="checkbox" name="actualizar_existentes" id="actualizar_existentes" checked class="h-5 w-5 rounded border-slate-500 bg-slate-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-800">
+          <label for="actualizar_existentes" class="text-sm text-slate-200">Actualizar variantes existentes cuando coincida el SKU</label>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-3">
+          <button type="submit" class="rounded-full bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/30 transition hover:bg-blue-500">Procesar archivo</button>
+          <a href="{% url 'inventario:exportar' %}" class="rounded-full border-2 border-slate-600/40 bg-slate-800/90 px-4 py-3 text-center text-sm font-semibold text-slate-100 transition hover:bg-slate-700">Descargar inventario actual</a>
+        </div>
+      </form>
 
-    <section class="mt-8 rounded-2xl bg-slate-50 p-5 text-sm text-slate-600">
-      <h2 class="text-sm font-semibold uppercase tracking-widest text-slate-500">Formato compatible</h2>
-      <ul class="mt-3 list-disc space-y-1 pl-5">
-        <li>Columnas requeridas: <code>Nombre</code>, <code>SKU</code>, <code>Stock</code>.</li>
-        <li>Opcionales: <code>Descripción</code>, <code>Precio minorista ARS/USD</code>, <code>Precio mayorista ARS/USD</code>, <code>Categoría</code>, <code>Proveedor</code>, <code>Código de barras</code>.</li>
-        <li>Las variantes se identifican por su <strong>SKU</strong>. Si está repetido se actualizará la misma variante.</li>
-      </ul>
-    </section>
+      <section class="mt-8 rounded-2xl border border-slate-700/50 bg-slate-800/40 p-5 text-sm text-slate-300">
+        <h2 class="text-sm font-semibold uppercase tracking-widest text-slate-200 mb-3">Formato compatible</h2>
+        <ul class="space-y-2 list-disc pl-5">
+          <li>Columnas requeridas: <code class="text-blue-300">Nombre</code>, <code class="text-blue-300">SKU</code>, <code class="text-blue-300">Stock</code>.</li>
+          <li>Opcionales: <code class="text-blue-300">Descripción</code>, <code class="text-blue-300">Precio minorista ARS/USD</code>, <code class="text-blue-300">Precio mayorista ARS/USD</code>, <code class="text-blue-300">Categoría</code>, <code class="text-blue-300">Proveedor</code>, <code class="text-blue-300">Código de barras</code>.</li>
+          <li>Las variantes se identifican por su <strong>SKU</strong>. Si está repetido se actualizará la misma variante.</li>
+        </ul>
+      </section>
+    </div>
   </div>
 </div>
 {% endblock %}

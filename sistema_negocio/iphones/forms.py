@@ -3,11 +3,11 @@ from django import forms
 from .constants import CAPACITIES, COLORS, IPHONE_MODELS
 
 
-IOS_INPUT = "w-full rounded-2xl border-2 border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-900 shadow-sm placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-IOS_SELECT = f"{IOS_INPUT} appearance-none bg-white text-slate-900"
+IOS_INPUT = "w-full rounded-2xl border-2 border-slate-600/40 bg-slate-800/90 px-4 py-3 text-sm font-medium text-slate-100 shadow-lg placeholder-slate-400 focus:border-blue-500 focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all"
+IOS_SELECT = f"{IOS_INPUT} appearance-none bg-slate-800/90 text-slate-100"
 IOS_TEXTAREA = IOS_INPUT + " min-h-[120px]"
 IOS_NUMBER = IOS_INPUT + " text-right"
-IOS_CHECK = "h-5 w-5 rounded-full border-slate-300 text-black focus:ring-black"
+IOS_CHECK = "h-5 w-5 rounded border-slate-500 bg-slate-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-800"
 
 
 class AgregarIphoneForm(forms.Form):

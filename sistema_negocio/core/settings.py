@@ -12,75 +12,81 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-y1r-da*d4kgxhe-u@z4
 
 DEBUG = os.getenv("DJANGO_DEBUG", "true").lower() == "true"
 
+# core/settings.py
 
-# 1. Definimos ALLOWED_HOSTS leyendo del .env (con localhost como base)
+# ... (Tus imports y variables SECRET_KEY, DEBUG, etc. quedan igual)
+# core/settings.py
+
+# ... imports y definiciones previas ...
+
+# 1. Definimos las listas base (Leyendo del .env)
 ALLOWED_HOSTS = [
     host.strip() for host in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if host.strip()
 ]
 
-# 2. Definimos CSRF_TRUSTED_ORIGINS (es bueno leerlo del .env también)
 CSRF_TRUSTED_ORIGINS = [
     origin.strip() for origin in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if origin.strip()
 ]
-# --- FIN DEL ARREGLO ---
 
-
-# 3. AHORA SÍ, podemos agregar ngrok a esas listas si estamos en DEBUG
-# Solo intentar iniciar ngrok si está explícitamente habilitado y no hay errores previos
-# NOTA: Ngrok deshabilitado temporalmente para evitar errores de sesión limitada
-# Si necesitas ngrok, descomenta el código y asegúrate de tener solo una sesión activa
-_ngrok_initialized = False
-_ngrok_enabled = os.getenv('NGROK_ENABLED', 'false').lower() == 'true'
-if DEBUG and os.getenv('NGROK_AUTHTOKEN') and _ngrok_enabled and not _ngrok_initialized:
-    import sys
-    import io
-    # Redirigir stderr temporalmente para silenciar errores de ngrok
-    old_stderr = sys.stderr
-    sys.stderr = io.StringIO()
+# 2. Bloque NGROK "Anti-Bloqueo"
+# Solo ejecutamos si estamos en DEBUG, tenemos token y NO es el reloader automático
+if DEBUG and os.getenv('NGROK_AUTHTOKEN') and os.environ.get('RUN_MAIN') is None:
     try:
-        from pyngrok import ngrok
+        from pyngrok import ngrok, conf
         
-        # Verificar si ya hay un túnel activo antes de crear uno nuevo
-        try:
-            tunnels = ngrok.get_tunnels()
-            if tunnels:
-                # Reutilizar túnel existente
-                http_tunnel = tunnels[0]
-                public_url = http_tunnel.public_url
-            else:
-                # Crear nuevo túnel
-                ngrok.set_auth_token(os.getenv("NGROK_AUTHTOKEN"))
+        # Configuramos el token
+        conf.get_default().auth_token = os.getenv("NGROK_AUTHTOKEN")
+        
+        # Intentamos obtener túneles existentes primero
+        tunnels = ngrok.get_tunnels()
+        public_url = None
+
+        if tunnels:
+            # Si ya hay uno abierto (quizás quedó de una sesión anterior), lo usamos
+            public_url = tunnels[0].public_url
+            print(f"--- NGROK (Existente detectado): {public_url} ---")
+        else:
+            # Si no hay, creamos uno nuevo
+            try:
+                # Matamos cualquier proceso ngrok zombie del sistema antes de arrancar
+                ngrok.kill()
+                
                 http_tunnel = ngrok.connect(8000)
                 public_url = http_tunnel.public_url
-            
-            # Limpiamos la URL para obtener solo el host
+                print(f"--- NGROK (Nuevo túnel): {public_url} ---")
+            except Exception as e:
+                print(f"--- Error al crear túnel NGROK: {e} ---")
+
+        # Actualizamos las listas de Django (esto es lo que te permite entrar)
+        if public_url:
             ngrok_host = public_url.replace("https://", "").replace("http://", "")
-            
-            # Lo añadimos a las listas automáticamente
-            ALLOWED_HOSTS.append(ngrok_host)
-            # IMPORTANTE: CSRF necesita la URL completa con https://
-            CSRF_TRUSTED_ORIGINS.append(public_url) 
-            
-            print(f"--- NGROK Automático Activado ---")
-            print(f"Acceso público en: {public_url}")
-            _ngrok_initialized = True
-        except Exception:
-            # Silenciar todos los errores de ngrok
-            pass
-        finally:
-            sys.stderr = old_stderr
+            if ngrok_host not in ALLOWED_HOSTS:
+                ALLOWED_HOSTS.append(ngrok_host)
+            if public_url not in CSRF_TRUSTED_ORIGINS:
+                CSRF_TRUSTED_ORIGINS.append(public_url)
+                
+            # Guardamos la URL en una variable de entorno para que el reloader la vea
+            os.environ["DJANGO_NGROK_URL"] = public_url
 
     except ImportError:
-        # pyngrok no instalado, silenciar el error
-        sys.stderr = old_stderr
-        pass
-    except Exception:
-        # Error general, silenciar
-        sys.stderr = old_stderr
-        pass
+        print("--- pyngrok no instalado. ---")
+    except Exception as e:
+        print(f"--- Error general NGROK: {e} ---")
+
+# 3. Truco para el Reloader: Si el proceso principal ya consiguió URL, la usamos
+if os.environ.get("DJANGO_NGROK_URL"):
+    public_url = os.environ["DJANGO_NGROK_URL"]
+    ngrok_host = public_url.replace("https://", "").replace("http://", "")
+    if ngrok_host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(ngrok_host)
+    if public_url not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(public_url)
+    print(f"--- NGROK (Heredado en Reloader): {public_url} ---")
+
+# ... resto de tu settings.py ...
 
 
-
+# ... (El resto de tu archivo sigue igual: Fallback inseguro, INSTALLED_APPS, etc.)
 
 
 # Fallback inseguro sólo permitido en desarrollo

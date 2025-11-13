@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}Detalle de venta {{ venta.id }}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen w-full px-4 py-8 sm:px-6 lg:px-10">
+    <div class="mx-auto max-w-5xl space-y-6">
+        <header class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <a href="{% url 'ventas:listado' %}" class="text-sm text-slate-400 hover:text-slate-200 mb-2 inline-block">← Volver al listado</a>
+                <h1 class="text-3xl font-bold text-slate-100">Venta {{ venta.id }}</h1>
+                <p class="text-sm text-slate-400 mt-1">{{ venta.fecha|date:"d/m/Y H:i" }}</p>
+            </div>
+            <div class="flex gap-3">
+                <a href="{% url 'ventas:voucher' venta.id %}" target="_blank" class="rounded-full border-2 border-blue-600/40 bg-blue-600/20 px-4 py-2 text-sm font-semibold text-blue-300 hover:bg-blue-600/30 transition flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                    </svg>
+                    Ver comprobante
+                </a>
+            </div>
+        </header>
+
+        <!-- Información general -->
+        <div class="glass-card rounded-3xl p-6 space-y-6">
+            <div class="grid gap-6 md:grid-cols-2">
+                <div>
+                    <h2 class="text-lg font-semibold text-slate-100 mb-4">Información de la venta</h2>
+                    <dl class="space-y-3">
+                        <div>
+                            <dt class="text-xs font-semibold uppercase tracking-widest text-slate-400">Estado</dt>
+                            <dd>
+                                <span class="inline-block mt-1 text-xs px-3 py-1 rounded-full
+                                    {% if venta.status == 'COMPLETADO' or venta.status == 'PAGADO' %}bg-emerald-500/20 text-emerald-300
+                                    {% elif venta.status == 'PENDIENTE_PAGO' or venta.status == 'PENDIENTE_ENVIO' %}bg-amber-500/20 text-amber-300
+                                    {% elif venta.status == 'CANCELADO' %}bg-rose-500/20 text-rose-300
+                                    {% else %}bg-slate-500/20 text-slate-300{% endif %}">
+                                    {{ venta.get_status_display }}
+                                </span>
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs font-semibold uppercase tracking-widest text-slate-400">Método de pago</dt>
+                            <dd class="mt-1 text-sm text-slate-100">{{ venta.get_metodo_pago_display }}</dd>
+                        </div>
+                        {% if venta.es_pago_mixto %}
+                        <div>
+                            <dt class="text-xs font-semibold uppercase tracking-widest text-slate-400">Pago mixto</dt>
+                            <dd class="mt-1 text-sm text-slate-100">
+                                {{ venta.get_metodo_pago_display }}: ${{ venta.monto_pago_1|floatformat:2|intcomma }}<br>
+                                {{ venta.get_metodo_pago_2_display }}: ${{ venta.monto_pago_2|floatformat:2|intcomma }}
+                            </dd>
+                        </div>
+                        {% endif %}
+                        <div>
+                            <dt class="text-xs font-semibold uppercase tracking-widest text-slate-400">Vendedor</dt>
+                            <dd class="mt-1 text-sm text-slate-100">{{ venta.vendedor|default:"-" }}</dd>
+                        </div>
+                    </dl>
+                </div>
+                <div>
+                    <h2 class="text-lg font-semibold text-slate-100 mb-4">Cliente</h2>
+                    <dl class="space-y-3">
+                        <div>
+                            <dt class="text-xs font-semibold uppercase tracking-widest text-slate-400">Nombre</dt>
+                            <dd class="mt-1 text-sm text-slate-100">{{ venta.cliente_nombre|default:"Consumidor final" }}</dd>
+                        </div>
+                        {% if venta.cliente_documento %}
+                        <div>
+                            <dt class="text-xs font-semibold uppercase tracking-widest text-slate-400">Documento</dt>
+                            <dd class="mt-1 text-sm text-slate-100">{{ venta.cliente_documento }}</dd>
+                        </div>
+                        {% endif %}
+                        {% if venta.cliente %}
+                        <div>
+                            <dt class="text-xs font-semibold uppercase tracking-widest text-slate-400">Cliente registrado</dt>
+                            <dd class="mt-1 text-sm text-slate-100">{{ venta.cliente.nombre }}</dd>
+                        </div>
+                        {% endif %}
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <!-- Productos -->
+        <div class="glass-card rounded-3xl p-6">
+            <h2 class="text-lg font-semibold text-slate-100 mb-4">Productos</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-700/30">
+                    <thead class="bg-slate-800/80 text-left text-xs uppercase tracking-widest text-slate-300">
+                        <tr>
+                            <th class="px-4 py-3">SKU</th>
+                            <th class="px-4 py-3">Descripción</th>
+                            <th class="px-4 py-3 text-right">Cantidad</th>
+                            <th class="px-4 py-3 text-right">Precio unitario</th>
+                            <th class="px-4 py-3 text-right">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/30">
+                        {% for detalle in venta.detalles.all %}
+                        <tr class="hover:bg-slate-800/40 transition">
+                            <td class="px-4 py-3 text-sm text-slate-300">{{ detalle.sku }}</td>
+                            <td class="px-4 py-3 text-sm text-slate-100">{{ detalle.descripcion }}</td>
+                            <td class="px-4 py-3 text-sm text-slate-100 text-right">{{ detalle.cantidad }}</td>
+                            <td class="px-4 py-3 text-sm text-slate-100 text-right">
+                                ${{ detalle.precio_unitario_ars_congelado|floatformat:2|intcomma }}
+                                {% if detalle.precio_unitario_usd_original %}
+                                    <br><span class="text-xs text-slate-400">(USD ${{ detalle.precio_unitario_usd_original|floatformat:2|intcomma }})</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-3 text-sm font-semibold text-slate-100 text-right">${{ detalle.subtotal_ars|floatformat:2|intcomma }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Totales -->
+        <div class="glass-card rounded-3xl p-6">
+            <h2 class="text-lg font-semibold text-slate-100 mb-4">Resumen</h2>
+            <dl class="space-y-3 max-w-md ml-auto">
+                <div class="flex justify-between text-sm">
+                    <dt class="text-slate-400">Subtotal</dt>
+                    <dd class="text-slate-100 font-semibold">${{ venta.subtotal_ars|floatformat:2|intcomma }}</dd>
+                </div>
+                {% if venta.descuento_total_ars > 0 %}
+                <div class="flex justify-between text-sm">
+                    <dt class="text-emerald-400">Descuentos</dt>
+                    <dd class="text-emerald-400 font-semibold">-${{ venta.descuento_total_ars|floatformat:2|intcomma }}</dd>
+                </div>
+                {% endif %}
+                {% if venta.impuestos_ars > 0 %}
+                <div class="flex justify-between text-sm">
+                    <dt class="text-slate-400">Impuestos</dt>
+                    <dd class="text-slate-100 font-semibold">${{ venta.impuestos_ars|floatformat:2|intcomma }}</dd>
+                </div>
+                {% endif %}
+                <div class="flex justify-between text-lg pt-3 border-t border-slate-700/50">
+                    <dt class="text-slate-100 font-bold">Total</dt>
+                    <dd class="text-slate-100 font-bold">${{ venta.total_ars|floatformat:2|intcomma }}</dd>
+                </div>
+            </dl>
+        </div>
+
+        <!-- Nota interna -->
+        {% if venta.nota %}
+        <div class="glass-card rounded-3xl p-6">
+            <h2 class="text-lg font-semibold text-slate-100 mb-4">Nota interna</h2>
+            <p class="text-sm text-slate-300 whitespace-pre-wrap">{{ venta.nota }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Acciones -->
+        {% if venta.status != 'CANCELADO' %}
+        <div class="glass-card rounded-3xl p-6 space-y-4">
+            <h2 class="text-lg font-semibold text-slate-100 mb-4">Acciones</h2>
+            
+            <!-- Cambiar estado -->
+            <div>
+                <form method="post" action="{% url 'ventas:actualizar_estado' venta.id %}" class="flex gap-3 items-end">
+                    {% csrf_token %}
+                    <div class="flex-1">
+                        <label for="estado" class="block text-xs font-semibold uppercase tracking-widest text-slate-300 mb-2">Cambiar estado</label>
+                        <select name="estado" id="estado" class="w-full rounded-2xl border-2 border-slate-600/40 bg-slate-800/90 px-3 py-2 text-sm font-semibold text-slate-100 shadow-lg focus:border-blue-500 focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all">
+                            {% for valor, etiqueta in estados %}
+                                <option value="{{ valor }}" {% if venta.status == valor %}selected{% endif %}>{{ etiqueta }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="rounded-full border-2 border-blue-600/40 bg-blue-600/20 px-4 py-2 text-sm font-semibold text-blue-300 hover:bg-blue-600/30 transition">
+                        Actualizar estado
+                    </button>
+                </form>
+            </div>
+
+            <!-- Anular venta -->
+            <div class="pt-4 border-t border-slate-700/50">
+                <button onclick="document.getElementById('anular-modal').classList.remove('hidden')" class="rounded-full border-2 border-rose-600/40 bg-rose-600/20 px-4 py-2 text-sm font-semibold text-rose-300 hover:bg-rose-600/30 transition">
+                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                    Anular venta
+                </button>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal de anulación -->
+{% if venta.status != 'CANCELADO' %}
+<div id="anular-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/60 px-4">
+    <div class="glass-card rounded-3xl p-6 max-w-md w-full">
+        <h3 class="text-xl font-bold text-slate-100 mb-4">Anular venta {{ venta.id }}</h3>
+        <p class="text-sm text-slate-300 mb-6">¿Estás seguro de que deseas anular esta venta? Esta acción no se puede deshacer.</p>
+        
+        <form method="post" action="{% url 'ventas:anular' venta.id %}">
+            {% csrf_token %}
+            <div class="space-y-4 mb-6">
+                <div>
+                    <label class="flex items-center gap-2 text-sm text-slate-300">
+                        <input type="checkbox" name="devolver_stock" value="true" checked class="h-4 w-4 rounded border-slate-500 bg-slate-700 text-blue-600 focus:ring-blue-500">
+                        <span>Devolver productos al stock</span>
+                    </label>
+                </div>
+                <div>
+                    <label for="motivo" class="block text-xs font-semibold uppercase tracking-widest text-slate-300 mb-2">Motivo (opcional)</label>
+                    <textarea name="motivo" id="motivo" rows="3" class="w-full rounded-2xl border-2 border-slate-600/40 bg-slate-800/90 px-3 py-2 text-sm text-slate-100 placeholder-slate-400 focus:border-blue-500 focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all" placeholder="Ej: Producto defectuoso, cambio de opinión, etc."></textarea>
+                </div>
+            </div>
+            
+            <div class="flex gap-3">
+                <button type="button" onclick="document.getElementById('anular-modal').classList.add('hidden')" class="flex-1 rounded-full border-2 border-slate-600/40 bg-slate-800/90 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-700 transition">
+                    Cancelar
+                </button>
+                <button type="submit" class="flex-1 rounded-full border-2 border-rose-600/40 bg-rose-600/20 px-4 py-2 text-sm font-semibold text-rose-300 hover:bg-rose-600/30 transition">
+                    Confirmar anulación
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+

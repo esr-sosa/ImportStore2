@@ -5,8 +5,9 @@ from .models import Categoria, Precio, Producto, ProductoVariante, Proveedor
 
 
 class InventarioFiltroForm(forms.Form):
-    base_input = "rounded-2xl border border-slate-200 bg-white/60 px-4 py-3 text-sm font-medium text-slate-900 shadow-sm placeholder-slate-400 focus:border-black focus:outline-none focus:ring-2 focus:ring-black/10"
-    select_input = "rounded-2xl border border-slate-200 bg-white/60 px-4 py-3 text-sm font-semibold text-slate-900 shadow-sm focus:border-black focus:outline-none focus:ring-2 focus:ring-black/10"
+    # Estilo iOS moderno con buen contraste - fondo oscuro con texto claro
+    base_input = "w-full rounded-2xl border-2 border-slate-600/40 bg-slate-800/90 px-4 py-3 text-sm font-medium text-slate-100 shadow-lg placeholder-slate-400 focus:border-blue-500 focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all"
+    select_input = "w-full rounded-2xl border-2 border-slate-600/40 bg-slate-800/90 px-4 py-3 text-sm font-semibold text-slate-100 shadow-lg focus:border-blue-500 focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all"
 
     q = forms.CharField(
         label="Buscar",

@@ -6,24 +6,56 @@
 <div class="min-h-screen w-full px-4 py-8 sm:px-6 lg:px-10">
     <div class="mx-auto max-w-4xl space-y-8">
         <header class="space-y-3">
-            <p class="text-xs font-semibold uppercase tracking-[0.35em] text-muted">Auditoría</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Auditoría</p>
             <h1 class="text-3xl font-bold text-slate-100">Historial de cambios</h1>
-            <p class="text-sm text-muted">Seguimiento cronológico de acciones realizadas por el equipo y procesos automáticos.</p>
+            <p class="text-sm text-slate-300">Seguimiento cronológico de acciones realizadas por el equipo y procesos automáticos.</p>
         </header>
 
-        <section class="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl shadow-black/20">
-            <ul role="list" class="relative space-y-8">
+        <!-- Filtros -->
+        <div class="glass-card rounded-3xl p-6">
+            <form method="get" class="space-y-4">
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                        <label for="tipo_accion" class="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-300">Tipo de cambio</label>
+                        <select name="tipo_accion" id="tipo_accion" class="w-full rounded-2xl border-2 border-slate-600/40 bg-slate-800/90 px-3 py-2 text-sm font-semibold text-slate-100 shadow-lg focus:border-blue-500 focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all">
+                            <option value="">Todos los tipos</option>
+                            {% for valor, etiqueta in tipos_accion %}
+                                <option value="{{ valor }}" {% if filtros.tipo_accion == valor %}selected{% endif %}>{{ etiqueta }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="periodo" class="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-300">Período</label>
+                        <select name="periodo" id="periodo" class="w-full rounded-2xl border-2 border-slate-600/40 bg-slate-800/90 px-3 py-2 text-sm font-semibold text-slate-100 shadow-lg focus:border-blue-500 focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all">
+                            <option value="">Todos los períodos</option>
+                            <option value="hoy" {% if filtros.periodo == 'hoy' %}selected{% endif %}>Hoy</option>
+                            <option value="ayer" {% if filtros.periodo == 'ayer' %}selected{% endif %}>Ayer</option>
+                            <option value="semana" {% if filtros.periodo == 'semana' %}selected{% endif %}>Última semana</option>
+                            <option value="mes" {% if filtros.periodo == 'mes' %}selected{% endif %}>Último mes</option>
+                            <option value="3meses" {% if filtros.periodo == '3meses' %}selected{% endif %}>Últimos 3 meses</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex gap-3">
+                    <button type="submit" class="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-600/30 transition hover:bg-blue-500">Aplicar filtros</button>
+                    <a href="{% url 'historial:lista' %}" class="rounded-full border-2 border-slate-600/40 bg-slate-800/90 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-slate-700">Limpiar</a>
+                </div>
+            </form>
+        </div>
+
+        <section class="rounded-xl sm:rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-6 shadow-2xl shadow-black/20">
+            <ul role="list" class="relative space-y-4 sm:space-y-8">
                 {% for registro in page_obj %}
-                <li class="relative pl-12">
+                <li class="relative pl-8 sm:pl-12">
                     {% if not forloop.last %}
-                    <span class="absolute left-4 top-6 h-full w-0.5 bg-white/10" aria-hidden="true"></span>
+                    <span class="absolute left-3 sm:left-4 top-5 sm:top-6 h-full w-0.5 bg-white/10" aria-hidden="true"></span>
                     {% endif %}
-                    <div class="absolute left-0 flex h-9 w-9 items-center justify-center rounded-full
+                    <div class="absolute left-0 flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-full
                         {% if registro.tipo_accion == 'CREACION' %} bg-emerald-500/80
                         {% elif registro.tipo_accion == 'MODIFICACION' %} bg-amber-500/80
                         {% elif registro.tipo_accion == 'ELIMINACION' %} bg-rose-500/80
                         {% else %} bg-sky-500/80 {% endif %}">
-                        <svg class="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <svg class="h-4 w-4 sm:h-5 sm:w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                             {% if registro.tipo_accion == 'CREACION' %}
                                 <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
                             {% elif registro.tipo_accion == 'MODIFICACION' %}
@@ -35,33 +67,42 @@
                             {% endif %}
                         </svg>
                     </div>
-                    <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <div class="rounded-xl sm:rounded-2xl border border-white/10 bg-white/5 p-3 sm:p-4">
                         <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                            <p class="text-sm text-slate-100">{{ registro.descripcion }}</p>
-                            <div class="text-xs text-muted">
+                            <p class="text-xs sm:text-sm text-slate-100">{{ registro.descripcion }}</p>
+                            <div class="text-[10px] sm:text-xs text-slate-400">
                                 <time datetime="{{ registro.fecha|date:'c' }}">{{ registro.fecha|date:"d M, Y H:i" }}</time>
                                 {% if registro.usuario %}
                                     <div>Por {{ registro.usuario }}</div>
                                 {% endif %}
+                                <div class="mt-1">
+                                    <span class="inline-block rounded-full px-2 py-0.5 text-[10px] sm:text-xs font-semibold
+                                        {% if registro.tipo_accion == 'CREACION' %} bg-emerald-500/20 text-emerald-300
+                                        {% elif registro.tipo_accion == 'MODIFICACION' %} bg-amber-500/20 text-amber-300
+                                        {% elif registro.tipo_accion == 'ELIMINACION' %} bg-rose-500/20 text-rose-300
+                                        {% else %} bg-sky-500/20 text-sky-300 {% endif %}">
+                                        {{ registro.get_tipo_accion_display }}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </li>
                 {% empty %}
-                <li class="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-muted">No hay registros para mostrar todavía.</li>
+                <li class="rounded-xl sm:rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-6 text-xs sm:text-sm text-slate-400">No hay registros para mostrar con los filtros aplicados.</li>
                 {% endfor %}
             </ul>
         </section>
 
         {% if page_obj.has_other_pages %}
-        <nav class="flex flex-col gap-3 rounded-3xl border border-white/10 bg-white/5 p-4 text-sm text-muted shadow-2xl shadow-black/20 sm:flex-row sm:items-center sm:justify-between">
+        <nav class="flex flex-col gap-2 sm:gap-3 rounded-xl sm:rounded-3xl border border-white/10 bg-white/5 p-3 sm:p-4 text-xs sm:text-sm text-slate-400 shadow-2xl shadow-black/20 sm:flex-row sm:items-center sm:justify-between">
             <span>Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
             <div class="flex gap-2">
                 {% if page_obj.has_previous %}
-                    <a href="?page={{ page_obj.previous_page_number }}" class="rounded-full border border-white/20 px-4 py-2 text-slate-100 transition hover:bg-white/10">Anterior</a>
+                    <a href="?page={{ page_obj.previous_page_number }}{% if filtros.tipo_accion %}&tipo_accion={{ filtros.tipo_accion }}{% endif %}{% if filtros.periodo %}&periodo={{ filtros.periodo }}{% endif %}" class="rounded-full border border-white/20 px-3 sm:px-4 py-2 text-xs sm:text-sm text-slate-100 transition hover:bg-white/10">Anterior</a>
                 {% endif %}
                 {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}" class="rounded-full border border-white/20 px-4 py-2 text-slate-100 transition hover:bg-white/10">Siguiente</a>
+                    <a href="?page={{ page_obj.next_page_number }}{% if filtros.tipo_accion %}&tipo_accion={{ filtros.tipo_accion }}{% endif %}{% if filtros.periodo %}&periodo={{ filtros.periodo }}{% endif %}" class="rounded-full border border-white/20 px-3 sm:px-4 py-2 text-xs sm:text-sm text-slate-100 transition hover:bg-white/10">Siguiente</a>
                 {% endif %}
             </div>
         </nav>

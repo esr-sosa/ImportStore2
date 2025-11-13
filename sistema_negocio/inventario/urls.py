@@ -7,6 +7,9 @@ from .views import (
     proveedor_toggle_activo,
     producto_crear,
     variante_editar,
+    descargar_etiqueta,
+    descargar_etiquetas_multiples,
+    descargar_etiquetas_categoria,
 )
 
 app_name = "inventario"
@@ -19,4 +22,7 @@ urlpatterns = [
     path("exportar/", inventario_exportar, name="exportar"),
     path("maestros/", maestros, name="maestros"),
     path("proveedores/<int:pk>/toggle/", proveedor_toggle_activo, name="proveedor_toggle"),
+    path("etiquetas/<int:variante_id>/", descargar_etiqueta, name="descargar_etiqueta"),
+    path("etiquetas/multiples/", descargar_etiquetas_multiples, name="descargar_etiquetas_multiples"),
+    path("etiquetas/categoria/<int:categoria_id>/", descargar_etiquetas_categoria, name="descargar_etiquetas_categoria"),
 ]

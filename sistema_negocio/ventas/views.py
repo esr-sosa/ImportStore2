@@ -7,7 +7,8 @@ from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import F, Q, Sum
 from django.http import FileResponse, HttpResponseBadRequest, HttpResponseNotFound, JsonResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, render, redirect
+from django.contrib import messages
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 
@@ -18,7 +19,7 @@ from inventario.models import Precio, ProductoVariante
 from historial.models import RegistroHistorial
 from locales.models import Local
 
-from .models import DetalleVenta, Venta
+from .models import CarritoRemoto, DetalleVenta, Venta
 from .pdf import generar_comprobante_pdf
 
 
@@ -29,6 +30,20 @@ def pos_view(request):
         'dolar_blue': dolar_blue,
     }
     return render(request, "ventas/pos.html", context)
+
+@login_required
+def pos_remoto_view(request):
+    """Vista móvil para POS remoto con escáner de códigos."""
+    return render(request, "ventas/pos_remoto.html")
+
+@login_required
+def escaner_productos_view(request):
+    """Vista de escáner de productos con información completa y edición rápida."""
+    dolar_blue = obtener_valor_dolar_blue()
+    context = {
+        'dolar_blue': dolar_blue,
+    }
+    return render(request, "ventas/escaner_productos.html", context)
 
 
 def _formatear_variante(variante):
@@ -42,15 +57,73 @@ def _formatear_variante(variante):
     stock_actual = variante.stock_actual or 0
     stock_status = "sin stock" if stock_actual <= 0 else "disponible"
     
+    # Obtener categoría
+    categoria = variante.producto.categoria.nombre if variante.producto.categoria else ""
+    
     return {
         "id": variante.id,
-        "sku": variante.sku,
-        "producto": variante.producto.nombre,
-        "atributos": variante.atributos_display,
-        "stock": stock_actual,
+        "sku": variante.sku or "",
+        "nombre": variante.producto.nombre,
+        "descripcion": f"{variante.producto.nombre} {variante.atributos_display}".strip(),
+        "stock_actual": stock_actual,
         "stock_status": stock_status,
         "precios": mapa,
+        "categoria": categoria,
+    }
+
+def _formatear_variante_completa(variante, dolar_blue=None):
+    """Formatea una variante con toda la información detallada para el escáner."""
+    precios = variante.precios.filter(activo=True)
+    precios_map = {}
+    for precio in precios:
+        clave = f"{precio.tipo.lower()}_{precio.moneda.lower()}"
+        precios_map[clave] = {
+            "valor": str(precio.precio),
+            "id": precio.id
+        }
+    
+    # Obtener precios específicos
+    precio_minorista_ars = precios.filter(tipo=Precio.Tipo.MINORISTA, moneda=Precio.Moneda.ARS, activo=True).first()
+    precio_mayorista_ars = precios.filter(tipo=Precio.Tipo.MAYORISTA, moneda=Precio.Moneda.ARS, activo=True).first()
+    precio_minorista_usd = precios.filter(tipo=Precio.Tipo.MINORISTA, moneda=Precio.Moneda.USD, activo=True).first()
+    precio_mayorista_usd = precios.filter(tipo=Precio.Tipo.MAYORISTA, moneda=Precio.Moneda.USD, activo=True).first()
+    
+    # Convertir USD a ARS si es necesario
+    precio_minorista_ars_convertido = None
+    precio_mayorista_ars_convertido = None
+    if precio_minorista_usd and dolar_blue:
+        precio_minorista_ars_convertido = float(precio_minorista_usd.precio) * float(dolar_blue)
+    if precio_mayorista_usd and dolar_blue:
+        precio_mayorista_ars_convertido = float(precio_mayorista_usd.precio) * float(dolar_blue)
+    
+    stock_actual = variante.stock_actual or 0
+    stock_status = "sin stock" if stock_actual <= 0 else "disponible"
+    
+    return {
+        "id": variante.id,
+        "sku": variante.sku or "",
+        "codigo_barras": variante.codigo_barras or "",
+        "qr_code": variante.qr_code or "",
+        "nombre": variante.producto.nombre,
+        "descripcion": f"{variante.producto.nombre} {variante.atributos_display}".strip(),
+        "atributos": variante.atributos_display,
+        "stock_actual": stock_actual,
+        "stock_status": stock_status,
         "categoria": variante.producto.categoria.nombre if variante.producto.categoria else "",
+        "proveedor": variante.producto.proveedor.nombre if variante.producto.proveedor else "",
+        "precio_minorista_ars": str(precio_minorista_ars.precio) if precio_minorista_ars else None,
+        "precio_mayorista_ars": str(precio_mayorista_ars.precio) if precio_mayorista_ars else None,
+        "precio_minorista_usd": str(precio_minorista_usd.precio) if precio_minorista_usd else None,
+        "precio_mayorista_usd": str(precio_mayorista_usd.precio) if precio_mayorista_usd else None,
+        "precio_minorista_ars_convertido": precio_minorista_ars_convertido,
+        "precio_mayorista_ars_convertido": precio_mayorista_ars_convertido,
+        "precios_ids": {
+            "minorista_ars": precio_minorista_ars.id if precio_minorista_ars else None,
+            "mayorista_ars": precio_mayorista_ars.id if precio_mayorista_ars else None,
+            "minorista_usd": precio_minorista_usd.id if precio_minorista_usd else None,
+            "mayorista_usd": precio_mayorista_usd.id if precio_mayorista_usd else None,
+        },
+        "es_iphone": variante.producto.categoria and variante.producto.categoria.nombre.lower() == "celulares",
     }
 
 
@@ -73,6 +146,305 @@ def buscar_productos_api(request):
     )
 
     return JsonResponse({"results": [_formatear_variante(v) for v in variantes]})
+
+@csrf_exempt
+@login_required
+def buscar_producto_por_codigo_api(request):
+    """Busca un producto por SKU o código de barras exacto (para escáner)."""
+    codigo = request.GET.get("codigo", "").strip()
+    if not codigo:
+        return JsonResponse({"error": "Código requerido"}, status=400)
+    
+    # Buscar por SKU exacto o código de barras exacto
+    variante = (
+        ProductoVariante.objects.select_related("producto", "producto__categoria", "producto__proveedor")
+        .filter(producto__activo=True)
+        .prefetch_related("precios")
+        .filter(
+            Q(sku=codigo) | Q(codigo_barras=codigo)
+        )
+        .first()
+    )
+    
+    if not variante:
+        return JsonResponse({"error": "Producto no encontrado"}, status=404)
+    
+    # Si se solicita información completa (para el escáner de productos)
+    completo = request.GET.get("completo", "false").lower() == "true"
+    if completo:
+        dolar_blue = obtener_valor_dolar_blue()
+        return JsonResponse({"result": _formatear_variante_completa(variante, dolar_blue)})
+    
+    return JsonResponse({"result": _formatear_variante(variante)})
+
+@csrf_exempt
+@login_required
+def actualizar_producto_rapido_api(request):
+    """API para actualización rápida de producto (stock, precios, etc.)."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Método no permitido"}, status=405)
+    
+    try:
+        data = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Payload inválido"}, status=400)
+    
+    variante_id = data.get("variante_id")
+    if not variante_id:
+        return JsonResponse({"error": "variante_id requerido"}, status=400)
+    
+    try:
+        variante = ProductoVariante.objects.select_related("producto").prefetch_related("precios").get(pk=variante_id)
+    except ProductoVariante.DoesNotExist:
+        return JsonResponse({"error": "Producto no encontrado"}, status=404)
+    
+    cambios = []
+    
+    # Actualizar stock
+    if "stock_actual" in data:
+        nuevo_stock = int(data["stock_actual"])
+        variante.stock_actual = nuevo_stock
+        variante.save(update_fields=["stock_actual"])
+        cambios.append(f"Stock actualizado a {nuevo_stock}")
+    
+    # Actualizar precios
+    precios_actualizados = []
+    if "precio_minorista_ars" in data and data["precio_minorista_ars"]:
+        precio_id = data.get("precio_minorista_ars_id")
+        nuevo_precio = Decimal(str(data["precio_minorista_ars"]))
+        if precio_id:
+            try:
+                precio = Precio.objects.get(pk=precio_id)
+                precio.precio = nuevo_precio
+                precio.save(update_fields=["precio"])
+                precios_actualizados.append("Precio minorista ARS")
+            except Precio.DoesNotExist:
+                pass
+        else:
+            # Crear nuevo precio
+            Precio.objects.create(
+                variante=variante,
+                tipo=Precio.Tipo.MINORISTA,
+                moneda=Precio.Moneda.ARS,
+                precio=nuevo_precio,
+                activo=True
+            )
+            precios_actualizados.append("Precio minorista ARS (creado)")
+    
+    if "precio_mayorista_ars" in data and data["precio_mayorista_ars"]:
+        precio_id = data.get("precio_mayorista_ars_id")
+        nuevo_precio = Decimal(str(data["precio_mayorista_ars"]))
+        if precio_id:
+            try:
+                precio = Precio.objects.get(pk=precio_id)
+                precio.precio = nuevo_precio
+                precio.save(update_fields=["precio"])
+                precios_actualizados.append("Precio mayorista ARS")
+            except Precio.DoesNotExist:
+                pass
+        else:
+            Precio.objects.create(
+                variante=variante,
+                tipo=Precio.Tipo.MAYORISTA,
+                moneda=Precio.Moneda.ARS,
+                precio=nuevo_precio,
+                activo=True
+            )
+            precios_actualizados.append("Precio mayorista ARS (creado)")
+    
+    if "precio_minorista_usd" in data and data["precio_minorista_usd"]:
+        precio_id = data.get("precio_minorista_usd_id")
+        nuevo_precio = Decimal(str(data["precio_minorista_usd"]))
+        if precio_id:
+            try:
+                precio = Precio.objects.get(pk=precio_id)
+                precio.precio = nuevo_precio
+                precio.save(update_fields=["precio"])
+                precios_actualizados.append("Precio minorista USD")
+            except Precio.DoesNotExist:
+                pass
+        else:
+            Precio.objects.create(
+                variante=variante,
+                tipo=Precio.Tipo.MINORISTA,
+                moneda=Precio.Moneda.USD,
+                precio=nuevo_precio,
+                activo=True
+            )
+            precios_actualizados.append("Precio minorista USD (creado)")
+    
+    if "precio_mayorista_usd" in data and data["precio_mayorista_usd"]:
+        precio_id = data.get("precio_mayorista_usd_id")
+        nuevo_precio = Decimal(str(data["precio_mayorista_usd"]))
+        if precio_id:
+            try:
+                precio = Precio.objects.get(pk=precio_id)
+                precio.precio = nuevo_precio
+                precio.save(update_fields=["precio"])
+                precios_actualizados.append("Precio mayorista USD")
+            except Precio.DoesNotExist:
+                pass
+        else:
+            Precio.objects.create(
+                variante=variante,
+                tipo=Precio.Tipo.MAYORISTA,
+                moneda=Precio.Moneda.USD,
+                precio=nuevo_precio,
+                activo=True
+            )
+            precios_actualizados.append("Precio mayorista USD (creado)")
+    
+    if precios_actualizados:
+        cambios.extend(precios_actualizados)
+    
+    # Recargar variante para obtener datos actualizados
+    variante.refresh_from_db()
+    dolar_blue = obtener_valor_dolar_blue()
+    
+    return JsonResponse({
+        "status": "ok",
+        "mensaje": "Producto actualizado correctamente",
+        "cambios": cambios,
+        "producto": _formatear_variante_completa(variante, dolar_blue)
+    })
+
+@csrf_exempt
+@login_required
+def agregar_producto_carrito_remoto_api(request):
+    """Agrega un producto al carrito remoto compartido por usuario (compartido entre dispositivos)."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Método no permitido"}, status=405)
+    
+    try:
+        data = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Payload inválido"}, status=400)
+    
+    variante_id = data.get("variante_id")
+    if not variante_id:
+        return JsonResponse({"error": "variante_id requerido"}, status=400)
+    
+    try:
+        variante = ProductoVariante.objects.select_related("producto").prefetch_related("precios").get(pk=variante_id)
+    except ProductoVariante.DoesNotExist:
+        return JsonResponse({"error": "Producto no encontrado"}, status=404)
+    
+    # Obtener o crear carrito remoto del usuario (compartido entre dispositivos)
+    carrito_remoto_obj, _ = CarritoRemoto.objects.get_or_create(
+        usuario=request.user,
+        defaults={"items": []}
+    )
+    
+    carrito_remoto = carrito_remoto_obj.items if isinstance(carrito_remoto_obj.items, list) else []
+    
+    # Buscar si ya existe en el carrito
+    item_existente = None
+    for item in carrito_remoto:
+        if isinstance(item, dict) and item.get("variante_id") == variante_id:
+            item_existente = item
+            break
+    
+    if item_existente:
+        # Incrementar cantidad
+        item_existente["cantidad"] = item_existente.get("cantidad", 1) + 1
+    else:
+        # Agregar nuevo item
+        variante_formateada = _formatear_variante(variante)
+        
+        # Obtener precio ARS
+        precio_ars = variante.precios.filter(
+            tipo=Precio.Tipo.MINORISTA,
+            moneda=Precio.Moneda.ARS,
+            activo=True
+        ).order_by("-actualizado").first()
+        
+        precio_usd = variante.precios.filter(
+            tipo=Precio.Tipo.MINORISTA,
+            moneda=Precio.Moneda.USD,
+            activo=True
+        ).order_by("-actualizado").first()
+        
+        # Resolver precio ARS (convertir USD si es necesario)
+        precio_ars_valor = None
+        precio_usd_original = None
+        if precio_ars:
+            precio_ars_valor = float(precio_ars.precio)
+        elif precio_usd:
+            precio_usd_original = float(precio_usd.precio)
+            dolar_blue = obtener_valor_dolar_blue()
+            if dolar_blue:
+                precio_ars_valor = precio_usd_original * float(dolar_blue)
+        
+        if precio_ars_valor is None:
+            return JsonResponse({"error": "Producto sin precio"}, status=400)
+        
+        # Verificar si es iPhone
+        es_iphone = (
+            variante.producto.categoria 
+            and variante.producto.categoria.nombre.lower() == "celulares"
+        )
+        
+        nuevo_item = {
+            "variante_id": variante_id,
+            "sku": variante.sku,
+            "nombre": variante.producto.nombre,
+            "descripcion": f"{variante.producto.nombre} {variante.atributos_display}".strip(),
+            "cantidad": 1,
+            "precio_unitario_ars": precio_ars_valor,
+            "precio_usd_original": precio_usd_original,
+            "es_iphone": es_iphone,
+            "es_custom": False,
+            "precios": variante_formateada.get("precios", {}),
+        }
+        carrito_remoto.append(nuevo_item)
+    
+    # Guardar carrito en base de datos (compartido entre dispositivos)
+    carrito_remoto_obj.items = carrito_remoto
+    carrito_remoto_obj.save(update_fields=["items", "actualizado"])
+    
+    # Calcular total de items correctamente
+    total_items = sum(int(item.get("cantidad", 1)) for item in carrito_remoto if isinstance(item, dict))
+    
+    return JsonResponse({
+        "status": "ok",
+        "carrito": carrito_remoto,
+        "total_items": total_items
+    })
+
+@login_required
+def obtener_carrito_remoto_api(request):
+    """Obtiene el carrito remoto compartido por usuario (compartido entre dispositivos)."""
+    # Obtener carrito remoto del usuario desde la base de datos
+    carrito_remoto_obj = None
+    try:
+        carrito_remoto_obj = CarritoRemoto.objects.get(usuario=request.user)
+        carrito_remoto = carrito_remoto_obj.items if isinstance(carrito_remoto_obj.items, list) else []
+    except CarritoRemoto.DoesNotExist:
+        carrito_remoto = []
+    
+    # Calcular total de items correctamente
+    total_items = sum(int(item.get("cantidad", 1)) for item in carrito_remoto if isinstance(item, dict))
+    
+    return JsonResponse({
+        "carrito": carrito_remoto,
+        "total_items": total_items,
+        "actualizado": carrito_remoto_obj.actualizado.isoformat() if carrito_remoto_obj else None
+    })
+
+@csrf_exempt
+@login_required
+def limpiar_carrito_remoto_api(request):
+    """Limpia el carrito remoto compartido por usuario."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Método no permitido"}, status=405)
+    
+    # Limpiar carrito remoto del usuario en la base de datos
+    CarritoRemoto.objects.update_or_create(
+        usuario=request.user,
+        defaults={"items": []}
+    )
+    
+    return JsonResponse({"status": "ok"})
 
 
 def buscar_clientes_api(request):
@@ -230,7 +602,11 @@ def crear_venta_api(request):
                 return JsonResponse({"error": "Precio inválido para producto varios"}, status=400)
             
             # Para productos varios, priorizar el nombre que viene en "nombre" o "descripcion"
-            nombre = item.get("nombre") or item.get("descripcion") or "Producto varios"
+            # Asegurarse de obtener el nombre correctamente
+            nombre_raw = item.get("nombre") or item.get("descripcion") or ""
+            nombre = nombre_raw.strip() if nombre_raw else "Producto varios"
+            if not nombre or nombre == "":
+                nombre = "Producto varios"
             sku = item.get("sku", f"VAR-{timezone.now().timestamp()}")
             # Usar el nombre como descripción para productos varios
             descripcion = nombre
@@ -365,7 +741,47 @@ def crear_venta_api(request):
         elif tipo_general == "monto":
             descuento_general_valor = min(base, valor_general)
 
-    neto = subtotal - descuento_items_total - descuento_general_valor
+    # Calcular descuento por método de pago
+    # NOTA: El descuento por método de pago se aplica sobre la base antes de impuestos
+    # En pago mixto, se calcula proporcionalmente según los montos de cada método
+    descuento_metodo_pago_valor = Decimal("0")
+    es_pago_mixto = data.get("es_pago_mixto", False)
+    base_antes_descuento_metodo = subtotal - descuento_items_total - descuento_general_valor
+    
+    if es_pago_mixto:
+        # Pago mixto: calcular descuento proporcional para cada método
+        descuento_metodo_pago_1 = data.get("descuento_metodo_pago_1")
+        descuento_metodo_pago_2 = data.get("descuento_metodo_pago_2")
+        monto_pago_1 = data.get("monto_pago_1")
+        monto_pago_2 = data.get("monto_pago_2")
+        
+        # Calcular el total antes de aplicar descuentos por método de pago (para proporción)
+        # En pago mixto, los montos de pago deben sumar el total antes de aplicar descuentos por método
+        total_antes_descuento_metodo = base_antes_descuento_metodo
+        
+        if descuento_metodo_pago_1 and monto_pago_1 and total_antes_descuento_metodo > 0:
+            monto1 = Decimal(str(monto_pago_1))
+            porcentaje1 = Decimal(str(descuento_metodo_pago_1))
+            # Calcular proporción del monto1 sobre el total antes de descuentos
+            proporcion1 = monto1 / total_antes_descuento_metodo if total_antes_descuento_metodo > 0 else Decimal("0")
+            # Aplicar descuento proporcionalmente
+            descuento_metodo_pago_valor += base_antes_descuento_metodo * proporcion1 * (porcentaje1 / Decimal("100"))
+        
+        if descuento_metodo_pago_2 and monto_pago_2 and total_antes_descuento_metodo > 0:
+            monto2 = Decimal(str(monto_pago_2))
+            porcentaje2 = Decimal(str(descuento_metodo_pago_2))
+            # Calcular proporción del monto2 sobre el total antes de descuentos
+            proporcion2 = monto2 / total_antes_descuento_metodo if total_antes_descuento_metodo > 0 else Decimal("0")
+            # Aplicar descuento proporcionalmente
+            descuento_metodo_pago_valor += base_antes_descuento_metodo * proporcion2 * (porcentaje2 / Decimal("100"))
+    else:
+        # Pago simple: calcular descuento para el método seleccionado
+        descuento_metodo_pago = data.get("descuento_metodo_pago")
+        if descuento_metodo_pago:
+            porcentaje = Decimal(str(descuento_metodo_pago))
+            descuento_metodo_pago_valor = base_antes_descuento_metodo * (porcentaje / Decimal("100"))
+
+    neto = base_antes_descuento_metodo - descuento_metodo_pago_valor
     impuestos = Decimal("0")
     if aplicar_iva:
         impuestos = (neto * iva_porcentaje) / Decimal("100")
@@ -376,6 +792,27 @@ def crear_venta_api(request):
     status = data.get("status")
     if status not in dict(Venta.Status.choices):
         status = Venta.Status.COMPLETADO
+    
+    # Manejar pago mixto (se usa más abajo, pero se necesita aquí para el cálculo del descuento)
+    es_pago_mixto = data.get("es_pago_mixto", False)
+    metodo_pago_2 = data.get("metodo_pago_2")
+    monto_pago_1 = data.get("monto_pago_1")
+    monto_pago_2 = data.get("monto_pago_2")
+    
+    if es_pago_mixto and metodo_pago_2:
+        # Validar que los montos sumen la base ANTES de aplicar descuentos por método de pago
+        # Los montos de pago deben sumar base_antes_descuento_metodo (no el total final)
+        # Convertir a string y reemplazar comas por puntos para Decimal
+        monto1_str = str(monto_pago_1 or 0).replace(',', '.')
+        monto2_str = str(monto_pago_2 or 0).replace(',', '.')
+        monto1 = Decimal(monto1_str)
+        monto2 = Decimal(monto2_str)
+        suma = monto1 + monto2
+        diferencia = abs(suma - base_antes_descuento_metodo)
+        if diferencia > Decimal("0.01"):  # Tolerancia de 1 centavo
+            return JsonResponse({
+                "error": f"Los montos de pago mixto no suman la base correcta. Base: ${base_antes_descuento_metodo:,.2f}, Suma: ${suma:,.2f}, Diferencia: ${diferencia:,.2f}. Los montos deben sumar la base antes de aplicar descuentos por método de pago."
+            }, status=400)
 
     venta = Venta.objects.create(
         id=venta_id,
@@ -384,13 +821,17 @@ def crear_venta_api(request):
         cliente_nombre=cliente_nombre,
         cliente_documento=cliente_documento,
         subtotal_ars=subtotal,
-        descuento_total_ars=descuento_items_total + descuento_general_valor,
+        descuento_total_ars=descuento_items_total + descuento_general_valor + descuento_metodo_pago_valor,
         impuestos_ars=impuestos,
         total_ars=total,
         metodo_pago=metodo_pago,
         status=status,
         nota=nota,
         vendedor=request.user if request.user.is_authenticated else None,
+        es_pago_mixto=es_pago_mixto,
+        metodo_pago_2=metodo_pago_2 if es_pago_mixto else None,
+        monto_pago_1=Decimal(str(monto_pago_1)) if es_pago_mixto and monto_pago_1 else None,
+        monto_pago_2=Decimal(str(monto_pago_2)) if es_pago_mixto and monto_pago_2 else None,
     )
 
     for detalle in detalles:
@@ -453,7 +894,7 @@ def crear_venta_api(request):
                 "status": venta.status,
                 "status_label": venta.get_status_display(),
                 "subtotal_ars": str(subtotal),
-                "descuento_total_ars": str(descuento_items_total + descuento_general_valor),
+                "descuento_total_ars": str(descuento_items_total + descuento_general_valor + descuento_metodo_pago_valor),
                 "impuestos_ars": str(impuestos),
                 "total_ars": str(total),
                 "pdf": venta.comprobante_pdf.url if venta.comprobante_pdf else None,
@@ -564,3 +1005,91 @@ def listado_ventas(request):
     }
 
     return render(request, "ventas/listado.html", context)
+
+
+@login_required
+def detalle_venta(request, venta_id: str):
+    try:
+        venta = Venta.objects.select_related("cliente", "vendedor").prefetch_related("detalles__variante__producto").get(id=venta_id)
+    except Venta.DoesNotExist:
+        messages.error(request, "La venta no existe.")
+        return redirect("ventas:listado")
+    
+    context = {
+        "venta": venta,
+        "estados": Venta.Status.choices,
+    }
+    return render(request, "ventas/detalle.html", context)
+
+
+@login_required
+@transaction.atomic
+def anular_venta(request, venta_id: str):
+    if request.method != "POST":
+        return JsonResponse({"error": "Método no permitido"}, status=405)
+    
+    try:
+        venta = Venta.objects.select_related().prefetch_related("detalles__variante").get(id=venta_id)
+    except Venta.DoesNotExist:
+        return JsonResponse({"error": "La venta no existe"}, status=404)
+    
+    if venta.status == Venta.Status.CANCELADO:
+        return JsonResponse({"error": "La venta ya está cancelada"}, status=400)
+    
+    devolver_stock = request.POST.get("devolver_stock", "false").lower() == "true"
+    motivo = request.POST.get("motivo", "").strip()
+    
+    # Devolver stock si se solicita
+    if devolver_stock:
+        for detalle in venta.detalles.all():
+            if detalle.variante:
+                variante = detalle.variante
+                if variante.stock_actual is not None:
+                    variante.stock_actual += detalle.cantidad
+                    variante.save(update_fields=["stock_actual"])
+    
+    # Cambiar estado a cancelado
+    venta.status = Venta.Status.CANCELADO
+    if motivo:
+        venta.nota = f"{venta.nota}\n\n[ANULADA] {motivo}".strip()
+    venta.save(update_fields=["status", "nota"])
+    
+    # Registrar en historial
+    RegistroHistorial.objects.create(
+        usuario=request.user,
+        tipo_accion=RegistroHistorial.TipoAccion.ELIMINACION,
+        descripcion=f"Venta {venta.id} anulada. {'Stock devuelto.' if devolver_stock else 'Stock no devuelto.'} {f'Motivo: {motivo}' if motivo else ''}",
+    )
+    
+    messages.success(request, f"Venta {venta.id} anulada exitosamente.")
+    return redirect("ventas:detalle", venta_id=venta_id)
+
+
+@login_required
+@transaction.atomic
+def actualizar_estado_venta(request, venta_id: str):
+    if request.method != "POST":
+        return JsonResponse({"error": "Método no permitido"}, status=405)
+    
+    try:
+        venta = Venta.objects.get(id=venta_id)
+    except Venta.DoesNotExist:
+        return JsonResponse({"error": "La venta no existe"}, status=404)
+    
+    nuevo_estado = request.POST.get("estado", "").strip()
+    if nuevo_estado not in dict(Venta.Status.choices):
+        return JsonResponse({"error": "Estado inválido"}, status=400)
+    
+    estado_anterior = venta.status
+    venta.status = nuevo_estado
+    venta.save(update_fields=["status"])
+    
+    # Registrar en historial
+    RegistroHistorial.objects.create(
+        usuario=request.user,
+        tipo_accion=RegistroHistorial.TipoAccion.CAMBIO_ESTADO,
+        descripcion=f"Estado de venta {venta.id} cambiado de {venta.Status(estado_anterior).label} a {venta.get_status_display()}",
+    )
+    
+    messages.success(request, f"Estado de la venta {venta.id} actualizado a {venta.get_status_display()}.")
+    return redirect("ventas:detalle", venta_id=venta_id)

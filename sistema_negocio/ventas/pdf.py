@@ -90,14 +90,16 @@ def generar_comprobante_pdf(venta) -> ContentFile:
     width, height = A4
     margin = 20 * mm
     content_width = width - (2 * margin)
-
+    
+    import logging
+    logger = logging.getLogger(__name__)
+    
     # ========== HEADER ESTILO APPLE ==========
-    y = height - margin
+    # Empezar más arriba para el logo (30px más arriba)
+    y = height - margin - 30
     
     # Logo (si existe) - MEJORADO
     logo_dibujado = False
-    import logging
-    logger = logging.getLogger(__name__)
     
     # Priorizar logo de tienda sobre sistema
     logo_fields = []
@@ -248,8 +250,8 @@ def generar_comprobante_pdf(venta) -> ContentFile:
             try:
                 # Obtener dimensiones reales del logo
                 logo_width, logo_height = logo_img.size
-                # Dibujar logo más chico y centrado (hasta 120x120)
-                max_logo_size = 120
+                # Dibujar logo un poco más grande y centrado (hasta 140x140)
+                max_logo_size = 140
                 if logo_width > max_logo_size or logo_height > max_logo_size:
                     # Mantener proporción
                     ratio = min(max_logo_size / logo_width, max_logo_size / logo_height)
@@ -259,10 +261,13 @@ def generar_comprobante_pdf(venta) -> ContentFile:
                 # Centrar el logo horizontalmente
                 logo_x = (width - logo_width) / 2
                 
+                # Mover el logo un poco más arriba (reducir el espacio superior)
+                y_logo = y - logo_height - 5  # 5px menos de espacio arriba
+                
                 # Dibujar con preserveAspectRatio para mantener calidad
-                c.drawImage(tmp_path, logo_x, y - logo_height, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
+                c.drawImage(tmp_path, logo_x, y_logo, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
                 logo_dibujado = True
-                y -= logo_height + 10
+                y = y_logo - 10  # Ajustar y para el siguiente elemento
                 logger.info(f"Logo ({origen}) dibujado exitosamente en el PDF")
             except Exception as e:
                 logger.error(f"Error al dibujar logo: {e}")
@@ -344,15 +349,7 @@ def generar_comprobante_pdf(venta) -> ContentFile:
                 c.drawString(margin, y, f"Dirección: {movimiento.caja_diaria.local.direccion}")
                 y -= 14
     
-    # Nota de la venta (si existe)
-    if venta.nota:
-        c.setFont("Helvetica-Oblique", 9)
-        c.setFillColor(colors.grey)
-        c.drawString(margin, y, f"Nota: {venta.nota[:100]}")
-        c.setFillColor(colors.black)
-        c.setFont("Helvetica", 10)
-        y -= 14
-
+    # Nota interna se mostrará más abajo, después del método de pago
     y -= 20
 
     # ========== TABLA DE PRODUCTOS (ESTILO APPLE) ==========
@@ -489,11 +486,52 @@ def generar_comprobante_pdf(venta) -> ContentFile:
     c.drawRightString(width - margin, y, f"TOTAL: ${venta.total_ars:,.2f}")
     y -= 20
 
-    # Método de pago
+    # Método de pago (simple o mixto)
     c.setFont("Helvetica", 9)
-    metodo_pago_display = dict(Venta.MetodoPago.choices).get(venta.metodo_pago, venta.metodo_pago)
-    c.drawString(margin, y, f"Método de pago: {metodo_pago_display}")
-    y -= 30
+    if venta.es_pago_mixto and venta.metodo_pago_2:
+        # Pago mixto
+        metodo_pago_1_display = dict(Venta.MetodoPago.choices).get(venta.metodo_pago, venta.metodo_pago)
+        metodo_pago_2_display = dict(Venta.MetodoPago.choices).get(venta.metodo_pago_2, venta.metodo_pago_2)
+        c.drawString(margin, y, f"Pago mixto:")
+        y -= 14
+        c.drawString(margin + 10, y, f"• {metodo_pago_1_display}: ${venta.monto_pago_1:,.2f}")
+        y -= 14
+        c.drawString(margin + 10, y, f"• {metodo_pago_2_display}: ${venta.monto_pago_2:,.2f}")
+        y -= 14
+        c.drawString(margin + 10, y, f"Total: ${venta.total_ars:,.2f}")
+    else:
+        # Pago simple
+        metodo_pago_display = dict(Venta.MetodoPago.choices).get(venta.metodo_pago, venta.metodo_pago)
+        c.drawString(margin, y, f"Método de pago: {metodo_pago_display}")
+    y -= 20
+    
+    # Nota interna (si existe)
+    if venta.nota:
+        c.setFont("Helvetica-Oblique", 9)
+        c.setFillColor(colors.grey)
+        # Dividir la nota en líneas si es muy larga
+        nota_lines = []
+        words = venta.nota.split()
+        current_line = ""
+        for word in words:
+            test_line = current_line + (" " if current_line else "") + word
+            if c.stringWidth(test_line, "Helvetica-Oblique", 9) < content_width - 20:
+                current_line = test_line
+            else:
+                if current_line:
+                    nota_lines.append(current_line)
+                current_line = word
+        if current_line:
+            nota_lines.append(current_line)
+        
+        c.drawString(margin, y, "Nota interna:")
+        y -= 12
+        for line in nota_lines[:5]:  # Máximo 5 líneas
+            c.drawString(margin + 10, y, line)
+            y -= 12
+        c.setFillColor(colors.black)
+        c.setFont("Helvetica", 9)
+        y -= 10
 
     # ========== LOCALES / PUNTOS DE RETIRO ==========
     if locales:
@@ -525,10 +563,23 @@ def generar_comprobante_pdf(venta) -> ContentFile:
         c.drawString(margin + 10, y, f"• {punto_retiro}")
         y -= 20
 
+    # Guardar la posición Y después de los locales
+    y_despues_locales = y
+
     # ========== GARANTÍAS POR PRODUCTO ==========
-    # Poner la garantía más abajo, cerca del final de la página
-    # Mover un poco más abajo (antes 290, ahora 250)
-    y = 250
+    # Calcular posición dinámica para la garantía basándose en el contenido anterior
+    # Asegurar un mínimo de espacio desde los locales (mínimo 30 puntos)
+    # Pero también asegurar que no esté demasiado abajo (mínimo 200 puntos desde el fondo)
+    y_garantia_minima = 200  # Mínimo desde el fondo de la página
+    y_garantia_calculada = min(y_despues_locales - 30, height - margin - y_garantia_minima)
+    
+    # Si la posición calculada es muy baja, crear una nueva página
+    if y_garantia_calculada < 150:
+        c.showPage()
+        y = height - margin - 40
+        y_garantia_calculada = y - 30
+    
+    y = y_garantia_calculada
     c.setStrokeColor(colors.grey)
     c.setLineWidth(0.5)
     c.line(margin, y, width - margin, y)
@@ -598,6 +649,38 @@ def generar_comprobante_pdf(venta) -> ContentFile:
     if current_line:
         garantia_lines.append(current_line)
     
+    # Calcular altura total del texto de garantía ANTES de dibujarlo
+    altura_total_garantia = len(garantia_lines) * 11  # 11 puntos por línea
+    
+    # Si hay diferentes garantías, calcular altura adicional
+    if not todas_iguales:
+        altura_total_garantia += 5  # Espacio antes de los detalles
+        for garantia in garantias_productos:
+            garantia_detalle = f"• {garantia['nombre'][:40]}: {garantia['dias']} días (válida hasta {garantia['fecha_vencimiento'].strftime('%d/%m/%Y')})"
+            if c.stringWidth(garantia_detalle, "Helvetica", 8) > max_width:
+                altura_total_garantia += 18  # 2 líneas
+            else:
+                altura_total_garantia += 10  # 1 línea
+    
+    # Calcular altura del subtítulo
+    garantia_subtext = "En caso de tener algún problema, escanee el código QR al final de este comprobante."
+    sub_lines = []
+    current_sub = ""
+    for word in garantia_subtext.split():
+        test_sub = current_sub + (" " if current_sub else "") + word
+        if c.stringWidth(test_sub, "Helvetica", 8) < max_width:
+            current_sub = test_sub
+        else:
+            if current_sub:
+                sub_lines.append(current_sub)
+            current_sub = word
+    if current_sub:
+        sub_lines.append(current_sub)
+    
+    altura_total_garantia += 5  # Espacio antes del subtítulo
+    altura_total_garantia += len(sub_lines) * 10  # 10 puntos por línea del subtítulo
+    
+    # Ahora dibujar el texto de garantía
     for line in garantia_lines:
         c.drawString(margin, garantia_y, line)
         garantia_y -= 11
@@ -624,25 +707,13 @@ def generar_comprobante_pdf(venta) -> ContentFile:
     
     c.setFont("Helvetica", 8)
     c.setFillColor(colors.grey)
-    garantia_subtext = "En caso de tener algún problema, escanee el código QR al final de este comprobante."
-    # Dividir también el subtítulo
-    sub_lines = []
-    current_sub = ""
-    for word in garantia_subtext.split():
-        test_sub = current_sub + (" " if current_sub else "") + word
-        if c.stringWidth(test_sub, "Helvetica", 8) < max_width:
-            current_sub = test_sub
-        else:
-            if current_sub:
-                sub_lines.append(current_sub)
-            current_sub = word
-    if current_sub:
-        sub_lines.append(current_sub)
-    
     garantia_y -= 5
     for line in sub_lines:
         c.drawString(margin, garantia_y, line)
         garantia_y -= 10
+    
+    # Guardar la posición Y final del texto de garantía
+    garantia_y_final = garantia_y
     
     # QR a la derecha
     telefono_whatsapp = telefono or config_tienda.telefono_contacto or config_sistema.whatsapp_numero
@@ -662,7 +733,31 @@ def generar_comprobante_pdf(venta) -> ContentFile:
                 try:
                     qr_size = 80  # Tamaño más pequeño para que quepa a la derecha
                     qr_x = width - margin - qr_size  # A la derecha
-                    qr_y = garantia_y_start - qr_size - 10  # Alineado con el texto de garantía
+                    
+                    # Calcular la posición Y del QR
+                    # Intentar alinearlo con el inicio de la sección de garantía
+                    qr_y = garantia_y_start - qr_size - 10
+                    
+                    # Verificar si el QR se superpone con el texto de garantía
+                    # El texto de garantía va desde garantia_y_start (más alto) hasta garantia_y_final (más bajo)
+                    # El QR ocupa desde qr_y (más alto) hasta qr_y + qr_size (más bajo)
+                    # Hay superposición si: qr_y < garantia_y_start Y qr_y + qr_size > garantia_y_final
+                    # O si el QR está completamente dentro del área del texto
+                    qr_top = qr_y
+                    qr_bottom = qr_y + qr_size
+                    texto_top = garantia_y_start
+                    texto_bottom = garantia_y_final
+                    
+                    # Verificar superposición: si el QR se cruza con el área del texto
+                    if not (qr_bottom < texto_bottom or qr_top > texto_top):
+                        # Hay superposición, mover el QR más arriba (por encima del texto)
+                        # Dejar un margen de 20 puntos entre el QR y el texto
+                        qr_y = texto_top - qr_size - 20
+                    
+                    # Asegurar que el QR no esté demasiado abajo (mínimo 50 puntos desde el fondo)
+                    if qr_y < 50:
+                        # Si el QR está muy abajo, moverlo más arriba
+                        qr_y = max(50, garantia_y_start - qr_size - 10)
                     
                     # Fondo blanco para el QR
                     c.setFillColor(colors.white)

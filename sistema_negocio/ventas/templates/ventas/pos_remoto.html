@@ -1,0 +1,346 @@
+{% extends "base.html" %}
+
+{% block title %}POS Remoto{% endblock %}
+
+{% block extra_head %}
+<style>
+    main { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
+    #scanner-container { position: relative; width: 100%; max-width: 100%; }
+    #qr-reader { width: 100%; height: auto; border-radius: 1rem; }
+    .scanner-overlay {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 80%;
+        max-width: 300px;
+        height: 200px;
+        border: 3px solid #3b82f6;
+        border-radius: 1rem;
+        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+        pointer-events: none;
+    }
+</style>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen w-full px-2 sm:px-4 py-4 sm:py-6">
+    <div class="mx-auto max-w-md space-y-3 sm:space-y-4">
+        <header class="text-center space-y-1 sm:space-y-2">
+            <h1 class="text-xl sm:text-2xl font-bold text-slate-100 flex items-center justify-center gap-2">
+                <svg class="w-6 h-6 sm:w-7 sm:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                </svg>
+                POS Remoto
+            </h1>
+            <p class="text-xs sm:text-sm text-slate-400">Escaneá códigos para agregar al POS</p>
+        </header>
+
+        <!-- Estado del escáner -->
+        <div id="scanner-status" class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-4 text-center">
+            <p class="text-xs sm:text-sm font-semibold text-slate-300" id="status-text">Iniciando escáner...</p>
+            <p class="text-[10px] sm:text-xs text-slate-400 mt-1" id="status-detail"></p>
+        </div>
+
+        <!-- Contenedor del escáner -->
+        <div id="scanner-container" class="glass-card rounded-xl sm:rounded-2xl p-2 sm:p-4 overflow-hidden">
+            <div id="qr-reader" class="w-full"></div>
+            <div class="scanner-overlay"></div>
+        </div>
+
+        <!-- Último producto escaneado -->
+        <div id="last-scanned" class="hidden glass-card rounded-xl sm:rounded-2xl p-3 sm:p-4">
+            <p class="text-[10px] sm:text-xs font-semibold text-slate-400 mb-1 sm:mb-2">Último producto:</p>
+            <p class="text-xs sm:text-sm font-semibold text-slate-100" id="last-product-name"></p>
+            <p class="text-[10px] sm:text-xs text-slate-400 mt-1" id="last-product-sku"></p>
+        </div>
+
+        <!-- Contador de productos -->
+        <div class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-4 text-center">
+            <p class="text-[10px] sm:text-xs font-semibold text-slate-400">Productos en carrito</p>
+            <p class="text-2xl sm:text-3xl font-bold text-emerald-400 mt-1 sm:mt-2" id="cart-count">0</p>
+        </div>
+
+        <!-- Botones -->
+        <div class="space-y-2 sm:space-y-3">
+            <button id="toggle-scanner" class="w-full rounded-xl sm:rounded-2xl bg-blue-600 px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white shadow-lg hover:bg-blue-500 transition">
+                Iniciar escáner
+            </button>
+            <button id="stop-scanner" class="hidden w-full rounded-xl sm:rounded-2xl border-2 border-slate-600/40 bg-slate-800/90 px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-slate-100 hover:bg-slate-700 transition">
+                Detener escáner
+            </button>
+            <button id="limpiar-carrito" class="w-full rounded-xl sm:rounded-2xl border-2 border-rose-600/40 bg-rose-600/20 px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-rose-300 hover:bg-rose-600/30 transition">
+                Limpiar carrito
+            </button>
+            <a href="{% url 'ventas:pos' %}" class="block w-full rounded-xl sm:rounded-2xl border-2 border-emerald-600/40 bg-emerald-600/20 px-3 sm:px-4 py-2.5 sm:py-3 text-center text-xs sm:text-sm font-semibold text-emerald-300 hover:bg-emerald-600/30 transition">
+                Ir al POS
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+let html5QrcodeScanner = null;
+let isScanning = false;
+let ultimoCodigoEscaneado = null;
+let procesandoEscaneo = false;
+
+const scannerContainer = document.getElementById('scanner-container');
+const qrReader = document.getElementById('qr-reader');
+const statusText = document.getElementById('status-text');
+const statusDetail = document.getElementById('status-detail');
+const toggleBtn = document.getElementById('toggle-scanner');
+const stopBtn = document.getElementById('stop-scanner');
+const lastScanned = document.getElementById('last-scanned');
+const lastProductName = document.getElementById('last-product-name');
+const lastProductSku = document.getElementById('last-product-sku');
+const cartCount = document.getElementById('cart-count');
+
+// Actualizar contador de carrito
+function updateCartCount() {
+    fetch('{% url "ventas:obtener_carrito_remoto_api" %}')
+        .then(response => response.json())
+        .then(data => {
+            const total = data.total_items || 0;
+            cartCount.textContent = total;
+        })
+        .catch(err => {
+            console.error('Error al obtener carrito:', err);
+            cartCount.textContent = '0';
+        });
+}
+
+// Inicializar contador
+updateCartCount();
+setInterval(updateCartCount, 2000); // Actualizar cada 2 segundos
+
+// Función para agregar producto al carrito
+async function agregarProductoAlCarrito(varianteId) {
+    try {
+        const response = await fetch('{% url "ventas:agregar_carrito_remoto_api" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ variante_id: varianteId })
+        });
+
+        const data = await response.json();
+        
+        if (data.status === 'ok') {
+            // Mostrar notificación
+            statusText.innerHTML = '<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Producto agregado';
+            statusText.className = 'text-sm font-semibold text-emerald-400';
+            statusDetail.textContent = `${data.total_items} producto(s) en carrito`;
+            
+            // Actualizar contador inmediatamente
+            cartCount.textContent = data.total_items || 0;
+            
+            // Obtener info del producto para mostrar
+            const carrito = data.carrito || [];
+            const ultimoItem = carrito[carrito.length - 1];
+            if (ultimoItem) {
+                lastProductName.textContent = ultimoItem.nombre;
+                lastProductSku.textContent = `SKU: ${ultimoItem.sku}`;
+                lastScanned.classList.remove('hidden');
+            }
+            
+            // Resetear mensaje después de 2 segundos
+            setTimeout(() => {
+                if (isScanning) {
+                    statusText.textContent = 'Escaneando...';
+                    statusText.className = 'text-sm font-semibold text-slate-300';
+                    statusDetail.textContent = 'Apunta la cámara al código';
+                }
+            }, 2000);
+        } else {
+            throw new Error(data.error || 'Error desconocido');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        statusText.innerHTML = '<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg> Error al agregar producto';
+        statusText.className = 'text-sm font-semibold text-rose-400';
+        statusDetail.textContent = error.message || 'Intenta nuevamente';
+        
+        setTimeout(() => {
+            if (isScanning) {
+                statusText.textContent = 'Escaneando...';
+                statusText.className = 'text-sm font-semibold text-slate-300';
+                statusDetail.textContent = 'Apunta la cámara al código';
+            }
+        }, 3000);
+    } finally {
+        procesandoEscaneo = false;
+    }
+}
+
+// Función para buscar producto por código
+async function buscarYAgregarProducto(codigo) {
+    // Prevenir múltiples escaneos del mismo código
+    if (procesandoEscaneo) {
+        return;
+    }
+    
+    // Prevenir escaneos duplicados del mismo código
+    if (ultimoCodigoEscaneado === codigo) {
+        return;
+    }
+    
+    procesandoEscaneo = true;
+    ultimoCodigoEscaneado = codigo;
+    
+    try {
+        statusText.textContent = 'Buscando producto...';
+        statusDetail.textContent = `Código: ${codigo}`;
+        
+        const response = await fetch(`{% url "ventas:buscar_producto_codigo_api" %}?codigo=${encodeURIComponent(codigo)}`);
+        const data = await response.json();
+        
+        if (data.result) {
+            // Producto encontrado, agregar al carrito
+            await agregarProductoAlCarrito(data.result.id);
+        } else {
+            throw new Error(data.error || 'Producto no encontrado');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        statusText.innerHTML = '<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg> Producto no encontrado';
+        statusText.className = 'text-sm font-semibold text-rose-400';
+        statusDetail.textContent = error.message || 'Verifica el código';
+        
+        setTimeout(() => {
+            if (isScanning) {
+                statusText.textContent = 'Escaneando...';
+                statusText.className = 'text-sm font-semibold text-slate-300';
+                statusDetail.textContent = 'Apunta la cámara al código';
+            }
+            procesandoEscaneo = false;
+        }, 3000);
+    }
+    
+    // Permitir escanear el mismo código después de 3 segundos
+    setTimeout(() => {
+        ultimoCodigoEscaneado = null;
+    }, 3000);
+}
+
+// Iniciar escáner
+async function startScanner() {
+    if (isScanning) return;
+    
+    try {
+        statusText.textContent = 'Iniciando cámara...';
+        statusDetail.textContent = 'Solicitando permisos';
+        
+        html5QrcodeScanner = new Html5Qrcode("qr-reader");
+        
+        await html5QrcodeScanner.start(
+            { facingMode: "environment" }, // Cámara trasera
+            {
+                fps: 10,
+                qrbox: { width: 250, height: 250 },
+                aspectRatio: 1.0
+            },
+            (decodedText, decodedResult) => {
+                // Código escaneado exitosamente - NO detener el escáner
+                buscarYAgregarProducto(decodedText);
+            },
+            (errorMessage) => {
+                // Ignorar errores de escaneo (solo log)
+                // No hacer nada para mantener el escáner activo
+            }
+        );
+        
+        isScanning = true;
+        toggleBtn.classList.add('hidden');
+        stopBtn.classList.remove('hidden');
+        statusText.textContent = 'Escaneando...';
+        statusText.className = 'text-sm font-semibold text-slate-300';
+        statusDetail.textContent = 'Apunta la cámara al código';
+    } catch (error) {
+        console.error('Error al iniciar escáner:', error);
+        statusText.innerHTML = '<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg> Error al iniciar cámara';
+        statusText.className = 'text-sm font-semibold text-rose-400';
+        statusDetail.textContent = 'Verifica los permisos de la cámara';
+        isScanning = false;
+    }
+}
+
+// Detener escáner
+async function stopScanner() {
+    if (!isScanning || !html5QrcodeScanner) return;
+    
+    try {
+        await html5QrcodeScanner.stop();
+        html5QrcodeScanner.clear();
+        html5QrcodeScanner = null;
+        isScanning = false;
+        procesandoEscaneo = false;
+        ultimoCodigoEscaneado = null;
+        
+        toggleBtn.classList.remove('hidden');
+        stopBtn.classList.add('hidden');
+        statusText.textContent = 'Escáner detenido';
+        statusDetail.textContent = 'Presiona "Iniciar escáner" para continuar';
+    } catch (error) {
+        console.error('Error al detener escáner:', error);
+        isScanning = false;
+        procesandoEscaneo = false;
+    }
+}
+
+// Limpiar carrito
+async function limpiarCarrito() {
+    if (!confirm('¿Estás seguro de que deseas limpiar el carrito?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('{% url "ventas:limpiar_carrito_remoto_api" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+        
+        const data = await response.json();
+        if (data.status === 'ok') {
+            cartCount.textContent = '0';
+            lastScanned.classList.add('hidden');
+            statusText.textContent = 'Carrito limpiado';
+            statusText.className = 'text-sm font-semibold text-emerald-400';
+            statusDetail.textContent = 'El carrito ha sido limpiado correctamente';
+            
+            setTimeout(() => {
+                if (isScanning) {
+                    statusText.textContent = 'Escaneando...';
+                    statusText.className = 'text-sm font-semibold text-slate-300';
+                    statusDetail.textContent = 'Apunta la cámara al código';
+                } else {
+                    statusText.textContent = 'Listo para escanear';
+                    statusDetail.textContent = 'Presiona "Iniciar escáner" para comenzar';
+                }
+            }, 2000);
+        }
+    } catch (error) {
+        console.error('Error al limpiar carrito:', error);
+        alert('Error al limpiar el carrito');
+    }
+}
+
+// Event listeners
+toggleBtn.addEventListener('click', startScanner);
+stopBtn.addEventListener('click', stopScanner);
+document.getElementById('limpiar-carrito').addEventListener('click', limpiarCarrito);
+
+// Limpiar al salir
+window.addEventListener('beforeunload', () => {
+    if (html5QrcodeScanner) {
+        html5QrcodeScanner.stop().catch(() => {});
+    }
+});
+</script>
+{% endblock %}
+
