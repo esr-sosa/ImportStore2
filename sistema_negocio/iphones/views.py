@@ -506,7 +506,11 @@ def editar_iphone(request, variante_id):
                 detalle = DetalleIphone(variante=variante)
 
             detalle.imei = data.get("imei")
-            detalle.salud_bateria = data.get("salud_bateria")
+            # Si es nuevo, establecer salud_bateria a 100
+            salud_bateria = data.get("salud_bateria")
+            if data.get("es_nuevo", False):
+                salud_bateria = 100
+            detalle.salud_bateria = salud_bateria
             detalle.fallas_detectadas = data.get("fallas_observaciones")
             detalle.es_plan_canje = data.get("es_plan_canje", False)
             detalle.costo_usd = data.get("costo_usd")
@@ -612,3 +616,51 @@ def toggle_iphone_status(request, variante_id):
     )
 
     return redirect("iphones:dashboard")
+
+
+@login_required
+def iphone_historial(request):
+    """Historial de iPhones vendidos (stock = 0)."""
+    if not is_detalleiphone_variante_ready():
+        messages.error(
+            request,
+            "Aplicá `python manage.py migrate` para habilitar la gestión avanzada de iPhones.",
+        )
+        return redirect("inventario:dashboard")
+    
+    from ventas.models import DetalleVenta
+    
+    # Buscar iPhones vendidos (variantes con stock = 0 que tienen DetalleIphone)
+    variantes_vendidas = ProductoVariante.objects.filter(
+        producto__categoria__nombre__iexact="Celulares",
+        stock_actual=0
+    ).select_related("producto", "detalle_iphone").prefetch_related("detalles_venta__venta", "detalles_venta__venta__cliente")
+    
+    # Obtener información de ventas para cada variante
+    historial = []
+    for variante in variantes_vendidas:
+        detalle_iphone = getattr(variante, "detalle_iphone", None)
+        if not detalle_iphone:
+            continue
+        
+        # Buscar la última venta de esta variante
+        ultima_venta_detalle = variante.detalles_venta.select_related("venta", "venta__cliente").order_by("-venta__fecha").first()
+        
+        if ultima_venta_detalle:
+            historial.append({
+                "variante": variante,
+                "detalle_iphone": detalle_iphone,
+                "venta": ultima_venta_detalle.venta,
+                "cliente": ultima_venta_detalle.venta.cliente,
+                "cliente_nombre": ultima_venta_detalle.venta.cliente_nombre or (ultima_venta_detalle.venta.cliente.nombre if ultima_venta_detalle.venta.cliente else "Sin cliente"),
+                "fecha_venta": ultima_venta_detalle.venta.fecha,
+                "precio_venta": ultima_venta_detalle.precio_unitario_ars_congelado,
+            })
+    
+    # Ordenar por fecha de venta (más reciente primero)
+    historial.sort(key=lambda x: x["fecha_venta"], reverse=True)
+    
+    context = {
+        "historial": historial,
+    }
+    return render(request, "iphones/historial.html", context)

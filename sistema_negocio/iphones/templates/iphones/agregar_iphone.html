@@ -272,6 +272,32 @@
             }
         });
     }
+    
+    // Manejar switch "es_nuevo" y campo salud_bateria
+    const esNuevoToggle = document.getElementById('es-nuevo-toggle');
+    const saludBateriaInput = document.getElementById('salud-bateria-input');
+    if (esNuevoToggle && saludBateriaInput) {
+        esNuevoToggle.addEventListener('change', function() {
+            if (this.checked) {
+                saludBateriaInput.value = '100';
+                saludBateriaInput.disabled = true;
+                saludBateriaInput.classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                saludBateriaInput.disabled = false;
+                saludBateriaInput.classList.remove('opacity-50', 'cursor-not-allowed');
+                if (saludBateriaInput.value === '100') {
+                    saludBateriaInput.value = '';
+                }
+            }
+        });
+        
+        // Inicializar estado si es_nuevo está marcado
+        if (esNuevoToggle.checked) {
+            saludBateriaInput.value = '100';
+            saludBateriaInput.disabled = true;
+            saludBateriaInput.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+    }
 })();
 </script>
 {% endblock %}

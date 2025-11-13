@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}Historial de iPhones Vendidos{% endblock %}
+
+{% block extra_head %}
+<style>
+  body { background: linear-gradient(135deg, #0f172a 0%, #111827 50%, #020617 100%); }
+  .glass { backdrop-filter: blur(20px); background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(148, 163, 184, 0.2); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-transparent pb-16">
+  <div class="mx-auto max-w-7xl px-4 pt-10 sm:px-6 lg:px-10">
+    <div class="mb-10 flex flex-col gap-6 text-slate-100 lg:flex-row lg:items-center lg:justify-between">
+      <div>
+        <p class="text-xs uppercase tracking-[0.35em] text-slate-400">Inventario Premium</p>
+        <h1 class="text-4xl font-semibold tracking-tight">Historial de iPhones Vendidos</h1>
+        <p class="mt-2 max-w-2xl text-sm text-slate-300">Registro completo de todos los dispositivos Apple que han sido vendidos, incluyendo información del cliente e IMEI.</p>
+      </div>
+      <a href="{% url 'iphones:dashboard' %}" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-slate-600/40 bg-slate-800/90 px-5 py-3 text-sm font-semibold text-slate-100 shadow-lg transition hover:bg-slate-700 sm:w-auto">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+        Volver al dashboard
+      </a>
+    </div>
+
+    {% if historial %}
+    <div class="overflow-hidden rounded-2xl border border-slate-700/50 shadow-inner">
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-slate-700/30">
+          <thead class="bg-slate-800/80 text-left text-xs uppercase tracking-widest text-slate-300">
+            <tr>
+              <th class="px-5 py-4">Producto</th>
+              <th class="px-5 py-4">IMEI</th>
+              <th class="px-5 py-4">Condición</th>
+              <th class="px-5 py-4">Cliente</th>
+              <th class="px-5 py-4 text-right">Precio de venta</th>
+              <th class="px-5 py-4">Fecha de venta</th>
+              <th class="px-5 py-4">Venta #</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-700/30 bg-slate-800/40 text-sm text-slate-200">
+            {% for item in historial %}
+            <tr class="hover:bg-slate-800/60 transition-colors">
+              <td class="px-5 py-4">
+                <div class="flex flex-col gap-1">
+                  <span class="font-semibold text-slate-100">{{ item.variante.producto.nombre }}</span>
+                  <span class="text-xs text-slate-400">{{ item.variante.atributos_display }}</span>
+                  <span class="text-[10px] font-mono text-slate-500">SKU: {{ item.variante.sku }}</span>
+                </div>
+              </td>
+              <td class="px-5 py-4">
+                <span class="font-mono text-slate-100">{{ item.detalle_iphone.imei|default:"N/D" }}</span>
+              </td>
+              <td class="px-5 py-4">
+                <div class="flex flex-col gap-1">
+                  {% if item.detalle_iphone.salud_bateria %}
+                    <span class="text-xs text-emerald-400">Batería {{ item.detalle_iphone.salud_bateria }}%</span>
+                  {% else %}
+                    <span class="text-xs text-slate-500">Sin datos</span>
+                  {% endif %}
+                  {% if item.detalle_iphone.fallas_detectadas %}
+                    <span class="text-[10px] text-amber-400">{{ item.detalle_iphone.fallas_detectadas|truncatewords:5 }}</span>
+                  {% endif %}
+                </div>
+              </td>
+              <td class="px-5 py-4">
+                <div class="flex flex-col gap-1">
+                  <span class="font-semibold text-slate-100">{{ item.cliente_nombre }}</span>
+                  {% if item.cliente %}
+                    <span class="text-xs text-slate-400">{{ item.cliente.documento|default:"" }}</span>
+                  {% endif %}
+                </div>
+              </td>
+              <td class="px-5 py-4 text-right">
+                <span class="font-semibold text-slate-100">${{ item.precio_venta|floatformat:2|intcomma }}</span>
+              </td>
+              <td class="px-5 py-4">
+                <span class="text-slate-300">{{ item.fecha_venta|date:"d/m/Y H:i" }}</span>
+              </td>
+              <td class="px-5 py-4">
+                <a href="{% url 'ventas:detalle' item.venta.id %}" class="text-blue-400 hover:text-blue-300 font-mono text-xs">
+                  {{ item.venta.id }}
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% else %}
+    <div class="glass rounded-3xl p-12 text-center">
+      <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-16 w-16 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+      <h3 class="mt-4 text-lg font-semibold text-slate-200">No hay iPhones vendidos aún</h3>
+      <p class="mt-2 text-sm text-slate-400">Cuando vendas un iPhone y su stock llegue a 0, aparecerá aquí con toda su información.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+

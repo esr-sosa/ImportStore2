@@ -109,6 +109,8 @@ def dashboard_view(request):
     ventas_ultimos_7_dias: list[dict] = []
     analisis_financiero: dict[str, object] = {}
     margenes_por_metodo: list[dict] = []
+    analisis_mayorista: dict[str, object] = {}
+    margenes_mayorista_por_metodo: list[dict] = []
     
     if table_exists("ventas_venta"):
         periodo_inicio = timezone.now() - timedelta(days=30)
@@ -264,6 +266,130 @@ def dashboard_view(request):
                 "items_sin_costo": items_sin_costo,
                 "es_ganancia": total_ganancia_estimada >= 0,
             }
+            
+            # Análisis de ventas mayoristas del mes actual
+            
+            # Identificar detalles de ventas mayoristas comparando precios
+            detalles_mayorista = []
+            for detalle in detalles_mes:
+                if not detalle.variante:
+                    continue
+                
+                # Obtener precio mayorista de la variante
+                precio_mayorista = detalle.variante.precios.filter(
+                    tipo=Precio.Tipo.MAYORISTA,
+                    moneda=Precio.Moneda.ARS,
+                    activo=True
+                ).order_by("-actualizado").first()
+                
+                if precio_mayorista:
+                    precio_mayorista_val = Decimal(str(precio_mayorista.precio))
+                    precio_venta_val = detalle.precio_unitario_ars_congelado
+                    
+                    # Tolerancia del 5% para considerar que es venta mayorista
+                    diferencia = abs(precio_venta_val - precio_mayorista_val)
+                    tolerancia = precio_mayorista_val * Decimal("0.05")
+                    
+                    if diferencia <= tolerancia:
+                        detalles_mayorista.append(detalle)
+            
+            if detalles_mayorista:
+                # Calcular totales de ventas mayoristas
+                ventas_mayorista_ids = list(set([d.venta_id for d in detalles_mayorista]))
+                ventas_mayorista = ventas_mes_actual.filter(id__in=ventas_mayorista_ids)
+                total_ventas_mayorista = ventas_mayorista.aggregate(
+                    total=Coalesce(Sum("total_ars"), Decimal("0"))
+                )["total"] or Decimal("0")
+                
+                # Calcular costos y ganancias de ventas mayoristas
+                total_costo_mayorista = Decimal("0")
+                total_ganancia_mayorista = Decimal("0")
+                items_mayorista_con_costo = 0
+                items_mayorista_sin_costo = 0
+                
+                for detalle in detalles_mayorista:
+                    precio_venta = detalle.precio_unitario_ars_congelado * detalle.cantidad
+                    costo_ars = None
+                    
+                    try:
+                        if detalle.variante:
+                            detalle_iphone = getattr(detalle.variante, 'detalle_iphone', None)
+                            if detalle_iphone and detalle_iphone.costo_usd:
+                                costo_ars = Decimal(str(detalle_iphone.costo_usd)) * Decimal(str(valor_blue))
+                    except Exception:
+                        pass
+                    
+                    if not costo_ars or costo_ars <= 0:
+                        costo_ars = precio_venta * Decimal("0.60")
+                        items_mayorista_sin_costo += detalle.cantidad
+                    else:
+                        items_mayorista_con_costo += detalle.cantidad
+                    
+                    ganancia = precio_venta - costo_ars
+                    total_costo_mayorista += costo_ars
+                    total_ganancia_mayorista += ganancia
+                
+                margen_mayorista_porcentaje = Decimal("0")
+                if total_ventas_mayorista > 0:
+                    margen_mayorista_porcentaje = (total_ganancia_mayorista / total_ventas_mayorista) * Decimal("100")
+                
+                # Análisis por método de pago para ventas mayoristas
+                for metodo in Venta.MetodoPago.choices:
+                    ventas_metodo_mayorista = ventas_mayorista.filter(metodo_pago=metodo[0])
+                    total_metodo_mayorista = ventas_metodo_mayorista.aggregate(
+                        total=Coalesce(Sum("total_ars"), Decimal("0"))
+                    )["total"] or Decimal("0")
+                    
+                    if total_metodo_mayorista <= 0:
+                        continue
+                    
+                    detalles_metodo_mayorista = [d for d in detalles_mayorista if d.venta_id in ventas_metodo_mayorista.values_list('id', flat=True)]
+                    
+                    costo_metodo_mayorista = Decimal("0")
+                    ganancia_metodo_mayorista = Decimal("0")
+                    
+                    for detalle in detalles_metodo_mayorista:
+                        precio_venta = detalle.precio_unitario_ars_congelado * detalle.cantidad
+                        costo_ars = None
+                        
+                        try:
+                            if detalle.variante:
+                                detalle_iphone = getattr(detalle.variante, 'detalle_iphone', None)
+                                if detalle_iphone and detalle_iphone.costo_usd:
+                                    costo_ars = Decimal(str(detalle_iphone.costo_usd)) * Decimal(str(valor_blue))
+                        except Exception:
+                            pass
+                        
+                        if not costo_ars or costo_ars <= 0:
+                            costo_ars = precio_venta * Decimal("0.60")
+                        
+                        ganancia_metodo_mayorista += precio_venta - costo_ars
+                        costo_metodo_mayorista += costo_ars
+                    
+                    margen_metodo_mayorista = Decimal("0")
+                    if total_metodo_mayorista > 0:
+                        margen_metodo_mayorista = (ganancia_metodo_mayorista / total_metodo_mayorista) * Decimal("100")
+                    
+                    margenes_mayorista_por_metodo.append({
+                        "metodo": metodo[1],
+                        "total_ventas": float(total_metodo_mayorista),
+                        "costo": float(costo_metodo_mayorista),
+                        "ganancia": float(ganancia_metodo_mayorista),
+                        "margen_porcentaje": float(margen_metodo_mayorista),
+                        "cantidad": ventas_metodo_mayorista.count()
+                    })
+                
+                margenes_mayorista_por_metodo = sorted(margenes_mayorista_por_metodo, key=lambda x: x["total_ventas"], reverse=True)
+                
+                analisis_mayorista = {
+                    "total_ventas_mes": float(total_ventas_mayorista),
+                    "total_costo_estimado": float(total_costo_mayorista),
+                    "total_ganancia_estimada": float(total_ganancia_mayorista),
+                    "margen_porcentaje": float(margen_mayorista_porcentaje),
+                    "items_con_costo": items_mayorista_con_costo,
+                    "items_sin_costo": items_mayorista_sin_costo,
+                    "es_ganancia": total_ganancia_mayorista >= 0,
+                }
         
         ventas_metrics = {
             "total_periodo": total,
@@ -321,6 +447,8 @@ def dashboard_view(request):
         "ventas_por_metodo": ventas_por_metodo,
         "analisis_financiero": analisis_financiero,
         "margenes_por_metodo": margenes_por_metodo,
+        "analisis_mayorista": analisis_mayorista if 'analisis_mayorista' in locals() else {},
+        "margenes_mayorista_por_metodo": margenes_mayorista_por_metodo if 'margenes_mayorista_por_metodo' in locals() else [],
     }
 
     return render(request, "dashboard/main.html", context)
