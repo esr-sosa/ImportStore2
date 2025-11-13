@@ -89,12 +89,18 @@ class AgregarIphoneForm(forms.Form):
             attrs={"class": IOS_INPUT, "placeholder": "15 dígitos"}
         ),
     )
+    es_nuevo = forms.BooleanField(
+        required=False,
+        initial=False,
+        label="Equipo nuevo (sin uso)",
+        widget=forms.CheckboxInput(attrs={"class": "switch-container", "id": "es-nuevo-toggle"}),
+    )
     salud_bateria = forms.IntegerField(
         min_value=1,
         max_value=100,
         required=False,
         label="Salud batería (%)",
-        widget=forms.NumberInput(attrs={"class": IOS_NUMBER}),
+        widget=forms.NumberInput(attrs={"class": IOS_NUMBER, "id": "salud-bateria-input"}),
     )
     fallas_observaciones = forms.CharField(
         required=False,
@@ -170,6 +176,23 @@ class AgregarIphoneForm(forms.Form):
             }
         ),
     )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        es_nuevo = cleaned_data.get("es_nuevo", False)
+        salud_bateria = cleaned_data.get("salud_bateria")
+        
+        # Si no es nuevo, la salud de batería es obligatoria
+        if not es_nuevo and not salud_bateria:
+            raise forms.ValidationError({
+                "salud_bateria": "La salud de batería es obligatoria para equipos usados. Si el equipo es nuevo, marcá el switch 'Equipo nuevo'."
+            })
+        
+        # Si es nuevo, establecer salud_bateria a 100 automáticamente
+        if es_nuevo and not salud_bateria:
+            cleaned_data["salud_bateria"] = 100
+        
+        return cleaned_data
 
     def clean_imei(self):
         imei = self.cleaned_data.get("imei")

@@ -396,10 +396,15 @@ def agregar_iphone(request):
 
             _sincronizar_precios(variante, data)
 
+            # Si es nuevo, establecer salud_bateria a 100
+            salud_bateria = data.get("salud_bateria")
+            if data.get("es_nuevo", False):
+                salud_bateria = 100
+            
             detalle = DetalleIphone.objects.create(
                 variante=variante,
                 imei=data.get("imei"),
-                salud_bateria=data.get("salud_bateria"),
+                salud_bateria=salud_bateria,
                 fallas_detectadas=data.get("fallas_observaciones"),
                 es_plan_canje=data.get("es_plan_canje", False),
                 costo_usd=data.get("costo_usd"),
@@ -543,6 +548,7 @@ def editar_iphone(request, variante_id):
                 "precio_mayorista_usd": precio_mayorista_usd.precio if precio_mayorista_usd else None,
                 "precio_mayorista_ars": precio_mayorista_ars.precio if precio_mayorista_ars else None,
                 "imei": detalle.imei if detalle else "",
+                "es_nuevo": detalle.salud_bateria == 100 if detalle and detalle.salud_bateria else False,
                 "salud_bateria": detalle.salud_bateria if detalle else None,
                 "fallas_observaciones": detalle.fallas_detectadas if detalle else "",
                 "es_plan_canje": detalle.es_plan_canje if detalle else False,
@@ -587,7 +593,7 @@ def eliminar_iphone(request, variante_id):
 
 @require_POST
 @login_required
-def toggle_iphone_status(request, producto_id):
+def toggle_iphone_status(request, variante_id):
     if not is_detalleiphone_variante_ready():
         messages.error(
             request,
@@ -595,14 +601,14 @@ def toggle_iphone_status(request, producto_id):
         )
         return redirect("inventario:dashboard")
 
-    producto = get_object_or_404(Producto, pk=producto_id)
-    producto.activo = not producto.activo
-    producto.save()
+    variante = get_object_or_404(ProductoVariante, pk=variante_id)
+    variante.activo = not variante.activo
+    variante.save()
 
     RegistroHistorial.objects.create(
         usuario=request.user,
         tipo_accion=RegistroHistorial.TipoAccion.CAMBIO_ESTADO,
-        descripcion=f"Estado {('activo' if producto.activo else 'inactivo')} → {producto.nombre}",
+        descripcion=f"Estado {('activo' if variante.activo else 'inactivo')} → {variante.producto.nombre} ({variante.atributos_display})",
     )
 
     return redirect("iphones:dashboard")

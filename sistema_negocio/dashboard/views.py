@@ -18,9 +18,9 @@ from core.utils import obtener_valor_dolar_blue
 from configuracion.models import ConfiguracionSistema, ConfiguracionTienda
 from crm.models import Cliente, Conversacion
 from historial.models import RegistroHistorial
-from inventario.models import Precio, Producto, ProductoVariante
+from inventario.models import Precio, Producto, ProductoVariante, DetalleIphone
 from locales.models import Local
-from ventas.models import Venta
+from ventas.models import Venta, DetalleVenta
 
 
 @login_required
@@ -105,9 +105,17 @@ def dashboard_view(request):
 
     ventas_metrics: dict[str, object] = {}
     ultimas_ventas: list[Venta] = []
+    ventas_por_metodo: list[dict] = []
+    ventas_ultimos_7_dias: list[dict] = []
+    analisis_financiero: dict[str, object] = {}
+    margenes_por_metodo: list[dict] = []
+    
     if table_exists("ventas_venta"):
         periodo_inicio = timezone.now() - timedelta(days=30)
+        mes_actual_inicio = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         ventas_qs = Venta.objects.filter(fecha__gte=periodo_inicio)
+        ventas_mes_actual = Venta.objects.filter(fecha__gte=mes_actual_inicio)
+        
         ventas_resumen = ventas_qs.aggregate(
             total=Coalesce(Sum("total_ars"), Decimal("0")),
             tickets=Count("id"),
@@ -115,6 +123,148 @@ def dashboard_view(request):
         tickets = ventas_resumen["tickets"] or 0
         total = ventas_resumen["total"] or Decimal("0")
         promedio = total / tickets if tickets else Decimal("0")
+        
+        # Ventas por día (últimos 7 días)
+        from django.db.models.functions import TruncDate
+        ultimos_7_dias = timezone.now() - timedelta(days=7)
+        ventas_7_dias = ventas_qs.filter(fecha__gte=ultimos_7_dias).annotate(
+            fecha_dia=TruncDate("fecha")
+        ).values("fecha_dia").annotate(
+            total_dia=Coalesce(Sum("total_ars"), Decimal("0")),
+            cantidad=Count("id")
+        ).order_by("fecha_dia")
+        
+        ventas_ultimos_7_dias = [
+            {
+                "fecha": v["fecha_dia"].strftime("%d/%m") if v["fecha_dia"] else "",
+                "total": float(v["total_dia"]),
+                "cantidad": v["cantidad"]
+            }
+            for v in ventas_7_dias
+        ]
+        
+        # Ventas por método de pago
+        ventas_por_metodo_raw = ventas_qs.values("metodo_pago").annotate(
+            total=Coalesce(Sum("total_ars"), Decimal("0")),
+            cantidad=Count("id")
+        )
+        
+        metodo_pago_dict = dict(Venta.MetodoPago.choices)
+        ventas_por_metodo = [
+            {
+                "metodo": metodo_pago_dict.get(v["metodo_pago"], v["metodo_pago"] or "Sin método"),
+                "total": float(v["total"]),
+                "cantidad": v["cantidad"]
+            }
+            for v in ventas_por_metodo_raw
+        ]
+        
+        # Análisis financiero del mes actual
+        if table_exists("ventas_detalleventa") and valor_blue:
+            total_ventas_mes = ventas_mes_actual.aggregate(
+                total=Coalesce(Sum("total_ars"), Decimal("0"))
+            )["total"] or Decimal("0")
+            
+            detalles_mes = DetalleVenta.objects.filter(
+                venta__fecha__gte=mes_actual_inicio,
+                variante__isnull=False
+            ).select_related("variante", "venta").prefetch_related("variante__detalle_iphone")
+            
+            total_costo_estimado = Decimal("0")
+            total_ganancia_estimada = Decimal("0")
+            items_con_costo = 0
+            items_sin_costo = 0
+            
+            for detalle in detalles_mes:
+                precio_venta = detalle.precio_unitario_ars_congelado * detalle.cantidad
+                costo_ars = None
+                
+                # Intentar obtener costo desde DetalleIphone
+                try:
+                    if detalle.variante:
+                        detalle_iphone = getattr(detalle.variante, 'detalle_iphone', None)
+                        if detalle_iphone and detalle_iphone.costo_usd:
+                            # Convertir USD a ARS usando el dólar blue
+                            costo_ars = Decimal(str(detalle_iphone.costo_usd)) * Decimal(str(valor_blue))
+                except Exception:
+                    pass
+                
+                # Si no hay costo, estimar como 60% del precio de venta (margen típico)
+                if not costo_ars or costo_ars <= 0:
+                    costo_ars = precio_venta * Decimal("0.60")  # Estimación conservadora
+                    items_sin_costo += detalle.cantidad
+                else:
+                    items_con_costo += detalle.cantidad
+                
+                ganancia = precio_venta - costo_ars
+                total_costo_estimado += costo_ars
+                total_ganancia_estimada += ganancia
+            
+            # Calcular márgenes
+            margen_porcentaje = Decimal("0")
+            if total_ventas_mes > 0:
+                margen_porcentaje = (total_ganancia_estimada / total_ventas_mes) * Decimal("100")
+            
+            # Análisis por método de pago del mes
+            margenes_por_metodo_raw = []
+            for metodo in Venta.MetodoPago.choices:
+                ventas_metodo = ventas_mes_actual.filter(metodo_pago=metodo[0])
+                total_metodo = ventas_metodo.aggregate(
+                    total=Coalesce(Sum("total_ars"), Decimal("0"))
+                )["total"] or Decimal("0")
+                
+                detalles_metodo = DetalleVenta.objects.filter(
+                    venta__in=ventas_metodo,
+                    variante__isnull=False
+                ).select_related("variante").prefetch_related("variante__detalle_iphone")
+                
+                costo_metodo = Decimal("0")
+                ganancia_metodo = Decimal("0")
+                
+                for detalle in detalles_metodo:
+                    precio_venta = detalle.precio_unitario_ars_congelado * detalle.cantidad
+                    costo_ars = None
+                    
+                    try:
+                        if detalle.variante:
+                            detalle_iphone = getattr(detalle.variante, 'detalle_iphone', None)
+                            if detalle_iphone and detalle_iphone.costo_usd:
+                                costo_ars = Decimal(str(detalle_iphone.costo_usd)) * Decimal(str(valor_blue))
+                    except Exception:
+                        pass
+                    
+                    if not costo_ars or costo_ars <= 0:
+                        costo_ars = precio_venta * Decimal("0.60")
+                    
+                    ganancia_metodo += precio_venta - costo_ars
+                    costo_metodo += costo_ars
+                
+                margen_metodo = Decimal("0")
+                if total_metodo > 0:
+                    margen_metodo = (ganancia_metodo / total_metodo) * Decimal("100")
+                
+                if total_metodo > 0:
+                    margenes_por_metodo_raw.append({
+                        "metodo": metodo[1],
+                        "total_ventas": float(total_metodo),
+                        "costo": float(costo_metodo),
+                        "ganancia": float(ganancia_metodo),
+                        "margen_porcentaje": float(margen_metodo),
+                        "cantidad": ventas_metodo.count()
+                    })
+            
+            margenes_por_metodo = sorted(margenes_por_metodo_raw, key=lambda x: x["total_ventas"], reverse=True)
+            
+            analisis_financiero = {
+                "total_ventas_mes": float(total_ventas_mes),
+                "total_costo_estimado": float(total_costo_estimado),
+                "total_ganancia_estimada": float(total_ganancia_estimada),
+                "margen_porcentaje": float(margen_porcentaje),
+                "items_con_costo": items_con_costo,
+                "items_sin_costo": items_sin_costo,
+                "es_ganancia": total_ganancia_estimada >= 0,
+            }
+        
         ventas_metrics = {
             "total_periodo": total,
             "tickets_periodo": tickets,
@@ -167,6 +317,10 @@ def dashboard_view(request):
         "quick_actions": quick_actions,
         "valor_blue": valor_blue,
         "ultimas_ventas": ultimas_ventas,
+        "ventas_ultimos_7_dias": ventas_ultimos_7_dias,
+        "ventas_por_metodo": ventas_por_metodo,
+        "analisis_financiero": analisis_financiero,
+        "margenes_por_metodo": margenes_por_metodo,
     }
 
     return render(request, "dashboard/main.html", context)

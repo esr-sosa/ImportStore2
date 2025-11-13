@@ -2,232 +2,573 @@
 <html lang="es">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes">
     <title>{{ page_title|default:store_name }}</title>
     <style>
-        :root {
-            color-scheme: light;
-            font-family: "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
+        
+        :root {
+            color-scheme: dark;
+            font-family: "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif;
+        }
+        
         body {
             margin: 0;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: radial-gradient(120% 120% at 50% 0%, rgba(110, 173, 255, 0.22) 0%, rgba(28, 51, 111, 0.14) 40%, rgba(12, 18, 37, 0.85) 100%);
-            overflow: hidden;
+            background: 
+                radial-gradient(ellipse 120% 100% at 50% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse 100% 120% at 0% 100%, rgba(139, 92, 246, 0.12) 0%, transparent 50%),
+                radial-gradient(ellipse 100% 120% at 100% 100%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+                linear-gradient(180deg, #0a0e1a 0%, #0f172a 50%, #1a1f35 100%);
+            overflow-x: hidden;
             position: relative;
+            padding: 20px;
+            animation: backgroundShift 20s ease-in-out infinite;
         }
-        .blur-orb {
-            position: absolute;
-            filter: blur(120px);
-            opacity: 0.55;
+        
+        @keyframes backgroundShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+        
+        /* Partículas flotantes */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
             z-index: 0;
-            border-radius: 999px;
+            overflow: hidden;
         }
+        
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(99, 102, 246, 0.3);
+            animation: float 15s infinite ease-in-out;
+        }
+        
+        .particle:nth-child(1) { width: 4px; height: 4px; left: 10%; animation-delay: 0s; }
+        .particle:nth-child(2) { width: 6px; height: 6px; left: 20%; animation-delay: 2s; }
+        .particle:nth-child(3) { width: 3px; height: 3px; left: 30%; animation-delay: 4s; }
+        .particle:nth-child(4) { width: 5px; height: 5px; left: 40%; animation-delay: 1s; }
+        .particle:nth-child(5) { width: 4px; height: 4px; left: 50%; animation-delay: 3s; }
+        .particle:nth-child(6) { width: 6px; height: 6px; left: 60%; animation-delay: 5s; }
+        .particle:nth-child(7) { width: 3px; height: 3px; left: 70%; animation-delay: 2.5s; }
+        .particle:nth-child(8) { width: 5px; height: 5px; left: 80%; animation-delay: 4.5s; }
+        .particle:nth-child(9) { width: 4px; height: 4px; left: 90%; animation-delay: 1.5s; }
+        
+        @keyframes float {
+            0% { transform: translateY(100vh) translateX(0) scale(0); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(-100vh) translateX(50px) scale(1); opacity: 0; }
+        }
+        
+        /* Orbes de fondo animados */
+        .blur-orb {
+            position: fixed;
+            filter: blur(100px);
+            opacity: 0.4;
+            z-index: 0;
+            border-radius: 50%;
+            animation: orbFloat 20s ease-in-out infinite;
+        }
+        
         .orb-1 {
-            width: 420px;
-            height: 420px;
-            top: -140px;
-            right: 10%;
-            background: linear-gradient(135deg, rgba(92, 225, 230, 0.7), rgba(48, 128, 255, 0.6));
+            width: 500px;
+            height: 500px;
+            top: -200px;
+            right: -100px;
+            background: linear-gradient(135deg, rgba(99, 102, 246, 0.6), rgba(139, 92, 246, 0.5));
+            animation-delay: 0s;
         }
+        
         .orb-2 {
-            width: 360px;
-            height: 360px;
-            bottom: -160px;
-            left: 8%;
-            background: linear-gradient(135deg, rgba(255, 200, 125, 0.65), rgba(240, 111, 169, 0.5));
+            width: 450px;
+            height: 450px;
+            bottom: -150px;
+            left: -80px;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.5), rgba(99, 102, 246, 0.4));
+            animation-delay: 5s;
         }
+        
+        .orb-3 {
+            width: 380px;
+            height: 380px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(59, 130, 246, 0.2));
+            animation-delay: 10s;
+        }
+        
+        @keyframes orbFloat {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -30px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+        }
+        
+        /* Contenedor principal */
         .login-shell {
             position: relative;
-            z-index: 1;
-            width: min(420px, 92vw);
-            padding: 36px clamp(24px, 5vw, 44px);
+            z-index: 10;
+            width: min(440px, 95vw);
+            max-width: 440px;
+            padding: clamp(32px, 6vw, 48px) clamp(28px, 5vw, 40px);
             border-radius: 32px;
-            border: 1px solid rgba(255, 255, 255, 0.14);
-            background: rgba(13, 20, 32, 0.78);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(15, 23, 42, 0.75);
             box-shadow:
-                0 30px 60px rgba(7, 11, 22, 0.55),
-                inset 0 1px 0 rgba(255, 255, 255, 0.08);
-            backdrop-filter: blur(26px);
+                0 20px 60px rgba(0, 0, 0, 0.5),
+                0 0 0 1px rgba(255, 255, 255, 0.05),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(30px) saturate(180%);
             color: #f1f5f9;
+            animation: slideInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            transform-style: preserve-3d;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
+        
+        .login-shell:hover {
+            transform: translateY(-2px) translateZ(10px);
+            box-shadow:
+                0 30px 80px rgba(0, 0, 0, 0.6),
+                0 0 0 1px rgba(255, 255, 255, 0.1),
+                0 0 40px rgba(99, 102, 246, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.15);
+        }
+        
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px) translateZ(-50px) rotateX(5deg);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) translateZ(0) rotateX(0deg);
+            }
+        }
+        
+        /* Branding */
         .branding {
             display: flex;
             align-items: center;
             gap: 16px;
-            margin-bottom: 32px;
+            margin-bottom: 36px;
+            animation: fadeIn 0.8s ease-out 0.2s both;
         }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
         .branding-logo {
-            width: 54px;
-            height: 54px;
-            border-radius: 18px;
-            background: linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(129, 140, 248, 0.25));
-            border: 1px solid rgba(255, 255, 255, 0.18);
+            width: 64px;
+            height: 64px;
+            min-width: 64px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, rgba(99, 102, 246, 0.3), rgba(139, 92, 246, 0.25));
+            border: 1.5px solid rgba(255, 255, 255, 0.15);
             display: flex;
             align-items: center;
             justify-content: center;
             overflow: hidden;
+            box-shadow: 0 8px 24px rgba(99, 102, 246, 0.2);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
         }
+        
+        .branding-logo:hover {
+            transform: scale(1.1) translateZ(10px) rotateY(5deg);
+            box-shadow: 0 12px 32px rgba(99, 102, 246, 0.3);
+        }
+        
         .branding-logo img {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
+        
+        .branding-logo svg {
+            width: 36px;
+            height: 36px;
+        }
+        
         .branding h1 {
-            font-size: clamp(1.75rem, 2.1vw, 2.4rem);
+            font-size: clamp(1.875rem, 4vw, 2.5rem);
             font-weight: 700;
-            letter-spacing: -0.02em;
+            letter-spacing: -0.03em;
             margin: 0;
+            background: linear-gradient(135deg, #f8fafc 0%, #cbd5e1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: textShine 3s ease-in-out infinite;
         }
+        
+        @keyframes textShine {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+        
         .branding p {
-            margin: 4px 0 0;
-            font-size: 0.95rem;
-            color: rgba(226, 232, 240, 0.72);
+            margin: 6px 0 0;
+            font-size: clamp(0.875rem, 2vw, 1rem);
+            color: rgba(203, 213, 225, 0.7);
+            font-weight: 500;
         }
+        
+        /* Welcome section */
         .welcome {
-            margin-bottom: 28px;
+            margin-bottom: 32px;
+            animation: fadeIn 0.8s ease-out 0.3s both;
         }
+        
         .welcome h2 {
             margin: 0;
-            font-size: 1.25rem;
+            font-size: clamp(1.25rem, 3vw, 1.5rem);
             font-weight: 600;
-            color: rgba(248, 250, 252, 0.9);
+            color: rgba(248, 250, 252, 0.95);
+            letter-spacing: -0.01em;
         }
+        
         .welcome span {
             display: block;
-            margin-top: 6px;
-            font-size: 0.95rem;
-            color: rgba(203, 213, 225, 0.73);
+            margin-top: 8px;
+            font-size: clamp(0.875rem, 2vw, 0.95rem);
+            color: rgba(203, 213, 225, 0.75);
+            line-height: 1.5;
         }
+        
+        /* Form */
         form {
             display: grid;
-            gap: 18px;
+            gap: 20px;
+            animation: fadeIn 0.8s ease-out 0.4s both;
         }
-        label {
-            display: block;
-            font-size: 0.78rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.14em;
-            color: rgba(148, 163, 184, 0.72);
-        }
+        
         .field-wrapper {
             display: grid;
-            gap: 8px;
+            gap: 10px;
+            position: relative;
         }
+        
+        label {
+            display: block;
+            font-size: clamp(0.75rem, 2vw, 0.8125rem);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: rgba(148, 163, 184, 0.8);
+            margin-left: 2px;
+        }
+        
         .ios-input {
             width: 100%;
-            border-radius: 18px;
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            background: rgba(15, 23, 42, 0.68);
+            border-radius: 20px;
+            border: 1.5px solid rgba(255, 255, 255, 0.12);
+            background: rgba(15, 23, 42, 0.6);
             color: #f8fafc;
-            padding: 16px 18px;
-            font-size: 1rem;
+            padding: 18px 20px;
+            font-size: clamp(1rem, 2.5vw, 1.0625rem);
             outline: none;
-            transition: border 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-style: preserve-3d;
+            backdrop-filter: blur(10px);
         }
+        
+        .ios-input::placeholder {
+            color: rgba(148, 163, 184, 0.5);
+        }
+        
         .ios-input:focus {
-            border-color: rgba(99, 102, 241, 0.65);
-            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
-            transform: translateY(-1px);
+            border-color: rgba(99, 102, 246, 0.7);
+            background: rgba(15, 23, 42, 0.8);
+            box-shadow: 
+                0 0 0 4px rgba(99, 102, 246, 0.15),
+                0 8px 24px rgba(99, 102, 246, 0.2),
+                0 0 0 1px rgba(99, 102, 246, 0.3);
+            transform: translateY(-2px) translateZ(5px);
         }
+        
+        .ios-input:not(:placeholder-shown) {
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        
         .errorlist {
-            margin: 4px 0 0;
+            margin: 6px 0 0;
             padding: 0;
             list-style: none;
-            font-size: 0.82rem;
-            color: rgba(250, 112, 126, 0.92);
+            font-size: clamp(0.75rem, 2vw, 0.8125rem);
+            color: rgba(248, 113, 113, 0.95);
+            animation: shake 0.4s ease;
         }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-8px); }
+            75% { transform: translateX(8px); }
+        }
+        
         .non-field-errors {
-            padding: 12px 14px;
-            border-radius: 16px;
-            background: rgba(250, 112, 126, 0.12);
-            border: 1px solid rgba(250, 112, 126, 0.35);
-            color: rgba(255, 200, 204, 0.95);
-            font-size: 0.92rem;
+            padding: 16px 18px;
+            border-radius: 18px;
+            background: rgba(248, 113, 113, 0.15);
+            border: 1.5px solid rgba(248, 113, 113, 0.3);
+            color: rgba(254, 226, 226, 0.95);
+            font-size: clamp(0.875rem, 2vw, 0.9375rem);
+            animation: slideInDown 0.4s ease;
         }
+        
+        @keyframes slideInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
         .remember-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-top: 6px;
-            font-size: 0.9rem;
-            color: rgba(203, 213, 225, 0.76);
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 4px;
+            font-size: clamp(0.875rem, 2vw, 0.9375rem);
+            color: rgba(203, 213, 225, 0.8);
         }
+        
         .remember-row label {
             display: flex;
             align-items: center;
             gap: 10px;
             text-transform: none;
             letter-spacing: normal;
-            font-size: 0.92rem;
+            font-size: inherit;
             color: inherit;
+            cursor: pointer;
+            user-select: none;
+            transition: color 0.2s ease;
         }
+        
+        .remember-row label:hover {
+            color: rgba(203, 213, 225, 1);
+        }
+        
         .remember-row input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            accent-color: #4f46e5;
+            width: 20px;
+            height: 20px;
+            accent-color: #6366f1;
+            cursor: pointer;
+            transition: transform 0.2s ease;
         }
+        
+        .remember-row input[type="checkbox"]:hover {
+            transform: scale(1.1);
+        }
+        
+        .remember-row > span {
+            font-size: clamp(0.75rem, 2vw, 0.8125rem);
+            color: rgba(148, 163, 184, 0.65);
+            text-align: right;
+        }
+        
         .primary-btn {
             border: none;
-            border-radius: 18px;
-            padding: 16px;
-            font-size: 1rem;
+            border-radius: 20px;
+            padding: 18px 24px;
+            font-size: clamp(1rem, 2.5vw, 1.0625rem);
             font-weight: 600;
             color: #0f172a;
-            background: linear-gradient(135deg, #60a5fa, #818cf8, #c084fc);
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
             box-shadow:
-                0 12px 24px rgba(99, 102, 241, 0.32),
-                inset 0 1px 0 rgba(255, 255, 255, 0.35);
+                0 12px 32px rgba(99, 102, 246, 0.35),
+                0 0 0 1px rgba(255, 255, 255, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.4);
             cursor: pointer;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transform-style: preserve-3d;
+            position: relative;
+            overflow: hidden;
         }
+        
+        .primary-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .primary-btn:hover::before {
+            left: 100%;
+        }
+        
         .primary-btn:hover {
-            transform: translateY(-1px);
+            transform: translateY(-3px) translateZ(15px) rotateX(2deg);
             box-shadow:
-                0 16px 32px rgba(79, 70, 229, 0.38),
-                inset 0 1px 0 rgba(255, 255, 255, 0.45);
+                0 20px 48px rgba(99, 102, 246, 0.45),
+                0 0 0 1px rgba(255, 255, 255, 0.15),
+                0 0 60px rgba(99, 102, 246, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.5);
+            background: linear-gradient(135deg, #818cf8 0%, #a78bfa 50%, #c084fc 100%);
         }
+        
         .primary-btn:active {
-            transform: translateY(0);
+            transform: translateY(-1px) translateZ(5px);
+            transition: transform 0.1s ease;
         }
+        
+        .primary-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
         .footer-note {
-            margin-top: 24px;
+            margin-top: 28px;
             text-align: center;
-            font-size: 0.82rem;
-            color: rgba(148, 163, 184, 0.65);
+            font-size: clamp(0.75rem, 2vw, 0.8125rem);
+            color: rgba(148, 163, 184, 0.6);
+            animation: fadeIn 0.8s ease-out 0.5s both;
+            line-height: 1.6;
         }
+        
         .footer-note a {
             color: rgba(165, 180, 252, 0.9);
             text-decoration: none;
             font-weight: 600;
+            transition: color 0.2s ease;
         }
+        
         .footer-note a:hover {
+            color: rgba(196, 181, 253, 1);
             text-decoration: underline;
         }
-        @media (max-width: 600px) {
+        
+        /* Responsive para iPhone */
+        @media (max-width: 640px) {
+            body {
+                padding: 16px;
+                align-items: flex-start;
+                padding-top: max(20px, env(safe-area-inset-top));
+                padding-bottom: max(20px, env(safe-area-inset-bottom));
+            }
+            
             .login-shell {
+                width: 100%;
+                max-width: 100%;
                 border-radius: 28px;
-                padding: 30px 24px;
+                padding: 32px 24px;
+                margin-top: auto;
+                margin-bottom: auto;
+            }
+            
+            .branding {
+                gap: 14px;
+                margin-bottom: 32px;
+            }
+            
+            .branding-logo {
+                width: 56px;
+                height: 56px;
+                min-width: 56px;
+            }
+            
+            .welcome {
+                margin-bottom: 28px;
+            }
+            
+            form {
+                gap: 18px;
+            }
+            
+            .remember-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+            
+            .remember-row > span {
+                text-align: left;
+                font-size: 0.75rem;
+            }
+            
+            .primary-btn {
+                padding: 16px 20px;
+            }
+        }
+        
+        /* Animación de carga */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .loading {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+        
+        .loading .primary-btn {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        /* Mejoras de accesibilidad */
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
             }
         }
     </style>
 </head>
 <body>
+    <div class="particles">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+    </div>
+    
     <div class="blur-orb orb-1"></div>
     <div class="blur-orb orb-2"></div>
+    <div class="blur-orb orb-3"></div>
+    
     <div class="login-shell">
         <div class="branding">
             <div class="branding-logo">
                 {% if store_logo %}
                     <img src="{{ store_logo }}" alt="Logo {{ store_name }}">
                 {% else %}
-                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
-                        <rect x="2" y="2" width="20" height="20" rx="6" stroke="rgba(148, 163, 184, 0.5)" stroke-width="1.5"/>
-                        <path d="M8 12.5L10.5 15L16 9.5" stroke="rgba(165, 180, 252, 0.9)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="2" y="2" width="20" height="20" rx="6" stroke="rgba(165, 180, 252, 0.6)" stroke-width="1.5"/>
+                        <path d="M8 12.5L10.5 15L16 9.5" stroke="rgba(165, 180, 252, 0.9)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 {% endif %}
             </div>
@@ -250,7 +591,7 @@
             </div>
         {% endif %}
 
-        <form method="post" novalidate>
+        <form method="post" novalidate id="login-form">
             {% csrf_token %}
             {% if next %}
                 <input type="hidden" name="next" value="{{ next }}">
@@ -267,6 +608,7 @@
                     placeholder="tu.usuario"
                     class="ios-input"
                     required
+                    autofocus
                 >
                 {% if form.username.errors %}
                     <ul class="errorlist">
@@ -299,19 +641,62 @@
 
             <div class="remember-row">
                 <label>
-                    <input type="checkbox" name="remember">
+                    <input type="checkbox" name="remember" id="remember-checkbox">
                     Mantener sesión iniciada
                 </label>
-                <span>¿Olvidaste tus datos? Pedile reset al admin.</span>
+                <span>¿Olvidaste tus datos?</span>
             </div>
 
-            <button type="submit" class="primary-btn">Entrar</button>
+            <button type="submit" class="primary-btn" id="submit-btn">
+                <span>Entrar</span>
+            </button>
         </form>
 
         <div class="footer-note">
             ImportStore · Terminal de ventas inteligente · 2025
         </div>
     </div>
+    
+    <script>
+        // Animación de carga al enviar formulario
+        const form = document.getElementById('login-form');
+        const submitBtn = document.getElementById('submit-btn');
+        
+        if (form && submitBtn) {
+            form.addEventListener('submit', function(e) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span>Ingresando...</span>';
+                form.classList.add('loading');
+            });
+        }
+        
+        // Efecto de partículas dinámicas
+        function createParticle() {
+            const particles = document.querySelector('.particles');
+            if (!particles) return;
+            
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            const size = Math.random() * 4 + 2;
+            particle.style.width = size + 'px';
+            particle.style.height = size + 'px';
+            particle.style.left = Math.random() * 100 + '%';
+            particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
+            particle.style.animationDelay = Math.random() * 5 + 's';
+            particles.appendChild(particle);
+            
+            setTimeout(() => {
+                particle.remove();
+            }, 20000);
+        }
+        
+        // Crear partículas periódicamente
+        setInterval(createParticle, 3000);
+        
+        // Mejorar experiencia táctil en móviles
+        if ('ontouchstart' in window) {
+            document.body.style.cursor = 'pointer';
+        }
+    </script>
 </body>
 </html>
-

@@ -258,6 +258,7 @@ def importar_catalogo_desde_archivo(archivo, actualizar: bool = True) -> ImportR
             "atributo_2": data.get("atributo_2", ""),
             "stock_actual": stock_val,
             "stock_minimo": stock_min_val,
+            "peso": peso_valor,
             "activo": is_visible,
         }
         # Si hay atributo_3, lo agregamos a atributo_2 o creamos un campo combinado
@@ -350,14 +351,6 @@ def importar_catalogo_desde_archivo(archivo, actualizar: bool = True) -> ImportR
                 else:
                     resultado.errores.append(f"Fila {idx}: el SKU {sku} ya existe y no se actualizó.")
                     continue
-
-        # Actualizar el campo peso cuando existe en la base de datos legacy
-        if tiene_col_peso and variante:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    "UPDATE inventario_productovariante SET peso = %s WHERE id = %s",
-                    [peso_valor, variante.pk],
-                )
 
         precio_minorista = _parse_decimal(data.get("precio_minorista_ars"))
         if precio_minorista is None:

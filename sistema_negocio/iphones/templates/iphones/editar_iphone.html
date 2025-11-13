@@ -119,9 +119,20 @@
             <div class="mt-2">{{ form.imei }}</div>
           </div>
           <div>
+            <label class="flex items-center gap-3 cursor-pointer">
+              {{ form.es_nuevo }}
+              <span class="font-semibold text-slate-100">{{ form.es_nuevo.label }}</span>
+            </label>
+            <p class="mt-2 text-xs text-slate-400">Si está marcado, se establecerá automáticamente la salud de batería al 100%</p>
+          </div>
+        </div>
+        <div class="mt-6 grid gap-6 md:grid-cols-2">
+          <div>
             <label for="{{ form.salud_bateria.id_for_label }}">{{ form.salud_bateria.label }}</label>
             <div class="mt-2">{{ form.salud_bateria }}</div>
+            {{ form.salud_bateria.errors }}
           </div>
+          <div></div>
         </div>
         <div class="mt-6 grid gap-6 md:grid-cols-2">
           <div>

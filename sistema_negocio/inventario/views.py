@@ -19,6 +19,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from core.db_inspector import column_exists
 from core.utils import obtener_valor_dolar_blue
+from historial.models import RegistroHistorial
 
 from .forms import (
     CategoriaForm,
@@ -171,12 +172,25 @@ def _sincronizar_precios(variante: ProductoVariante, data: dict) -> None:
                 precio_existente.save()
             else:
                 # Crear nuevo precio con SQL directo
+                from core.db_inspector import column_exists
                 with connection.cursor() as cursor:
-                    cursor.execute("""
-                        INSERT INTO inventario_precio 
-                        (variante_id, tipo, moneda, precio, activo, creado, actualizado)
-                        VALUES (%s, %s, %s, %s, %s, NOW(), NOW())
-                    """, [variante.pk, tipo, moneda, valor, True])
+                    # Verificar si existe el campo tipo_precio (legacy)
+                    tiene_tipo_precio = column_exists("inventario_precio", "tipo_precio")
+                    
+                    if tiene_tipo_precio:
+                        # Si existe el campo legacy, incluirlo en el INSERT
+                        cursor.execute("""
+                            INSERT INTO inventario_precio 
+                            (variante_id, tipo, moneda, precio, activo, tipo_precio, creado, actualizado)
+                            VALUES (%s, %s, %s, %s, %s, %s, NOW(), NOW())
+                        """, [variante.pk, tipo, moneda, valor, True, tipo])
+                    else:
+                        # Si no existe, usar el INSERT normal
+                        cursor.execute("""
+                            INSERT INTO inventario_precio 
+                            (variante_id, tipo, moneda, precio, activo, creado, actualizado)
+                            VALUES (%s, %s, %s, %s, %s, NOW(), NOW())
+                        """, [variante.pk, tipo, moneda, valor, True])
     
     # Precio mínimo se guarda como minorista con un flag especial o simplemente como minorista
     # Por ahora, si hay precio_minimo_ars, lo guardamos como minorista también
@@ -720,8 +734,26 @@ def maestros(request):
     return render(request, template, contexto)
 
 
+@require_POST
 @login_required
-@transaction.atomic
+def variante_toggle_activo(request, pk: int):
+    """Toggle del estado activo de una variante de producto."""
+    variante = get_object_or_404(ProductoVariante, pk=pk)
+    variante.activo = not variante.activo
+    variante.save()
+    
+    RegistroHistorial.objects.create(
+        usuario=request.user,
+        tipo_accion=RegistroHistorial.TipoAccion.CAMBIO_ESTADO,
+        descripcion=f"Estado {('activo' if variante.activo else 'inactivo')} → {variante.producto.nombre} ({variante.atributos_display})",
+    )
+    
+    messages.success(request, f"Variante {('activada' if variante.activo else 'desactivada')} correctamente.")
+    return redirect("inventario:dashboard")
+
+
+@require_POST
+@login_required
 def proveedor_toggle_activo(request, pk: int):
     proveedor = get_object_or_404(Proveedor, pk=pk)
     proveedor.activo = not proveedor.activo

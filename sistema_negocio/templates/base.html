@@ -89,7 +89,8 @@
         .app-sidebar a:hover .sidebar-icon {
             background: linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.08));
             border-color: rgba(255,255,255,0.12);
-            transform: scale(1.05);
+            transform: scale(1.05) translateZ(10px);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
         .app-sidebar svg {
             stroke: rgba(226, 232, 255, 0.92);
@@ -104,6 +105,13 @@
             backdrop-filter: blur(26px) saturate(180%);
             box-shadow: 0 25px 65px -40px rgba(8, 12, 24, 0.85);
             color: var(--text-color);
+            transform-style: preserve-3d;
+            transition: transform 0.4s cubic-bezier(0.23, 1, 0.32, 1), box-shadow 0.4s ease;
+        }
+        .glass-surface:hover,
+        .card-surface:hover {
+            transform: translateY(-4px) translateZ(20px) rotateX(2deg);
+            box-shadow: 0 35px 85px -30px rgba(8, 12, 24, 1), 0 0 40px rgba(111, 136, 255, 0.15);
         }
         .glass-bar {
             background: linear-gradient(120deg, rgba(18, 25, 41, 0.78), rgba(10, 15, 27, 0.68));
@@ -331,6 +339,39 @@
             .app-sidebar .sidebar-tooltip {
                 display: none !important;
             }
+        }
+        
+        /* Animaciones 3D optimizadas - Solo botones y switches */
+        button, .btn, [role="button"], a[href].btn {
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+        }
+        
+        button:hover:not(:disabled), .btn:hover:not(:disabled), [role="button"]:hover:not(:disabled), a[href].btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px -8px rgba(0, 0, 0, 0.4), 0 0 15px rgba(111, 136, 255, 0.15);
+        }
+        
+        button:active:not(:disabled), .btn:active:not(:disabled), [role="button"]:active:not(:disabled), a[href].btn:active {
+            transform: translateY(0);
+            transition: transform 0.1s ease;
+        }
+        
+        /* Efecto 3D para switches */
+        .switch-container {
+            transform-style: preserve-3d;
+        }
+        
+        .switch-slider {
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        
+        .switch-container:hover .switch-slider {
+            transform: translateZ(5px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+        
+        .switch-container input:checked + .switch-slider {
+            transform: translateZ(8px);
         }
     </style>
     {% block extra_head %}{% endblock %}

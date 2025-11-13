@@ -4,6 +4,12 @@ from django.utils.text import slugify
 from .models import Categoria, Precio, Producto, ProductoVariante, Proveedor
 
 
+class MultiImageInput(forms.ClearableFileInput):
+    """Permite seleccionar múltiples archivos en formularios sin romper compatibilidad."""
+
+    allow_multiple_selected = True
+
+
 class InventarioFiltroForm(forms.Form):
     # Estilo iOS moderno con buen contraste - fondo oscuro con texto claro
     base_input = "w-full rounded-2xl border-2 border-slate-600/40 bg-slate-800/90 px-4 py-3 text-sm font-medium text-slate-100 shadow-lg placeholder-slate-400 focus:border-blue-500 focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all"
@@ -129,7 +135,7 @@ class ProductoForm(forms.ModelForm):
     imagenes = forms.FileField(
         required=False,
         label="Imágenes del producto",
-        widget=forms.FileInput(
+        widget=MultiImageInput(
             attrs={
                 "multiple": True,
                 "accept": "image/*",

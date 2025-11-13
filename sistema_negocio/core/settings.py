@@ -28,6 +28,43 @@ CSRF_TRUSTED_ORIGINS = [
     origin.strip() for origin in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if origin.strip()
 ]
 
+def _print_terminal_qr(public_url: str, title: str = "📱 QR CODE PARA ESCANEAR") -> None:
+    """Renderiza un QR compacto y bien proporcionado en la terminal."""
+    try:
+        import qrcode
+    except ImportError:
+        print("--- Instalá 'qrcode[pil]' para ver el QR code en terminal ---")
+        return
+
+    try:
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=1,
+            border=1,
+        )
+        qr.add_data(public_url)
+        qr.make(fit=True)
+
+        matrix = qr.get_matrix()
+        # Usar dos caracteres horizontales por celda para compensar el aspecto rectangular de los caracteres
+        ascii_lines = ["".join("██" if cell else "  " for cell in row) for row in matrix]
+        
+        # Calcular ancho del QR (cada celda = 2 caracteres)
+        qr_width = len(ascii_lines[0]) if ascii_lines else 0
+        border_width = max(40, qr_width + 2)
+
+        print("\n" + "=" * border_width)
+        print(f" {title.center(border_width - 2)}")
+        print("=" * border_width)
+        print(f"URL: {public_url}\n")
+        for line in ascii_lines:
+            print(line)
+        print("\n" + "=" * border_width + "\n")
+    except Exception as exc:
+        print(f"--- Error al generar QR: {exc} ---")
+
+
 # 2. Bloque NGROK "Anti-Bloqueo"
 # Solo ejecutamos si estamos en DEBUG, tenemos token y NO es el reloader automático
 if DEBUG and os.getenv('NGROK_AUTHTOKEN') and os.environ.get('RUN_MAIN') is None:
@@ -68,6 +105,8 @@ if DEBUG and os.getenv('NGROK_AUTHTOKEN') and os.environ.get('RUN_MAIN') is None
             # Guardamos la URL en una variable de entorno para que el reloader la vea
             os.environ["DJANGO_NGROK_URL"] = public_url
 
+            _print_terminal_qr(public_url)
+
     except ImportError:
         print("--- pyngrok no instalado. ---")
     except Exception as e:
@@ -82,6 +121,8 @@ if os.environ.get("DJANGO_NGROK_URL"):
     if public_url not in CSRF_TRUSTED_ORIGINS:
         CSRF_TRUSTED_ORIGINS.append(public_url)
     print(f"--- NGROK (Heredado en Reloader): {public_url} ---")
+    
+    _print_terminal_qr(public_url)
 
 # ... resto de tu settings.py ...
 
