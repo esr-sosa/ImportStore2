@@ -466,9 +466,20 @@ def generar_comprobante_pdf(venta) -> ContentFile:
     c.drawRightString(width - margin, y, f"Subtotal: ${venta.subtotal_ars:,.2f}")
     y -= 14
 
-    if venta.descuento_total_ars > 0:
+    descuento_metodo_pago = getattr(venta, "descuento_metodo_pago_ars", Decimal("0"))
+    descuento_total = venta.descuento_total_ars or Decimal("0")
+    otros_descuentos = descuento_total - descuento_metodo_pago
+    if otros_descuentos < 0:
+        otros_descuentos = Decimal("0")
+    if otros_descuentos > 0:
         c.setFillColor(colors.darkgreen)
-        c.drawRightString(width - margin, y, f"Descuentos: -${venta.descuento_total_ars:,.2f}")
+        c.drawRightString(width - margin, y, f"Descuentos aplicados: -${otros_descuentos:,.2f}")
+        c.setFillColor(colors.black)
+        y -= 14
+
+    if descuento_metodo_pago > 0:
+        c.setFillColor(colors.darkgreen)
+        c.drawRightString(width - margin, y, f"Descuento método de pago: -${descuento_metodo_pago:,.2f}")
         c.setFillColor(colors.black)
         y -= 14
 

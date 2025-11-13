@@ -1,13 +1,17 @@
 # core/urls.py
 
 from django.contrib import admin
+from django.contrib.auth.views import LogoutView
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
 from crm import views
+from core.views import IosLoginView
 
 urlpatterns = [
+    path('acceso/', IosLoginView.as_view(), name='login'),
+    path('salir/', LogoutView.as_view(next_page='login'), name='logout'),
     path('admin/', admin.site.urls),
     path('chat/', include('crm.urls')),
     path('ventas/', include('ventas.urls')),

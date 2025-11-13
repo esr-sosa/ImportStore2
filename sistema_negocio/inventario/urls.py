@@ -6,6 +6,7 @@ from .views import (
     maestros,
     proveedor_toggle_activo,
     producto_crear,
+    remove_background_api,
     variante_editar,
     descargar_etiqueta,
     descargar_etiquetas_multiples,
@@ -25,4 +26,5 @@ urlpatterns = [
     path("etiquetas/<int:variante_id>/", descargar_etiqueta, name="descargar_etiqueta"),
     path("etiquetas/multiples/", descargar_etiquetas_multiples, name="descargar_etiquetas_multiples"),
     path("etiquetas/categoria/<int:categoria_id>/", descargar_etiquetas_categoria, name="descargar_etiquetas_categoria"),
+    path("api/remove-background/", remove_background_api, name="remove_background_api"),
 ]

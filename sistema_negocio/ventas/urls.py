@@ -6,6 +6,7 @@ app_name = "ventas"
 urlpatterns = [
     path("pos/", views.pos_view, name="pos"),
     path("pos-remoto/", views.pos_remoto_view, name="pos_remoto"),
+    path("pos-remoto/ping/", views.pos_remoto_ping, name="pos_remoto_ping"),
     path("escaner-productos/", views.escaner_productos_view, name="escaner_productos"),
     path("listado/", views.listado_ventas, name="listado"),
     path("detalle/<str:venta_id>/", views.detalle_venta, name="detalle"),

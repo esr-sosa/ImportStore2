@@ -1,10 +1,17 @@
+import base64
 import json
+import logging
+import os
 from decimal import Decimal
 
+import requests
+
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.files.base import ContentFile
 from django.core.paginator import Paginator
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.db import models, transaction
 from django.db.models import DecimalField, OuterRef, Subquery, F, Sum
 from django.db.models.functions import Cast, Coalesce
@@ -21,9 +28,12 @@ from .forms import (
     ProductoVarianteForm,
     ProveedorForm,
 )
-from .models import Categoria, Precio, Producto, ProductoVariante, Proveedor
+from .models import Categoria, Precio, Producto, ProductoImagen, ProductoVariante, Proveedor
 from .utils import is_detalleiphone_variante_ready
 from .importers import exportar_catalogo_a_csv, exportar_catalogo_a_excel, importar_catalogo_desde_archivo
+
+
+logger = logging.getLogger(__name__)
 
 
 SCHEMA_REQUIREMENTS = (
@@ -48,6 +58,66 @@ PRECIO_FIELDS = (
     "precio_mayorista_usd",
     "precio_mayorista_ars",
 )
+
+MAX_PRODUCT_IMAGES = 5
+
+
+def _reordenar_imagenes(producto: Producto) -> None:
+    for orden, imagen in enumerate(producto.imagenes.order_by("orden", "id"), start=0):
+        if imagen.orden != orden:
+            ProductoImagen.objects.filter(pk=imagen.pk).update(orden=orden)
+
+
+def _guardar_imagenes_producto(producto: Producto, archivos) -> None:
+    if not archivos:
+        return
+    inicio = producto.imagenes.count()
+    for offset, archivo in enumerate(archivos):
+        ProductoImagen.objects.create(
+            producto=producto,
+            imagen=archivo,
+            orden=inicio + offset,
+        )
+
+
+def _procesar_remove_bg(uploaded_file):
+    api_key = getattr(settings, "REMOVEBG_API_KEY", "")
+    if not api_key:
+        raise RuntimeError("Configura la variable REMOVEBG_API_KEY para usar quitar fondo.")
+
+    try:
+        uploaded_file.seek(0)
+        files = {
+            "image_file": (
+                uploaded_file.name,
+                uploaded_file.read(),
+                uploaded_file.content_type or "image/png",
+            )
+        }
+        uploaded_file.seek(0)
+        response = requests.post(
+            "https://api.remove.bg/v1.0/removebg",
+            data={"size": "auto"},
+            files=files,
+            headers={"X-Api-Key": api_key},
+            timeout=getattr(settings, "REQUESTS_TIMEOUT_SECONDS", 30),
+        )
+    except requests.RequestException as exc:
+        logger.warning("Error comunicando con remove.bg: %s", exc)
+        raise RuntimeError("No se pudo conectar con el servicio de quitar fondo.") from exc
+
+    if response.status_code != 200:
+        detail = ""
+        try:
+            detail = response.json().get("errors", [{}])[0].get("title", "")
+        except Exception:
+            detail = response.text[:120]
+        logger.warning("Respuesta de remove.bg: %s %s", response.status_code, detail)
+        raise RuntimeError(detail or "El servicio de quitar fondo devolvió un error.")
+
+    content_type = response.headers.get("Content-Type", "image/png")
+    filename = os.path.splitext(uploaded_file.name or "imagen")[0] + "-nobg.png"
+    return ContentFile(response.content, name=filename), content_type
 
 
 def _precio_subquery(tipo, moneda):
@@ -307,17 +377,26 @@ def inventario_dashboard(request):
 @login_required
 @transaction.atomic
 def producto_crear(request):
-    producto_form = ProductoForm(request.POST or None)
+    producto_form = ProductoForm(request.POST or None, request.FILES or None)
     variante_form = ProductoVarianteForm(request.POST or None)
+    imagenes_nuevas = request.FILES.getlist("imagenes")
+    imagenes_validas = True
 
     if request.method == "POST":
+        if len(imagenes_nuevas) > MAX_PRODUCT_IMAGES:
+            producto_form.add_error(
+                "imagenes",
+                f"Podés cargar hasta {MAX_PRODUCT_IMAGES} imágenes por producto.",
+            )
+            imagenes_validas = False
+
         # Debug: mostrar errores si los hay
         if not producto_form.is_valid():
             messages.error(request, f"Errores en el formulario de producto: {producto_form.errors}")
         if not variante_form.is_valid():
             messages.error(request, f"Errores en el formulario de variante: {variante_form.errors}")
         
-        if producto_form.is_valid() and variante_form.is_valid():
+        if producto_form.is_valid() and variante_form.is_valid() and imagenes_validas:
             # Generar SKU automático si está habilitado o si está vacío
             sku_valor = variante_form.cleaned_data.get("sku", "").strip()
             if variante_form.cleaned_data.get("sku_auto", True) or not sku_valor:
@@ -424,6 +503,12 @@ def producto_crear(request):
                 # Si no existe el campo stock, guardar normalmente
                 variante.save()
             _sincronizar_precios(variante, variante_form.cleaned_data)
+
+            if imagenes_nuevas:
+                if len(imagenes_nuevas) > MAX_PRODUCT_IMAGES:
+                    imagenes_nuevas = imagenes_nuevas[:MAX_PRODUCT_IMAGES]
+                _guardar_imagenes_producto(producto, imagenes_nuevas)
+
             messages.success(request, "Producto creado correctamente")
             return redirect("inventario:dashboard")
 
@@ -433,6 +518,8 @@ def producto_crear(request):
         "modo": "crear",
         "precio_fields": PRECIO_FIELDS,
         "valor_dolar": obtener_valor_dolar_blue(),
+        "imagenes": [],
+        "max_imagenes": MAX_PRODUCT_IMAGES,
     }
     return render(request, "inventario/producto_form.html", context)
 
@@ -445,11 +532,23 @@ def variante_editar(request, pk: int):
     )
     producto = variante.producto
 
-    producto_form = ProductoForm(request.POST or None, instance=producto)
+    producto_form = ProductoForm(request.POST or None, request.FILES or None, instance=producto)
     variante_form = ProductoVarianteForm(request.POST or None, instance=variante)
+    imagenes_nuevas = request.FILES.getlist("imagenes")
+    imagenes_a_borrar = {int(x) for x in request.POST.getlist("imagenes_eliminar") if x.isdigit()}
+    imagenes_validas = True
 
     if request.method == "POST":
-        if producto_form.is_valid() and variante_form.is_valid():
+        restantes = producto.imagenes.exclude(pk__in=imagenes_a_borrar).count()
+        if restantes + len(imagenes_nuevas) > MAX_PRODUCT_IMAGES:
+            disponible = max(0, MAX_PRODUCT_IMAGES - restantes)
+            producto_form.add_error(
+                "imagenes",
+                f"Podés sumar {disponible} imágenes adicionales como máximo.",
+            )
+            imagenes_validas = False
+
+        if producto_form.is_valid() and variante_form.is_valid() and imagenes_validas:
             # Generar SKU automático si está habilitado o si está vacío
             sku_valor = variante_form.cleaned_data.get("sku", "").strip()
             if variante_form.cleaned_data.get("sku_auto", False) or not sku_valor:
@@ -492,6 +591,17 @@ def variante_editar(request, pk: int):
             producto_form.save()
             variante = variante_form.save()
             _sincronizar_precios(variante, variante_form.cleaned_data)
+
+            if imagenes_a_borrar:
+                ProductoImagen.objects.filter(producto=producto, pk__in=imagenes_a_borrar).delete()
+                _reordenar_imagenes(producto)
+
+            if imagenes_nuevas:
+                disponibles = MAX_PRODUCT_IMAGES - producto.imagenes.count()
+                if disponibles > 0:
+                    _guardar_imagenes_producto(producto, imagenes_nuevas[:disponibles])
+                    _reordenar_imagenes(producto)
+
             messages.success(request, "Variante actualizada correctamente")
             return redirect("inventario:dashboard")
     else:
@@ -504,6 +614,8 @@ def variante_editar(request, pk: int):
         "variante": variante,
         "modo": "editar",
         "precio_fields": PRECIO_FIELDS,
+        "imagenes": producto.imagenes.order_by("orden", "id"),
+        "max_imagenes": MAX_PRODUCT_IMAGES,
     }
     return render(request, "inventario/variante_form.html", context)
 
@@ -688,3 +800,22 @@ def descargar_etiquetas_categoria(request, categoria_id):
     response = HttpResponse(pdf_file.read(), content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="etiquetas_{categoria.nombre}.pdf"'
     return response
+
+
+@login_required
+def remove_background_api(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Método no permitido"}, status=405)
+
+    imagen = request.FILES.get("imagen")
+    if not imagen:
+        return JsonResponse({"error": "No se recibió ninguna imagen."}, status=400)
+
+    try:
+        procesada, content_type = _procesar_remove_bg(imagen)
+    except RuntimeError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+
+    procesada.seek(0)
+    encoded = base64.b64encode(procesada.read()).decode("ascii")
+    return JsonResponse({"image": encoded, "content_type": content_type})

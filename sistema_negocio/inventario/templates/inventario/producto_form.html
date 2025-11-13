@@ -53,65 +53,98 @@
             <p class="mt-2 text-sm text-slate-300">Definí la ficha base y la variante principal con precios en ARS (minorista, mayorista y márgenes clave).</p>
         </header>
 
-        <form method="post" class="space-y-8 glass-card rounded-3xl p-8" id="producto-form">
+        <form method="post" class="space-y-8 glass-card rounded-3xl p-8" id="producto-form" enctype="multipart/form-data">
             {% csrf_token %}
             
             <section class="grid gap-6 lg:grid-cols-2">
-                <div class="glass-card rounded-2xl p-6">
-                    <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-300 mb-4">Datos del producto</h2>
-                    <div class="space-y-4 text-sm">
-                        {{ producto_form.non_field_errors }}
-                        <div>
-                            <label class="mb-1 block font-semibold text-slate-100">{{ producto_form.nombre.label }}</label>
-                            {{ producto_form.nombre }}
-                            {{ producto_form.nombre.errors }}
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
+                <div class="glass-card rounded-2xl p-6 space-y-6">
+                    <div>
+                        <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-300 mb-4">Datos del producto</h2>
+                        <div class="space-y-4 text-sm">
+                            {{ producto_form.non_field_errors }}
                             <div>
-                                <label class="mb-1 block font-semibold text-slate-100">{{ producto_form.categoria.label }}</label>
-                                {{ producto_form.categoria }}
-                                {{ producto_form.categoria.errors }}
+                                <label class="mb-1 block font-semibold text-slate-100">{{ producto_form.nombre.label }}</label>
+                                {{ producto_form.nombre }}
+                                {{ producto_form.nombre.errors }}
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="mb-1 block font-semibold text-slate-100">{{ producto_form.categoria.label }}</label>
+                                    {{ producto_form.categoria }}
+                                    {{ producto_form.categoria.errors }}
+                                </div>
+                                <div>
+                                    <label class="mb-1 block font-semibold text-slate-100">{{ producto_form.proveedor.label }}</label>
+                                    {{ producto_form.proveedor }}
+                                    {{ producto_form.proveedor.errors }}
+                                </div>
                             </div>
                             <div>
-                                <label class="mb-1 block font-semibold text-slate-100">{{ producto_form.proveedor.label }}</label>
-                                {{ producto_form.proveedor }}
-                                {{ producto_form.proveedor.errors }}
+                                <label class="mb-1 block font-semibold text-slate-100">{{ producto_form.descripcion.label }}</label>
+                                {{ producto_form.descripcion }}
+                                {{ producto_form.descripcion.errors }}
                             </div>
-                        </div>
-                        <div>
-                            <label class="mb-1 block font-semibold text-slate-100">{{ producto_form.descripcion.label }}</label>
-                            {{ producto_form.descripcion }}
-                            {{ producto_form.descripcion.errors }}
-                        </div>
-                        <div>
-                            <label class="mb-1 block font-semibold text-slate-100">{{ producto_form.codigo_barras.label }}</label>
-                            <div class="flex gap-2">
-                                {{ producto_form.codigo_barras }}
-                                <button type="button" id="scan-barcode-btn" class="glass-input rounded-2xl border border-white/20 px-4 py-3 text-sm text-slate-100 hover:bg-white/10 transition">
-                                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
-                                </button>
-                                <button type="button" id="generate-barcode-btn" class="glass-input rounded-2xl border border-white/20 px-4 py-3 text-sm text-slate-100 hover:bg-white/10 transition">
-                                    Generar
-                                </button>
+                            <div>
+                                <label class="mb-1 block font-semibold text-slate-100">{{ producto_form.codigo_barras.label }}</label>
+                                <div class="flex gap-2">
+                                    {{ producto_form.codigo_barras }}
+                                    <button type="button" id="scan-barcode-btn" class="glass-input rounded-2xl border border-white/20 px-4 py-3 text-sm text-slate-100 hover:bg-white/10 transition">
+                                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
+                                    </button>
+                                    <button type="button" id="generate-barcode-btn" class="glass-input rounded-2xl border border-white/20 px-4 py-3 text-sm text-slate-100 hover:bg-white/10 transition">
+                                        Generar
+                                    </button>
+                                </div>
+                                {{ producto_form.codigo_barras.errors }}
+                                <div class="mt-2 flex gap-4">
+                                    <label class="flex items-center gap-2 text-xs text-slate-300">
+                                        {{ producto_form.generar_codigo_barras }}
+                                        {{ producto_form.generar_codigo_barras.label }}
+                                    </label>
+                                    <label class="flex items-center gap-2 text-xs text-slate-300">
+                                        {{ producto_form.generar_qr }}
+                                        {{ producto_form.generar_qr.label }}
+                                    </label>
+                                </div>
                             </div>
-                            {{ producto_form.codigo_barras.errors }}
-                            <div class="mt-2 flex gap-4">
-                                <label class="flex items-center gap-2 text-xs text-slate-300">
-                                    {{ producto_form.generar_codigo_barras }}
-                                    {{ producto_form.generar_codigo_barras.label }}
+                            <div>
+                                <label class="flex items-center gap-2 text-slate-100">
+                                    {{ producto_form.activo }}
+                                    <span class="font-semibold">{{ producto_form.activo.label }}</span>
                                 </label>
-                                <label class="flex items-center gap-2 text-xs text-slate-300">
-                                    {{ producto_form.generar_qr }}
-                                    {{ producto_form.generar_qr.label }}
-                                </label>
                             </div>
                         </div>
-                        <div>
-                            <label class="flex items-center gap-2 text-slate-100">
-                                {{ producto_form.activo }}
-                                <span class="font-semibold">{{ producto_form.activo.label }}</span>
-                            </label>
+                    </div>
+
+                    <div class="glass-card rounded-2xl p-5">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-300">Imágenes</h3>
+                                <p class="text-xs text-slate-400">Podés cargar hasta {{ max_imagenes }} imágenes. Elegí hasta 5 y opcionalmente quitá el fondo.</p>
+                            </div>
+                            <button type="button" id="imagenes-trigger" class="glass-input rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-slate-100 hover:bg-white/20 transition">
+                                Seleccionar
+                            </button>
                         </div>
+                        {{ producto_form.imagenes }}
+                        {{ producto_form.imagenes.errors }}
+                        <div id="imagenes-preview" class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3" data-max="{{ max_imagenes }}"></div>
+
+                        {% if imagenes %}
+                            <div class="mt-6 border-t border-white/10 pt-4">
+                                <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-300 mb-3">Imágenes actuales</h4>
+                                <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                                    {% for imagen in imagenes %}
+                                        <label class="group relative block overflow-hidden rounded-xl border border-white/10 bg-white/5 p-2 text-xs text-slate-200 shadow-lg">
+                                            <input type="checkbox" name="imagenes_eliminar" value="{{ imagen.id }}" class="peer absolute inset-0 z-10 opacity-0">
+                                            <img src="{{ imagen.imagen.url }}" alt="Imagen {{ forloop.counter }}" class="h-28 w-full rounded-lg object-cover">
+                                            <div class="pointer-events-none absolute inset-0 rounded-lg border-2 border-rose-500 opacity-0 transition peer-checked:opacity-100"></div>
+                                            <span class="pointer-events-none absolute top-2 right-2 inline-flex items-center gap-1 rounded-full bg-rose-500/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white opacity-0 transition group-hover:opacity-100 peer-checked:opacity-100">Eliminar</span>
+                                        </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endif %}
                     </div>
                 </div>
 
@@ -389,6 +422,132 @@
         generarCodigoBtn.addEventListener('click', function() {
             const codigo = Math.floor(100000000000 + Math.random() * 900000000000).toString();
             barcodeInput.value = codigo;
+        });
+    }
+
+    const customProductPrice = document.getElementById('custom-product-price');
+    const csrfTokenInput = document.querySelector('#producto-form input[name="csrfmiddlewaretoken"]');
+    const csrfToken = csrfTokenInput ? csrfTokenInput.value : '';
+
+    const imageInput = document.getElementById('imagenes-input');
+    const imageTrigger = document.getElementById('imagenes-trigger');
+    const previewGrid = document.getElementById('imagenes-preview');
+    const removeBgEndpoint = '{% url "inventario:remove_background_api" %}';
+    const maxImages = previewGrid ? parseInt(previewGrid.dataset.max || '5', 10) : 5;
+    let pendingImages = [];
+
+    function syncImageInput() {
+        if (!imageInput) return;
+        const dataTransfer = new DataTransfer();
+        pendingImages.forEach((item) => dataTransfer.items.add(item.file));
+        imageInput.files = dataTransfer.files;
+    }
+
+    function createPreviewCard(item, index) {
+        const card = document.createElement('div');
+        card.className = 'relative overflow-hidden rounded-xl border border-white/10 bg-white/5 shadow-lg';
+        card.innerHTML = `
+            <img src="${item.previewUrl}" alt="Imagen pendiente" class="h-28 w-full object-cover">
+            <div class="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-slate-900/70 px-2 py-1 text-[10px] uppercase tracking-wide">
+                <span class="font-semibold text-slate-100 truncate">${item.file.name}</span>
+                <div class="flex items-center gap-1">
+                    <button type="button" class="rounded-full bg-rose-500/80 px-2 py-0.5 font-semibold text-white remove-image" data-index="${index}">Quitar</button>
+                    <button type="button" class="rounded-full bg-blue-500/80 px-2 py-0.5 font-semibold text-white remove-bg" data-index="${index}">${item.backgroundRemoved ? 'Listo' : 'Quitar fondo'}</button>
+                </div>
+            </div>
+        `;
+        return card;
+    }
+
+    function renderPreviews() {
+        if (!previewGrid) return;
+        previewGrid.innerHTML = '';
+        pendingImages.forEach((item, index) => {
+            const card = createPreviewCard(item, index);
+            previewGrid.appendChild(card);
+        });
+
+        previewGrid.querySelectorAll('.remove-image').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const idx = Number(btn.dataset.index);
+                const removed = pendingImages.splice(idx, 1)[0];
+                if (removed && removed.previewUrl) {
+                    URL.revokeObjectURL(removed.previewUrl);
+                }
+                syncImageInput();
+                renderPreviews();
+            });
+        });
+
+        previewGrid.querySelectorAll('.remove-bg').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                const idx = Number(btn.dataset.index);
+                const item = pendingImages[idx];
+                if (!item || btn.dataset.loading === 'true') return;
+                try {
+                    btn.dataset.loading = 'true';
+                    btn.textContent = 'Procesando…';
+                    const formData = new FormData();
+                    formData.append('imagen', item.file, item.file.name);
+                    const response = await fetch(removeBgEndpoint, {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': csrfToken },
+                        body: formData,
+                    });
+                    const data = await response.json();
+                    if (!response.ok || !data.image) {
+                        throw new Error(data.error || 'No se pudo quitar el fondo.');
+                    }
+                    const byteCharacters = atob(data.image);
+                    const byteNumbers = new Array(byteCharacters.length);
+                    for (let i = 0; i < byteCharacters.length; i += 1) {
+                        byteNumbers[i] = byteCharacters.charCodeAt(i);
+                    }
+                    const byteArray = new Uint8Array(byteNumbers);
+                    const blob = new Blob([byteArray], { type: data.content_type || 'image/png' });
+                    const filename = (item.file.name.split('.')[0] || 'imagen') + '-nobg.png';
+                    const newFile = new File([blob], filename, { type: data.content_type || 'image/png' });
+                    if (item.previewUrl) {
+                        URL.revokeObjectURL(item.previewUrl);
+                    }
+                    item.file = newFile;
+                    item.previewUrl = URL.createObjectURL(newFile);
+                    item.backgroundRemoved = true;
+                    syncImageInput();
+                    renderPreviews();
+                } catch (error) {
+                    console.error(error);
+                    alert(error.message || 'No pudimos quitar el fondo. Intentá nuevamente.');
+                    btn.textContent = 'Quitar fondo';
+                } finally {
+                    btn.dataset.loading = 'false';
+                }
+            });
+        });
+    }
+
+    if (imageTrigger && imageInput) {
+        imageTrigger.addEventListener('click', () => imageInput.click());
+    }
+
+    if (imageInput) {
+        imageInput.addEventListener('change', (event) => {
+            const nuevos = Array.from(event.target.files || []);
+            let agregado = false;
+            nuevos.forEach((file) => {
+                if (pendingImages.length >= maxImages) {
+                    alert(`Solo podés cargar ${maxImages} imágenes.`);
+                    return;
+                }
+                const previewUrl = URL.createObjectURL(file);
+                pendingImages.push({ file, previewUrl, backgroundRemoved: false });
+                agregado = true;
+            });
+            if (agregado) {
+                syncImageInput();
+                renderPreviews();
+            }
+            imageInput.value = '';
         });
     }
 })();

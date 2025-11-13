@@ -18,7 +18,7 @@ class DetalleVentaInline(admin.TabularInline):
 
 @admin.register(Venta)
 class VentaAdmin(admin.ModelAdmin):
-    list_display = ("id", "fecha", "status", "metodo_pago", "total_ars", "vendedor")
+    list_display = ("id", "fecha", "status", "metodo_pago", "total_ars", "descuento_metodo_pago_ars", "vendedor")
     list_filter = ("status", "metodo_pago", "fecha")
     search_fields = ("id", "cliente_nombre", "cliente_documento")
     date_hierarchy = "fecha"

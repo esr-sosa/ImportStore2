@@ -19,6 +19,7 @@ HEADER_ALIASES = {
     "sku": {"sku", "codigo", "codigo sku", "sku principal", "sku (obligatorio)", "sku obligatorio"},
     "stock": {"stock", "stock_actual", "inventario"},
     "stock_minimo": {"stock_minimo", "stock minimo", "minimo"},
+    "peso": {"peso", "peso kg", "peso en kg", "peso (kg)", "peso en kg (kg)", "peso en kg (obligatorio)", "peso en kg.", "peso en kg (kg)"},
     "costo": {"costo", "costo_usd", "costo unitario"},
     "precio_minorista_ars": {"precio", "precio_minorista_ars", "precio ars", "precio venta", "precio minorista"},
     "precio_minorista_usd": {"precio_minorista_usd", "precio usd"},
@@ -101,11 +102,32 @@ def _leer_xlsx(contenido: bytes) -> Iterable[dict[str, str]]:
 def _parse_decimal(value: str) -> Decimal | None:
     if value is None:
         return None
-    value = value.replace("$", "").replace(",", ".").strip()
+    if isinstance(value, (int, float, Decimal)):
+        try:
+            return Decimal(str(value))
+        except Exception:
+            return None
+    value = str(value).strip()
     if not value:
         return None
+    clean = value.replace("$", "").replace(" ", "").replace("\u00a0", "")
+    # Si contiene tanto punto como coma, asumir formato latino (1.234,56)
+    if "." in clean and "," in clean:
+        clean = clean.replace(".", "").replace(",", ".")
+    elif clean.count(",") > 1:
+        # Demasiadas comas -> probablemente separadores de miles en latino
+        clean = clean.replace(",", "")
+    elif "," in clean:
+        clean = clean.replace(",", ".")
+    else:
+        # Solo puntos: si hay más de uno, remover todos menos el último
+        if clean.count(".") > 1:
+            parts = clean.split(".")
+            decimal_part = parts[-1]
+            entero = "".join(parts[:-1])
+            clean = f"{entero}.{decimal_part}"
     try:
-        return Decimal(value)
+        return Decimal(clean)
     except Exception:
         return None
 
@@ -135,6 +157,12 @@ def importar_catalogo_desde_archivo(archivo, actualizar: bool = True) -> ImportR
         raise ValueError("Formato no soportado. Usá CSV o XLSX.")
 
     resultado = ImportResult()
+    
+    from core.db_inspector import column_exists
+    from django.db import connection
+    
+    tiene_col_stock = column_exists("inventario_productovariante", "stock")
+    tiene_col_peso = column_exists("inventario_productovariante", "peso")
 
     for idx, fila in enumerate(filas, start=2):  # encabezado es la fila 1
         data = {k: fila.get(k, "") for k in HEADER_ALIASES}
@@ -183,6 +211,10 @@ def importar_catalogo_desde_archivo(archivo, actualizar: bool = True) -> ImportR
         except Exception:
             resultado.errores.append(f"Fila {idx}: stock inválido.")
             continue
+
+        peso_valor = _parse_decimal(data.get("peso"))
+        if peso_valor is None:
+            peso_valor = Decimal("0")
 
         visibilidad = (data.get("visibilidad") or "").strip().lower()
         is_visible = True
@@ -235,13 +267,8 @@ def importar_catalogo_desde_archivo(archivo, actualizar: bool = True) -> ImportR
             else:
                 defaults_variante["atributo_2"] = data.get("atributo_3", "")
 
-        # Verificar si existe el campo 'stock' antiguo en la base de datos
-        from core.db_inspector import column_exists
-        from django.db import connection
-        
-        tiene_stock_antiguo = column_exists("inventario_productovariante", "stock")
-        
-        if tiene_stock_antiguo:
+        # Verificar si existen columnas legacy para compatibilidad
+        if tiene_col_stock:
             # Si existe el campo stock, usar SQL directo para insertar
             from django.utils import timezone
             ahora = timezone.now()
@@ -259,10 +286,16 @@ def importar_catalogo_desde_archivo(archivo, actualizar: bool = True) -> ImportR
                     variante_existente.save()
                     # Actualizar también el campo stock antiguo
                     with connection.cursor() as cursor:
-                        cursor.execute(
-                            "UPDATE inventario_productovariante SET stock = %s WHERE id = %s",
-                            [stock_val, variante_existente.pk]
-                        )
+                        if tiene_col_peso:
+                            cursor.execute(
+                                "UPDATE inventario_productovariante SET stock = %s, peso = %s WHERE id = %s",
+                                [stock_val, peso_valor, variante_existente.pk]
+                            )
+                        else:
+                            cursor.execute(
+                                "UPDATE inventario_productovariante SET stock = %s WHERE id = %s",
+                                [stock_val, variante_existente.pk]
+                            )
                     resultado.actualizados += 1
                 else:
                     resultado.errores.append(f"Fila {idx}: el SKU {sku} ya existe y no se actualizó.")
@@ -271,20 +304,32 @@ def importar_catalogo_desde_archivo(archivo, actualizar: bool = True) -> ImportR
             else:
                 # Crear nueva variante con SQL directo
                 with connection.cursor() as cursor:
-                    cursor.execute("""
-                        INSERT INTO inventario_productovariante 
-                        (producto_id, sku, nombre_variante, codigo_barras, qr_code, atributo_1, atributo_2, 
-                         stock_actual, stock_minimo, stock, activo, creado, actualizado)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """, [
-                        producto.pk, sku, defaults_variante.get("nombre_variante", ""), 
+                    columnas = [
+                        "producto_id", "sku", "nombre_variante", "codigo_barras", "qr_code",
+                        "atributo_1", "atributo_2", "stock_actual", "stock_minimo", "stock"
+                    ]
+                    valores = [
+                        producto.pk, sku, defaults_variante.get("nombre_variante", ""),
                         defaults_variante.get("codigo_barras") or None,
                         defaults_variante.get("qr_code") or None,
                         defaults_variante.get("atributo_1", ""),
                         defaults_variante.get("atributo_2", ""),
-                        stock_val, stock_min_val, stock_val,
-                        1 if is_visible else 0, ahora, ahora
-                    ])
+                        stock_val, stock_min_val, stock_val
+                    ]
+                    if tiene_col_peso:
+                        columnas.append("peso")
+                        valores.append(peso_valor)
+                    columnas.extend(["activo", "creado", "actualizado"])
+                    valores.extend([1 if is_visible else 0, ahora, ahora])
+                    placeholders = ", ".join(["%s"] * len(valores))
+                    cursor.execute(
+                        f"""
+                        INSERT INTO inventario_productovariante 
+                        ({", ".join(columnas)})
+                        VALUES ({placeholders})
+                        """,
+                        valores
+                    )
                     variante_id = cursor.lastrowid
                 variante = ProductoVariante.objects.get(pk=variante_id)
                 resultado.creados += 1
@@ -305,6 +350,14 @@ def importar_catalogo_desde_archivo(archivo, actualizar: bool = True) -> ImportR
                 else:
                     resultado.errores.append(f"Fila {idx}: el SKU {sku} ya existe y no se actualizó.")
                     continue
+
+        # Actualizar el campo peso cuando existe en la base de datos legacy
+        if tiene_col_peso and variante:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "UPDATE inventario_productovariante SET peso = %s WHERE id = %s",
+                    [peso_valor, variante.pk],
+                )
 
         precio_minorista = _parse_decimal(data.get("precio_minorista_ars"))
         if precio_minorista is None:

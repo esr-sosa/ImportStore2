@@ -36,6 +36,16 @@ def pos_remoto_view(request):
     """Vista móvil para POS remoto con escáner de códigos."""
     return render(request, "ventas/pos_remoto.html")
 
+
+@login_required
+def pos_remoto_ping(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Método no permitido"}, status=405)
+    carrito, _ = CarritoRemoto.objects.get_or_create(usuario=request.user, defaults={"items": []})
+    CarritoRemoto.objects.filter(pk=carrito.pk).update(actualizado=timezone.now())
+    return JsonResponse({"status": "ok"})
+
+
 @login_required
 def escaner_productos_view(request):
     """Vista de escáner de productos con información completa y edición rápida."""
@@ -877,6 +887,7 @@ def crear_venta_api(request):
         cliente_documento=cliente_documento,
         subtotal_ars=subtotal,
         descuento_total_ars=descuento_items_total + descuento_general_valor + descuento_metodo_pago_valor,
+        descuento_metodo_pago_ars=descuento_metodo_pago_valor,
         impuestos_ars=impuestos,
         total_ars=total,
         metodo_pago=metodo_pago,
@@ -950,6 +961,7 @@ def crear_venta_api(request):
                 "status_label": venta.get_status_display(),
                 "subtotal_ars": str(subtotal),
                 "descuento_total_ars": str(descuento_items_total + descuento_general_valor + descuento_metodo_pago_valor),
+                "descuento_metodo_pago_ars": str(descuento_metodo_pago_valor),
                 "impuestos_ars": str(impuestos),
                 "total_ars": str(total),
                 "pdf": venta.comprobante_pdf.url if venta.comprobante_pdf else None,

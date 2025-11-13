@@ -4,6 +4,7 @@ from .models import (
     DetalleIphone,
     Precio,
     Producto,
+    ProductoImagen,
     ProductoVariante,
     Proveedor,
 )
@@ -59,13 +60,21 @@ class DetalleIphoneInline(admin.StackedInline):
     )
 
 
+class ProductoImagenInline(admin.TabularInline):
+    model = ProductoImagen
+    extra = 0
+    fields = ("imagen", "orden", "creado", "actualizado")
+    readonly_fields = ("creado", "actualizado")
+    classes = ["collapse"]
+
+
 @admin.register(Producto)
 class ProductoAdmin(admin.ModelAdmin):
     list_display = ("nombre", "categoria", "proveedor", "activo", "codigo_barras")
     list_filter = ("activo", "categoria", "proveedor")
     search_fields = ("nombre", "codigo_barras")
     list_editable = ("activo",)
-    inlines = [VarianteInline]
+    inlines = [ProductoImagenInline, VarianteInline]
     autocomplete_fields = ("categoria", "proveedor")
 
 

@@ -126,6 +126,18 @@ class ProveedorForm(forms.ModelForm):
 
 
 class ProductoForm(forms.ModelForm):
+    imagenes = forms.FileField(
+        required=False,
+        label="Imágenes del producto",
+        widget=forms.FileInput(
+            attrs={
+                "multiple": True,
+                "accept": "image/*",
+                "class": "hidden",
+                "id": "imagenes-input",
+            }
+        ),
+    )
     generar_codigo_barras = forms.BooleanField(
         required=False,
         initial=False,

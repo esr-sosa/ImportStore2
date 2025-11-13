@@ -132,17 +132,17 @@ def _dibujar_etiqueta(canvas_obj, variante, x, y, width, height):
         canvas_obj.drawCentredString(left_center_x, y + height - 10, categoria_text)
     
     # QR Code (centrado en la sección izquierda) - MÁS GRANDE
-    qr_size = min(left_width * 0.75, height * 0.65, 60)  # Más grande: 75% del ancho o 65% de altura, máximo 60
+    qr_size = min(left_width * 0.82, height * 0.72, 78)  # Mayor presencia visual
     qr_x = left_center_x - (qr_size / 2)
-    qr_y = y + (height / 2) - (qr_size / 2) + 3  # Centrado vertical con pequeño offset
+    qr_y = y + (height / 2) - (qr_size / 2) + 4  # Centrado vertical con pequeño offset
     
     # Generar QR code
     qr_data = variante.sku
     try:
-        qr = qrcode.QRCode(version=1, box_size=2, border=2)
+        qr = qrcode.QRCode(version=2, box_size=4, border=1)
         qr.add_data(qr_data)
         qr.make(fit=True)
-        qr_img = qr.make_image(fill_color="black", back_color="white")
+        qr_img = qr.make_image(fill_color="#0f172a", back_color="white").convert("RGB")
         
         with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp_file:
             qr_img.save(tmp_file.name)
@@ -201,11 +201,14 @@ def _dibujar_etiqueta(canvas_obj, variante, x, y, width, height):
     for i, line in enumerate(nombre_lines[:2]):
         canvas_obj.drawString(right_x, nombre_y - (i * 13), line)
     
-    # Descripción (atributos) debajo del nombre
+    # Cursor vertical para ir ubicando elementos
+    info_cursor = nombre_y - (len(nombre_lines[:2]) * 13) - 6
+
+    # Descripción (atributos) inmediatamente debajo del nombre
     if descripcion:
         canvas_obj.setFont("Helvetica", 8)
         canvas_obj.setFillColor(colors.black)
-        desc_y = nombre_y - (len(nombre_lines[:2]) * 13) - 8
+        desc_y = info_cursor - 6
         # Truncar descripción si es muy larga
         max_desc_width = right_width - 10
         if canvas_obj.stringWidth(descripcion, "Helvetica", 8) > max_desc_width:
@@ -214,35 +217,38 @@ def _dibujar_etiqueta(canvas_obj, variante, x, y, width, height):
                 descripcion = descripcion[:-1]
             descripcion = descripcion + "..."
         canvas_obj.drawString(right_x, desc_y, descripcion)
+        info_cursor = desc_y - 14
+    else:
+        info_cursor -= 12
     
-    # Precio (más chico, con símbolo de peso)
-    # Calcular posición del precio basado en el espacio disponible
-    precio_y = y + 35  # Abajo en la sección derecha
+    # Precio (más protagonista, estilo tag premium)
+    precio_y = max(info_cursor, y + 24)
     
+    precio_x = right_x
+    precio_font_size = min(18, int(height * 0.26))
+
     if precio_minorista_ars:
         # Formatear precio: separar parte entera y decimal
         precio_valor = float(precio_minorista_ars.precio)
-        parte_entera = int(precio_valor)
-        parte_decimal = int((precio_valor - parte_entera) * 100)
+        precio_formateado = f"${precio_valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         
-        # Precio principal (parte entera) - MÁS CHICO
-        precio_font_size = min(24, int(height * 0.35))  # Más chico: hasta 24pt, o 35% de la altura
-        precio_texto_principal = f"${parte_entera:,}".replace(",", ".")  # Con símbolo $ y formato con puntos para miles
+        # Etiqueta de precio
+        precio_tag_padding_x = 6
+        precio_tag_padding_y = 4
+        precio_font_size = min(18, int(height * 0.26))
         canvas_obj.setFont("Helvetica-Bold", precio_font_size)
-        canvas_obj.setFillColor(colors.black)
-        precio_width = canvas_obj.stringWidth(precio_texto_principal, "Helvetica-Bold", precio_font_size)
-        precio_x = right_x
-        canvas_obj.drawString(precio_x, precio_y, precio_texto_principal)
+        canvas_obj.setFillColor(colors.HexColor("#0f172a"))
+        precio_text_width = canvas_obj.stringWidth(precio_formateado, "Helvetica-Bold", precio_font_size)
+        tag_width = precio_text_width + (precio_tag_padding_x * 2)
+        tag_height = precio_font_size + (precio_tag_padding_y * 2)
+        tag_x = right_x
+        tag_y = precio_y - precio_tag_padding_y
         
-        # Parte decimal (superíndice, más pequeño)
-        if parte_decimal > 0:
-            decimal_texto = f"{parte_decimal:02d}"
-            decimal_font_size = int(precio_font_size * 0.55)  # 55% del tamaño principal
-            canvas_obj.setFont("Helvetica-Bold", decimal_font_size)
-            canvas_obj.setFillColor(colors.black)
-            decimal_x = precio_x + precio_width + 2
-            decimal_y = precio_y + (precio_font_size * 0.2)  # Ligeramente arriba
-            canvas_obj.drawString(decimal_x, decimal_y, decimal_texto)
+        # Dibujar contenedor redondeado
+        canvas_obj.setFillColor(colors.HexColor("#e2e8f0"))
+        canvas_obj.roundRect(tag_x - 2, tag_y - 2, tag_width + 4, tag_height + 4, 6, fill=1, stroke=0)
+        canvas_obj.setFillColor(colors.HexColor("#0f172a"))
+        canvas_obj.drawString(tag_x + precio_tag_padding_x, precio_y + (precio_font_size * 0.1), precio_formateado)
         
         # Precio USD si existe (más pequeño, debajo)
         if precio_minorista_usd:
@@ -250,12 +256,13 @@ def _dibujar_etiqueta(canvas_obj, variante, x, y, width, height):
             precio_texto_usd = f"USD ${precio_usd_valor:,.2f}"
             canvas_obj.setFont("Helvetica", 7)
             canvas_obj.setFillColor(colors.HexColor("#64748b"))
-            canvas_obj.drawString(precio_x, precio_y - (precio_font_size * 0.6), precio_texto_usd)
+            canvas_obj.drawString(tag_x, tag_y - 10, precio_texto_usd)
     else:
         # Sin precio
         canvas_obj.setFont("Helvetica-Bold", 12)
         canvas_obj.setFillColor(colors.HexColor("#ef4444"))
         canvas_obj.drawString(right_x, precio_y, "Sin precio")
+        precio_font_size = 12
     
     # Garantía (abajo del precio)
     from configuracion.models import ConfiguracionTienda
@@ -270,9 +277,7 @@ def _dibujar_etiqueta(canvas_obj, variante, x, y, width, height):
     garantia_text = f"Garantía de {dias_garantia} días"
     canvas_obj.setFont("Helvetica", 7)
     canvas_obj.setFillColor(colors.HexColor("#475569"))
-    garantia_y = precio_y - (precio_font_size * 0.8) - 12
-    if precio_minorista_usd:
-        garantia_y -= 8  # Ajustar si hay precio USD
+    garantia_y = y + 14
     canvas_obj.drawString(precio_x, garantia_y, garantia_text)
 
 

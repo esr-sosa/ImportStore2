@@ -1,3 +1,5 @@
+import os
+from uuid import uuid4
 from decimal import Decimal
 
 from django.db import models
@@ -68,6 +70,29 @@ class Producto(models.Model):
 
     def __str__(self):
         return self.nombre
+
+
+def _producto_imagen_upload_to(instance, filename: str) -> str:
+    base, ext = os.path.splitext(filename or "")
+    ext = ext or ".png"
+    unique = uuid4().hex
+    return os.path.join("productos", str(instance.producto_id or "tmp"), f"{unique}{ext}")
+
+
+class ProductoImagen(models.Model):
+    producto = models.ForeignKey(Producto, related_name="imagenes", on_delete=models.CASCADE)
+    imagen = models.ImageField(upload_to=_producto_imagen_upload_to)
+    orden = models.PositiveIntegerField(default=0)
+    creado = models.DateTimeField(auto_now_add=True)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["orden", "id"]
+        verbose_name = "Imagen de producto"
+        verbose_name_plural = "Imágenes de producto"
+
+    def __str__(self) -> str:
+        return f"Imagen {self.pk} de {self.producto.nombre}"
 
 
 class ProductoVariante(models.Model):

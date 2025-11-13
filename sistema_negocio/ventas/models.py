@@ -33,6 +33,7 @@ class Venta(models.Model):
     cliente_documento = models.CharField(max_length=40, blank=True)
     subtotal_ars = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"))
     descuento_total_ars = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"))
+    descuento_metodo_pago_ars = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"), help_text="Descuentos aplicados por método de pago")
     impuestos_ars = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"))
     total_ars = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"))
     metodo_pago = models.CharField(max_length=20, choices=MetodoPago.choices)

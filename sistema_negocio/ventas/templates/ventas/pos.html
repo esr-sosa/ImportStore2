@@ -103,7 +103,43 @@
         transform: translateY(-1px);
         box-shadow: 0 6px 20px rgba(0, 122, 255, 0.4);
     }
+    /* Modal escáner rápido */
+    #quick-scan-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 950;
+        background: rgba(15, 23, 42, 0.45);
+        backdrop-filter: blur(8px);
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+    }
+    #quick-scan-modal.show {
+        display: flex;
+    }
+    .quick-scan-container {
+        width: 100%;
+        max-width: 520px;
+        background: rgba(15, 23, 42, 0.92);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 28px;
+        padding: 1.25rem;
+        color: #e2e8f0;
+        box-shadow: 0 24px 64px rgba(15, 23, 42, 0.4);
+    }
+    #quick-scan-reader {
+        position: relative;
+        border-radius: 22px;
+        overflow: hidden;
+        border: 2px solid rgba(148, 163, 184, 0.35);
+    }
+    #quick-scan-status {
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
 </style>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 {% endblock %}
 
 {% block content %}
@@ -145,6 +181,12 @@
                     <label for="product-search" class="text-xs font-semibold uppercase tracking-wide text-slate-500">Buscar producto</label>
                     <button id="add-custom-product" class="text-xs font-semibold text-white px-3 sm:px-4 py-1.5 rounded-xl bg-gradient-to-r from-indigo-500 via-blue-500 to-sky-500 shadow-md shadow-indigo-500/20 hover:from-indigo-600 hover:via-blue-600 hover:to-sky-600 transition focus:outline-none focus:ring-2 focus:ring-indigo-400/50">
                         + Producto varios
+                    </button>
+                    <button id="open-quick-scan" class="flex items-center gap-1 rounded-xl border border-indigo-200 bg-white/90 px-3 sm:px-4 py-1.5 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-300/60">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 17h.01M17 7h.01M17 17h.01M5 3h4a2 2 0 012 2v0a2 2 0 002 2h0a2 2 0 002-2v0a2 2 0 012-2h4M5 21h4a2 2 0 002-2v0a2 2 0 002-2h0a2 2 0 002 2v0a2 2 0 012 2h4" />
+                        </svg>
+                        Escanear
                     </button>
                 </div>
                 <div class="relative mt-2 sm:mt-3">
@@ -192,6 +234,10 @@
                     <div class="flex items-center justify-between">
                         <dt>Descuento general</dt>
                         <dd id="summary-global-discount" class="font-semibold text-emerald-600">-$0.00</dd>
+                    </div>
+                    <div id="summary-descuento-metodo-row" class="flex items-center justify-between hidden">
+                        <dt>Descuento método de pago</dt>
+                        <dd id="summary-descuento-metodo" class="font-semibold text-emerald-600">-$0.00</dd>
                     </div>
                     <div class="flex items-center justify-between">
                         <dt>Impuestos</dt>
@@ -373,23 +419,45 @@
 
     <!-- Modal para productos varios -->
     <div id="custom-product-modal" class="fixed inset-0 z-40 hidden flex items-center justify-center bg-slate-900/60 px-4">
-        <div class="w-full max-w-sm rounded-3xl border border-white/60 bg-white p-6 shadow-2xl">
-            <h3 class="text-base font-semibold text-slate-900">Agregar producto varios</h3>
-            <p class="mt-1 text-xs text-slate-500">Ingresa el nombre y precio del producto</p>
-            <div class="mt-4 space-y-3 text-sm">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">Nombre del producto</label>
-                    <input type="text" id="custom-product-name" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Ej: Producto varios, Servicio, etc.">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">Precio unitario (ARS)</label>
-                    <input type="number" min="0" step="0.01" id="custom-product-price" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="0.00">
-                </div>
-            </div>
+        <div class="w-full max-w-lg rounded-3xl border border-white/60 bg-white p-6 shadow-2xl">
+            <h3 class="text-base font-semibold text-slate-900">Agregar productos varios</h3>
+            <p class="mt-1 text-xs text-slate-500">Podés cargar varios ítems personalizados, definir su precio y cantidad. Todos se sumarán al carrito al mismo tiempo.</p>
+            <div id="custom-product-rows" class="mt-4 space-y-3"></div>
+            <button type="button" id="custom-product-add-row" class="mt-3 inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Añadir otra línea
+            </button>
             <div class="mt-6 flex justify-end gap-3 text-sm font-semibold">
                 <button id="cancel-custom-product" class="rounded-full border border-slate-200 px-4 py-2 text-slate-500">Cancelar</button>
-                <button id="add-custom-product-btn" class="rounded-full bg-slate-900 px-4 py-2 text-white">Agregar</button>
+                <button id="custom-product-save" class="rounded-full bg-slate-900 px-4 py-2 text-white">Agregar al carrito</button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal escáner rápido -->
+<div id="quick-scan-modal">
+    <div class="quick-scan-container space-y-4">
+        <div class="flex items-start justify-between">
+            <div>
+                <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Modo escáner</p>
+                <h2 class="mt-1 text-lg font-semibold text-slate-100">Escaneá productos en segundos</h2>
+            </div>
+            <button id="close-quick-scan" class="rounded-full border border-slate-500/40 bg-slate-800/60 p-2 text-slate-300 hover:bg-slate-700 transition focus:outline-none focus:ring-2 focus:ring-indigo-400/60">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div id="quick-scan-reader" class="aspect-square w-full bg-slate-900/70"></div>
+        <div class="rounded-2xl border border-slate-500/40 bg-slate-900/70 px-3 py-2">
+            <p id="quick-scan-status" class="text-slate-300">Apuntá la cámara al código de barras o QR.</p>
+        </div>
+        <div class="flex items-center justify-between gap-3 text-xs">
+            <span class="text-slate-400">Los artículos escaneados se agregan automáticamente al carrito.</span>
+            <button id="toggle-quick-scan" class="rounded-xl bg-indigo-500 px-3 py-1.5 font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-300/60">
+                Detener escáner
+            </button>
         </div>
     </div>
 </div>
@@ -407,6 +475,8 @@
     const summaryTax = document.getElementById('summary-tax');
     const summaryTotal = document.getElementById('summary-total');
     const summaryItems = document.getElementById('summary-items');
+    const summaryMetodoPagoRow = document.getElementById('summary-descuento-metodo-row');
+    const summaryMetodoPago = document.getElementById('summary-descuento-metodo');
     const globalDiscountType = document.getElementById('global-discount-type');
     const globalDiscountValue = document.getElementById('global-discount-value');
     const toggleTax = document.getElementById('toggle-tax');
@@ -434,83 +504,287 @@
     const lastSaleLink = document.getElementById('last-sale-link');
     const addCustomProductBtn = document.getElementById('add-custom-product');
     const customProductModal = document.getElementById('custom-product-modal');
+    const customProductRowsContainer = document.getElementById('custom-product-rows');
+    const customProductAddRowBtn = document.getElementById('custom-product-add-row');
+    const customProductSaveBtn = document.getElementById('custom-product-save');
     const cancelCustomProduct = document.getElementById('cancel-custom-product');
-    const addCustomProductBtnConfirm = document.getElementById('add-custom-product-btn');
-    const customProductName = document.getElementById('custom-product-name');
-    const customProductPrice = document.getElementById('custom-product-price');
     const csrfToken = '{{ csrf_token }}';
+    const openQuickScan = document.getElementById('open-quick-scan');
+    const quickScanModal = document.getElementById('quick-scan-modal');
+    const quickScanReaderContainer = document.getElementById('quick-scan-reader');
+    const quickScanStatus = document.getElementById('quick-scan-status');
+    const toggleQuickScanBtn = document.getElementById('toggle-quick-scan');
+    const closeQuickScanBtn = document.getElementById('close-quick-scan');
 
     let lastPdfUrl = null;
 
     let cart = [];
+    let quickScanInstance = null;
+    let quickScanActive = false;
+    let quickScanProcessing = false;
+    let quickScanLastCode = null;
+    let quickScanTimeoutId = null;
     
-    // Manejo del modal de productos varios
-    addCustomProductBtn.addEventListener('click', () => {
-        customProductName.value = '';
-        customProductPrice.value = '';
-        customProductModal.classList.remove('hidden');
-        customProductModal.classList.add('flex');
-        customProductName.focus();
-    });
-    
-    cancelCustomProduct.addEventListener('click', () => {
-        customProductModal.classList.add('hidden');
-        customProductModal.classList.remove('flex');
-    });
-    
-    customProductModal.addEventListener('click', (e) => {
-        if (e.target === customProductModal) {
+    function createCustomProductRow(name = '', price = '', quantity = 1) {
+        const row = document.createElement('div');
+        row.className = 'custom-row grid gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3 sm:grid-cols-[1.2fr_auto_auto_auto] sm:items-center';
+        row.innerHTML = `
+            <input type="text" data-field="name" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" placeholder="Nombre del producto" value="${name}">
+            <input type="number" data-field="price" min="0" step="0.01" class="rounded-xl border border-slate-300 px-3 py-2 text-sm text-right" placeholder="0.00" value="${price}">
+            <input type="number" data-field="quantity" min="1" step="1" class="rounded-xl border border-slate-300 px-3 py-2 text-sm text-right" value="${quantity}">
+            <button type="button" class="remove-custom-row inline-flex items-center justify-center rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-rose-500 hover:bg-rose-100 transition">Quitar</button>
+        `;
+        return row;
+    }
+
+    function resetCustomProductModal() {
+        if (!customProductRowsContainer) return;
+        customProductRowsContainer.innerHTML = '';
+        customProductRowsContainer.appendChild(createCustomProductRow());
+    }
+
+    if (addCustomProductBtn && customProductModal) {
+        addCustomProductBtn.addEventListener('click', () => {
+            resetCustomProductModal();
+            customProductModal.classList.remove('hidden');
+            customProductModal.classList.add('flex');
+        });
+    }
+
+    if (cancelCustomProduct && customProductModal) {
+        cancelCustomProduct.addEventListener('click', () => {
             customProductModal.classList.add('hidden');
             customProductModal.classList.remove('flex');
-        }
-    });
+        });
+    }
+
+    if (customProductAddRowBtn) {
+        customProductAddRowBtn.addEventListener('click', () => {
+            customProductRowsContainer.appendChild(createCustomProductRow());
+        });
+    }
+
+    if (customProductRowsContainer) {
+        customProductRowsContainer.addEventListener('click', (event) => {
+            if (event.target.matches('.remove-custom-row')) {
+                const row = event.target.closest('.custom-row');
+                row.remove();
+                if (!customProductRowsContainer.querySelector('.custom-row')) {
+                    customProductRowsContainer.appendChild(createCustomProductRow());
+                }
+            }
+        });
+    }
+
+    if (customProductSaveBtn) {
+        customProductSaveBtn.addEventListener('click', () => {
+            if (!customProductRowsContainer) return;
+            const rows = Array.from(customProductRowsContainer.querySelectorAll('.custom-row'));
+            const timestamp = Date.now();
+            let added = 0;
+            rows.forEach((row, idx) => {
+                const nameInput = row.querySelector('[data-field="name"]');
+                const priceInput = row.querySelector('[data-field="price"]');
+                const quantityInput = row.querySelector('[data-field="quantity"]');
+                const nombre = (nameInput?.value || '').trim();
+                const precio = parseFloat(priceInput?.value || '0');
+                const cantidad = Math.max(1, parseInt(quantityInput?.value || '1', 10));
+
+                if (!nombre) {
+                    return;
+                }
+                if (Number.isNaN(precio) || precio <= 0) {
+                    return;
+                }
+
+                const customProduct = {
+                    id: `custom-${timestamp}-${idx}`,
+                    variante_id: null,
+                    sku: `VAR-${timestamp}-${idx}`,
+                    nombre,
+                    descripcion: nombre,
+                    precio_unitario_ars: precio,
+                    stock_actual: 999,
+                    cantidad,
+                    es_custom: true,
+                };
+
+                addToCart(customProduct);
+                added += 1;
+            });
+
+            if (!added) {
+                alert('Ingresá al menos un producto con nombre y precio válido.');
+                return;
+            }
+
+            customProductModal.classList.add('hidden');
+            customProductModal.classList.remove('flex');
+        });
+    }
     
-    addCustomProductBtnConfirm.addEventListener('click', () => {
-        const name = customProductName.value.trim();
-        const price = parseFloat(customProductPrice.value);
-        
-        if (!name) {
-            alert('Por favor ingresa un nombre para el producto');
-            return;
-        }
-        
-        if (isNaN(price) || price <= 0) {
-            alert('Por favor ingresa un precio válido mayor a 0');
-            return;
-        }
-        
-        // Crear un producto varios
-        const customProduct = {
-            id: `custom-${Date.now()}`,
-            variante_id: null,
-            sku: 'VAR-' + Date.now(),
-            nombre: name, // Guardar el nombre aquí
-            descripcion: name, // También en descripción para compatibilidad
-            precio_unitario_ars: price,
-            stock_actual: 999, // Stock ilimitado para productos varios
-            es_custom: true
+    // ========= ESCÁNER RÁPIDO =========
+    function updateQuickScanStatus(text, tone = 'info') {
+        if (!quickScanStatus) return;
+        const toneClasses = {
+            info: 'text-slate-300',
+            success: 'text-emerald-300',
+            error: 'text-rose-300',
+            warning: 'text-amber-300'
         };
-        
-        addToCart(customProduct);
-        customProductModal.classList.add('hidden');
-        customProductModal.classList.remove('flex');
-        customProductName.value = '';
-        customProductPrice.value = '';
-    });
-    
-    // Permitir Enter en los campos del modal
-    customProductName.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            customProductPrice.focus();
+        quickScanStatus.textContent = text;
+        quickScanStatus.className = `font-semibold ${toneClasses[tone] || toneClasses.info}`;
+    }
+
+    async function startQuickScan() {
+        if (quickScanActive) return;
+        try {
+            if (!quickScanInstance) {
+                quickScanInstance = new Html5Qrcode("quick-scan-reader");
+            }
+            await quickScanInstance.start(
+                { facingMode: "environment" },
+                {
+                    fps: 24,
+                    qrbox: { width: 240, height: 240 },
+                    aspectRatio: 1.0,
+                    disableFlip: true,
+                    videoConstraints: {
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: "environment"
+                    }
+                },
+                (decodedText) => {
+                    handleQuickScanDecode(decodedText);
+                },
+                (errorMessage) => {
+                    // Ignorar errores momentáneos de detección
+                }
+            );
+            quickScanActive = true;
+            if (toggleQuickScanBtn) {
+                toggleQuickScanBtn.textContent = 'Detener escáner';
+                toggleQuickScanBtn.classList.remove('bg-emerald-500');
+                toggleQuickScanBtn.classList.add('bg-indigo-500');
+            }
+            updateQuickScanStatus('Apuntá la cámara al código de barras o QR.', 'info');
+        } catch (error) {
+            console.error('Error al iniciar escáner rápido:', error);
+            updateQuickScanStatus('No se pudo iniciar la cámara. Verificá permisos.', 'error');
         }
-    });
-    
-    customProductPrice.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            addCustomProductBtnConfirm.click();
+    }
+
+    async function stopQuickScan() {
+        if (quickScanInstance && quickScanActive) {
+            try {
+                await quickScanInstance.stop();
+                await quickScanInstance.clear();
+            } catch (error) {
+                console.warn('Error al detener escáner rápido:', error);
+            }
         }
-    });
-    
+        quickScanActive = false;
+        if (toggleQuickScanBtn) {
+            toggleQuickScanBtn.textContent = 'Iniciar escáner';
+            toggleQuickScanBtn.classList.remove('bg-indigo-500');
+            toggleQuickScanBtn.classList.add('bg-emerald-500');
+        }
+    }
+
+    function resetQuickScanFlagsSoon() {
+        if (quickScanTimeoutId) {
+            clearTimeout(quickScanTimeoutId);
+        }
+        quickScanTimeoutId = setTimeout(() => {
+            quickScanProcessing = false;
+            quickScanLastCode = null;
+            updateQuickScanStatus('Listo para seguir escaneando.', 'info');
+        }, 2000);
+    }
+
+    async function handleQuickScanDecode(rawCode) {
+        const code = (rawCode || '').trim();
+        if (!code) return;
+        if (quickScanProcessing) return;
+        if (quickScanLastCode && quickScanLastCode === code) {
+            resetQuickScanFlagsSoon();
+            return;
+        }
+
+        quickScanProcessing = true;
+        quickScanLastCode = code;
+        updateQuickScanStatus(`Buscando producto (${code})...`, 'warning');
+
+        try {
+            const response = await fetch(`{% url "ventas:buscar_producto_codigo_api" %}?codigo=${encodeURIComponent(code)}`);
+            const data = await response.json();
+
+            if (!response.ok || !data.result) {
+                updateQuickScanStatus(data.error || 'Producto no encontrado.', 'error');
+                resetQuickScanFlagsSoon();
+                return;
+            }
+
+            addToCart(data.result);
+            renderCart();
+            updateSummary();
+            updateQuickScanStatus(`Agregado: ${data.result.nombre || data.result.producto || data.result.sku}`, 'success');
+            playBeep();
+            resetQuickScanFlagsSoon();
+        } catch (error) {
+            console.error('Error al agregar producto desde escáner:', error);
+            updateQuickScanStatus('Ocurrió un error al agregar el producto.', 'error');
+            resetQuickScanFlagsSoon();
+        }
+    }
+
+    function openQuickScanModal() {
+        if (!quickScanModal) return;
+        quickScanModal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+        quickScanProcessing = false;
+        quickScanLastCode = null;
+        updateQuickScanStatus('Inicializando cámara...', 'info');
+        startQuickScan();
+    }
+
+    function closeQuickScanModal() {
+        if (!quickScanModal) return;
+        stopQuickScan();
+        quickScanModal.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+
+    if (openQuickScan) {
+        openQuickScan.addEventListener('click', () => {
+            openQuickScanModal();
+        });
+    }
+
+    if (toggleQuickScanBtn) {
+        toggleQuickScanBtn.addEventListener('click', () => {
+            if (quickScanActive) {
+                stopQuickScan();
+                updateQuickScanStatus('Escáner en pausa. Podés reanudarlo cuando quieras.', 'warning');
+            } else {
+                startQuickScan();
+            }
+        });
+    }
+
+    if (closeQuickScanBtn) {
+        closeQuickScanBtn.addEventListener('click', closeQuickScanModal);
+    }
+
+    if (quickScanModal) {
+        quickScanModal.addEventListener('click', (event) => {
+            if (event.target === quickScanModal) {
+                closeQuickScanModal();
+            }
+        });
+    }
+
     // Búsqueda de clientes
     let customerSearchTimeout;
     customerSearch.addEventListener('input', async () => {
@@ -601,16 +875,48 @@
         }
 
         searchDropdown.innerHTML = '';
+        const formatCurrency = (value, currency = 'ARS') => {
+            if (!value || isNaN(value)) return null;
+            try {
+                return new Intl.NumberFormat('es-AR', {
+                    style: 'currency',
+                    currency,
+                    minimumFractionDigits: 2
+                }).format(value);
+            } catch (error) {
+                return `${currency === 'USD' ? 'USD ' : '$'}${Number(value).toFixed(2)}`;
+            }
+        };
+
         results.forEach(item => {
             const option = document.createElement('button');
-            option.className = 'flex w-full flex-col items-start gap-1 border-b border-slate-100 px-5 py-3 text-left text-sm hover:bg-slate-50';
-            const stockText = item.stock_status === 'sin stock' 
-                ? '<span class="text-xs font-semibold text-red-600">Sin stock</span>'
-                : `<span class="text-xs text-slate-500">Stock: ${item.stock}</span>`;
+            option.className = 'flex w-full flex-col items-start gap-1.5 border-b border-slate-100 px-5 py-3 text-left transition hover:bg-slate-50';
+
+            const stockText = item.stock_status === 'sin stock'
+                ? '<span class="text-[11px] font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">Sin stock</span>'
+                : `<span class="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Stock: ${item.stock_actual ?? item.stock ?? 0}</span>`;
+
+            const precioMinoristaArs = item.precios?.minorista_ars ? parseFloat(item.precios.minorista_ars) : null;
+            const precioMayoristaArs = item.precios?.mayorista_ars ? parseFloat(item.precios.mayorista_ars) : null;
+            const precioMinoristaUsd = item.precios?.minorista_usd ? parseFloat(item.precios.minorista_usd) : null;
+
+            const precioPrincipal = formatCurrency(precioMinoristaArs || precioMayoristaArs, 'ARS');
+            const precioSecundario = formatCurrency(precioMinoristaUsd, 'USD');
+
+            const atributos = (item.descripcion && item.descripcion !== item.nombre)
+                ? item.descripcion.replace(item.nombre, '').trim()
+                : (item.atributos || '').trim();
+
             option.innerHTML = `
-                <span class="font-semibold text-slate-900">${item.producto}</span>
-                <span class="text-xs text-slate-500">SKU: ${item.sku} · ${item.atributos || 'Sin atributos'}</span>
-                ${stockText}`;
+                <span class="font-semibold text-slate-900 text-sm">${item.nombre || item.producto || 'Producto'}</span>
+                <div class="flex flex-wrap items-center gap-2">
+                    ${precioPrincipal ? `<span class="inline-flex items-center gap-1 rounded-full bg-slate-900/90 px-2.5 py-0.5 text-[11px] font-semibold text-white shadow-sm">${precioPrincipal}</span>` : ''}
+                    ${precioSecundario ? `<span class="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-600">USD ${Number(precioMinoristaUsd).toFixed(2)}</span>` : ''}
+                    ${stockText}
+                </div>
+                <span class="text-[11px] text-slate-500">SKU: ${item.sku || '—'}</span>
+                ${atributos ? `<span class="text-[11px] text-slate-400">${atributos}</span>` : ''}
+            `;
             option.addEventListener('click', () => {
                 if (item.stock_status === 'sin stock') {
                     if (!confirm('Este producto no tiene stock. ¿Deseas agregarlo igual?')) {
@@ -687,8 +993,8 @@
                     }
                 }
                 
-                nombre = item.producto;
-                descripcion = item.atributos;
+                nombre = item.nombre || item.producto;
+                descripcion = item.descripcion || item.atributos || '';
                 sku = item.sku;
             }
             
@@ -719,6 +1025,10 @@
             summaryTax.textContent = '$0.00';
             summaryTotal.textContent = '$0.00';
             summaryItems.textContent = '0 ítems';
+            if (summaryMetodoPagoRow && summaryMetodoPago) {
+                summaryMetodoPago.textContent = '-$0.00';
+                summaryMetodoPagoRow.classList.add('hidden');
+            }
             completeSale.disabled = true;
             return;
         }
@@ -731,8 +1041,18 @@
             row.dataset.index = index;
             const nombreEl = row.querySelector('p.font-semibold');
             if (nombreEl) nombreEl.textContent = item.nombre;
-            const descEl = row.querySelector('p.text-xs, p.text-\\[10px\\]');
-            if (descEl) descEl.textContent = `${item.descripcion || 'Sin atributos'} · SKU ${item.sku}`;
+            const textBlocks = row.querySelectorAll('p');
+            const detallePartes = [];
+            const descripcionLimpia = (item.descripcion || '').trim();
+            if (descripcionLimpia) {
+                detallePartes.push(descripcionLimpia);
+            }
+            if (item.sku) {
+                detallePartes.push(`SKU ${item.sku}`);
+            }
+            const detalleTexto = detallePartes.length ? detallePartes.join(' · ') : 'Detalle no disponible';
+            const descEl = textBlocks.length > 1 ? textBlocks[1] : null;
+            if (descEl) descEl.textContent = detalleTexto;
             const quantityInput = row.querySelector('.quantity-input');
             if (quantityInput) {
                 quantityInput.value = item.cantidad;
@@ -922,23 +1242,14 @@
         summaryGlobalDiscount.textContent = `-$${descuentoGeneral.toFixed(2)}`;
         
         // Mostrar descuento por método de pago si existe
-        const descuentoMetodoPagoElement = document.getElementById('summary-descuento-metodo-pago');
-        if (descuentoMetodoPago > 0) {
-            if (!descuentoMetodoPagoElement) {
-                // Crear elemento si no existe
-                const descuentoRow = document.createElement('div');
-                descuentoRow.id = 'summary-descuento-metodo-pago';
-                descuentoRow.className = 'flex justify-between text-sm';
-                descuentoRow.innerHTML = `
-                    <span class="text-slate-600">Descuento por método de pago</span>
-                    <span class="font-semibold text-emerald-600">-$0.00</span>
-                `;
-                summaryGlobalDiscount.parentElement.insertBefore(descuentoRow, summaryGlobalDiscount.nextSibling);
+        if (summaryMetodoPagoRow && summaryMetodoPago) {
+            if (descuentoMetodoPago > 0) {
+                summaryMetodoPago.textContent = `-$${descuentoMetodoPago.toFixed(2)}`;
+                summaryMetodoPagoRow.classList.remove('hidden');
+            } else {
+                summaryMetodoPago.textContent = '-$0.00';
+                summaryMetodoPagoRow.classList.add('hidden');
             }
-            descuentoMetodoPagoElement.querySelector('span.font-semibold').textContent = `-$${descuentoMetodoPago.toFixed(2)}`;
-            descuentoMetodoPagoElement.classList.remove('hidden');
-        } else if (descuentoMetodoPagoElement) {
-            descuentoMetodoPagoElement.classList.add('hidden');
         }
         
         summaryTax.textContent = `$${impuesto.toFixed(2)}`;
@@ -1461,8 +1772,8 @@
         }
     }
     
-    // Sincronizar cada 500ms para mejor tiempo real
-    setInterval(sincronizarCarritoRemoto, 500);
+    // Sincronizar cada 800ms para mejor tiempo real
+    setInterval(sincronizarCarritoRemoto, 800);
     sincronizarCarritoRemoto(); // Sincronizar inmediatamente
     
     // Actualizar indicador de conexión periódicamente
@@ -1764,6 +2075,36 @@
             });
         }
     });
+
+    let audioContext = null;
+    function playBeep() {
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+            if (!audioContext) {
+                audioContext = new AudioCtx();
+            }
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            const oscillator = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            oscillator.type = 'sine';
+            oscillator.frequency.value = 880;
+            gain.gain.setValueAtTime(0.12, audioContext.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.15);
+            oscillator.connect(gain);
+            gain.connect(audioContext.destination);
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.15);
+        } catch (error) {
+            console.warn('No se pudo reproducir el sonido de escaneo:', error);
+        }
+    }
+
+    window.addEventListener('click', () => {
+        try { audioContext && audioContext.resume(); } catch (e) { /* ignore */ }
+    }, { once: true, passive: true });
 </script>
 
 <!-- Modal de confirmación de venta -->
