@@ -1,238 +1,679 @@
-# iphones/views.py
+from decimal import Decimal
+from io import BytesIO
 
-from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Q
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
-from django.contrib.humanize.templatetags.humanize import intcomma
-from inventario.models import Producto, ProductoVariante, Categoria, Precio
 
-# Compatibilidad temporal: si DetalleIphone ya no existe, lo definimos como None
-try:
-    from inventario.models import DetalleIphone
-except Exception:
-    DetalleIphone = None
-
-
-
-
-
+from django.contrib import messages
+from core.db_inspector import column_exists
 from core.utils import obtener_valor_dolar_blue
-from .forms import AgregarIphoneForm 
-from decimal import Decimal
 from historial.models import RegistroHistorial
+from inventario.models import (
+    Categoria,
+    DetalleIphone,
+    Precio,
+    Producto,
+    ProductoVariante,
+)
+from inventario.utils import is_detalleiphone_variante_ready
+from inventario.etiquetas import generar_etiqueta
+
+from .forms import AgregarIphoneForm
+
+
+def _categoria_celulares():
+    categoria, _ = Categoria.objects.get_or_create(
+        nombre="Celulares", defaults={"descripcion": "Smartphones Apple"}
+    )
+    return categoria
+
+
+def _ultimo_precio(variante, tipo, moneda):
+    return (
+        variante.precios.filter(tipo=tipo, moneda=moneda, activo=True)
+        .order_by("-actualizado")
+        .first()
+    )
+
+
+def _sincronizar_precios(variante, data):
+    """Sincroniza precios usando la función consolidada de inventario."""
+    from inventario.views import _sincronizar_precios as _sincronizar_precios_inventario
+    
+    # Mapear datos de iPhone a formato de inventario
+    data_inventario = {
+        "precio_venta_ars": data.get("precio_venta_ars"),
+        "precio_minorista_ars": data.get("precio_venta_ars"),
+        "precio_mayorista_ars": data.get("precio_mayorista_ars"),
+        "precio_minimo_ars": None,
+    }
+    
+    _sincronizar_precios_inventario(variante, data_inventario)
+
 
 @login_required
 def iphone_dashboard(request):
+    required_columns = [
+        ("inventario_productovariante", "sku"),
+        ("inventario_productovariante", "stock_actual"),
+        ("inventario_precio", "precio"),
+    ]
+    missing_columns = [
+        f"{table}.{column}"
+        for table, column in required_columns
+        if not column_exists(table, column)
+    ]
+
     valor_dolar = obtener_valor_dolar_blue()
-    
-    try:
-        categoria_iphone = Categoria.objects.get(nombre__iexact="Celulares")
-        base_query = ProductoVariante.objects.filter(producto__categoria=categoria_iphone).select_related('producto').order_by('-producto__fecha_creacion')
-    except Categoria.DoesNotExist:
-        base_query = ProductoVariante.objects.none()
+    detalleiphone_ready = False
 
-    # --- Lógica de KPIs (se calcula sobre el total) ---
-    total_stock = base_query.count()
-    valor_total_usd = Decimal(0)
-    for v in base_query.prefetch_related('precios'):
-        precio_obj = v.precios.filter(moneda='USD').first()
-        if precio_obj:
-            valor_total_usd += precio_obj.precio_venta_normal
-    
-    valor_total_ars = valor_total_usd * Decimal(str(valor_dolar)) if valor_dolar else Decimal(0)
+    if missing_columns:
+        messages.warning(
+            request,
+            "El módulo de inventario todavía no está completamente migrado. Ejecutá `python manage.py migrate` para crear las "
+            "columnas faltantes: " + ", ".join(missing_columns),
+        )
+        context = {
+            "variantes": [],
+            "valor_dolar": valor_dolar,
+            "search_query": request.GET.get("q", "").strip(),
+            "stats": {"variantes": 0, "stock": 0, "valor_usd": Decimal("0"), "valor_ars": None},
+            "detalleiphone_ready": False,
+            "schema_missing_columns": missing_columns,
+        }
+        return render(request, "iphones/dashboard.html", context)
 
-    # --- Lógica de Búsqueda ---
-    search_query = request.GET.get('q', None)
+    detalleiphone_ready = is_detalleiphone_variante_ready()
+
+    variantes_qs = (
+        ProductoVariante.objects.select_related("producto")
+        .prefetch_related("precios")
+        .filter(producto__categoria__nombre__iexact="Celulares")
+        .order_by("producto__nombre", "sku")
+    )
+
+    if detalleiphone_ready:
+        variantes_qs = variantes_qs.select_related("detalle_iphone")
+
+    search_query = request.GET.get("q", "").strip()
     if search_query:
-        variantes_list = base_query.filter(
-            Q(producto__nombre__icontains=search_query) |
-            Q(nombre_variante__icontains=search_query) |
-            Q(detalle_iphone__imei__icontains=search_query)
-        ).distinct()
-    else:
-        variantes_list = base_query
+        filtros = Q(producto__nombre__icontains=search_query) | Q(
+            atributo_1__icontains=search_query
+        ) | Q(atributo_2__icontains=search_query) | Q(
+            sku__icontains=search_query
+        )
+        if detalleiphone_ready:
+            filtros |= Q(detalle_iphone__imei__icontains=search_query)
+        variantes_qs = variantes_qs.filter(filtros)
 
-    # --- Preparación de datos para la tabla ---
-    for variante in variantes_list:
-        precio_usd_obj = variante.precios.filter(moneda='USD').first()
-        if precio_usd_obj and valor_dolar:
-            variante.precio_usd = precio_usd_obj.precio_venta_normal
-            variante.precio_ars_calculado = precio_usd_obj.precio_venta_normal * Decimal(str(valor_dolar))
-        else:
-            variante.precio_usd = None
-            variante.precio_ars_calculado = None
+    variantes = list(variantes_qs)
+    dolar_decimal = Decimal(str(valor_dolar)) if valor_dolar else None
+
+    total_stock = sum(v.stock_actual for v in variantes)
+    total_usd = Decimal("0")
+    total_ars = Decimal("0") if dolar_decimal else None
+
+    for variante in variantes:
+        precio_minorista_usd = _ultimo_precio(
+            variante, Precio.Tipo.MINORISTA, Precio.Moneda.USD
+        )
+        precio_mayorista_usd = _ultimo_precio(
+            variante, Precio.Tipo.MAYORISTA, Precio.Moneda.USD
+        )
+        precio_minorista_ars = _ultimo_precio(
+            variante, Precio.Tipo.MINORISTA, Precio.Moneda.ARS
+        )
+        precio_mayorista_ars = _ultimo_precio(
+            variante, Precio.Tipo.MAYORISTA, Precio.Moneda.ARS
+        )
+
+        detalle = None
+        if detalleiphone_ready:
+            detalle = getattr(variante, "detalle_iphone", None)
+        if not detalle:
+            detalle = DetalleIphone.objects.filter(variante=variante).first()
+
+        variante.precio_minorista_usd = (
+            precio_minorista_usd.precio if precio_minorista_usd else None
+        )
+        variante.precio_mayorista_usd = (
+            precio_mayorista_usd.precio if precio_mayorista_usd else None
+        )
+        variante.precio_minorista_ars = (
+            precio_minorista_ars.precio if precio_minorista_ars else None
+        )
+        variante.precio_mayorista_ars = (
+            precio_mayorista_ars.precio if precio_mayorista_ars else None
+        )
+
+        if variante.precio_minorista_usd:
+            total_usd += Decimal(variante.precio_minorista_usd) * Decimal(
+                variante.stock_actual or 0
+            )
+        if total_ars is not None and variante.precio_minorista_usd:
+            total_ars += (
+                Decimal(variante.precio_minorista_usd)
+                * Decimal(variante.stock_actual or 0)
+                * dolar_decimal
+            )
+
+        if dolar_decimal and variante.precio_minorista_usd and not variante.precio_minorista_ars:
+            variante.precio_minorista_ars = (
+                Decimal(variante.precio_minorista_usd) * dolar_decimal
+            )
+        if dolar_decimal and variante.precio_mayorista_usd and not variante.precio_mayorista_ars:
+            variante.precio_mayorista_ars = (
+                Decimal(variante.precio_mayorista_usd) * dolar_decimal
+            )
+
+        if detalle:
+            if detalle.precio_venta_usd and not variante.precio_minorista_usd:
+                variante.precio_minorista_usd = detalle.precio_venta_usd
+        variante.detalle_cache = detalle
+
+    stats = {
+        "variantes": len(variantes),
+        "stock": total_stock,
+        "valor_usd": total_usd,
+        "valor_ars": total_ars,
+    }
 
     context = {
-        'variantes': variantes_list,
-        'valor_dolar': valor_dolar,
-        'total_stock': total_stock,
-        'valor_total_usd': valor_total_usd,
-        'valor_total_ars': valor_total_ars,
-        'search_query': search_query,
+        "variantes": variantes,
+        "valor_dolar": valor_dolar,
+        "search_query": search_query,
+        "stats": stats,
+        "detalleiphone_ready": detalleiphone_ready,
+        "schema_missing_columns": [],
     }
-    return render(request, 'iphones/dashboard.html', context)
+    return render(request, "iphones/dashboard.html", context)
 
 
 @login_required
 @transaction.atomic
 def agregar_iphone(request):
-    if request.method == 'POST':
+    if not is_detalleiphone_variante_ready():
+        messages.error(
+            request,
+            "Aplicá `python manage.py migrate` para habilitar la gestión avanzada de iPhones.",
+        )
+        return redirect("inventario:dashboard")
+
+    if request.method == "POST":
         form = AgregarIphoneForm(request.POST, request.FILES)
         if form.is_valid():
             data = form.cleaned_data
-            categoria_celulares, _ = Categoria.objects.get_or_create(nombre="Celulares")
-            
-            producto_base = Producto.objects.create(
-                nombre=data['modelo'],
-                categoria=categoria_celulares,
-                activo=data['activo'],
-                imagen=data.get('imagen')
+            categoria = _categoria_celulares()
+
+            producto, _ = Producto.objects.get_or_create(
+                nombre=data["modelo"],
+                defaults={
+                    "categoria": categoria,
+                    "activo": data["activo"],
+                    "estado": "ACTIVO",
+                },
             )
+            producto.categoria = categoria
+            producto.activo = data["activo"]
+            producto.save()
+
+            # Generar SKU automático si está habilitado o si está vacío
+            sku_valor = data.get("sku", "").strip()
+            if data.get("sku_auto", True) or not sku_valor:
+                from django.utils.text import slugify
+                nombre = data.get("modelo", "")
+                capacidad = data.get("capacidad", "")
+                color = data.get("color", "")
+                
+                # Generar SKU base
+                sku_base = slugify(f"{nombre}-{capacidad}-{color}".strip("-")).upper()
+                if not sku_base:
+                    sku_base = slugify(nombre).upper() or "IPH"
+                
+                # Asegurar unicidad
+                sku_final = sku_base
+                contador = 1
+                while ProductoVariante.objects.filter(sku=sku_final).exists():
+                    sku_final = f"{sku_base}-{contador}"
+                    contador += 1
+            else:
+                sku_final = sku_valor.upper()
             
-            nombre_variante = f"{data['capacidad']} / {data['color']}"
-            variante = ProductoVariante.objects.create(
-                producto=producto_base,
-                nombre_variante=nombre_variante,
-                stock=1 
-            )
+            # Generar código de barras si está habilitado
+            codigo_barras = None
+            if data.get("generar_codigo_barras"):
+                import random
+                codigo_barras = f"{random.randint(100000000000, 999999999999)}"
+            elif data.get("codigo_barras"):
+                codigo_barras = data["codigo_barras"]
             
-            Precio.objects.create(
-                variante=variante,
-                moneda='USD',
-                tipo_precio='Minorista',
-                costo=data['costo_usd'],
-                precio_venta_normal=data['precio_venta_usd'],
-                precio_venta_minimo=data['costo_usd'],
-                precio_venta_descuento=data.get('precio_oferta_usd')
-            )
+            # Generar QR code si está habilitado
+            qr_code = None
+            if data.get("generar_qr"):
+                if sku_final:
+                    qr_code = f"https://importstore.com/producto/{sku_final}"
+            elif data.get("qr_code"):
+                qr_code = data["qr_code"]
             
-            if data.get('imei') or data.get('salud_bateria') or data.get('fallas_observaciones'):
-                DetalleIphone.objects.create(
-                    variante=variante,
-                    imei=data.get('imei'),
-                    salud_bateria=data.get('salud_bateria'),
-                    fallas_detectadas=data.get('fallas_observaciones'),
-                    es_plan_canje=data.get('es_plan_canje', False)
+            # Asegurar valores por defecto para stock
+            stock_actual_val = data.get("stock_actual", 0) or 0
+            stock_minimo_val = data.get("stock_minimo", 0) or 0
+            
+            # Verificar si existe el campo 'stock' antiguo en la base de datos
+            from core.db_inspector import column_exists
+            from django.db import connection
+            
+            nombre_variante_val = f"{data['modelo']} {data['capacidad']} {data['color']}".strip()
+            
+            if column_exists("inventario_productovariante", "stock"):
+                # Usar SQL directo para insertar con el campo stock
+                from django.utils import timezone
+                ahora = timezone.now()
+                
+                # Verificar si existe el campo 'peso' también
+                tiene_peso = column_exists("inventario_productovariante", "peso")
+                
+                with connection.cursor() as cursor:
+                    if tiene_peso:
+                        # Si existe el campo peso, incluirlo en el INSERT
+                        cursor.execute("""
+                            INSERT INTO inventario_productovariante 
+                            (producto_id, sku, nombre_variante, codigo_barras, qr_code, atributo_1, atributo_2, 
+                             stock_actual, stock_minimo, stock, peso, activo, creado, actualizado)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """, [
+                            producto.pk, sku_final, nombre_variante_val, codigo_barras, qr_code,
+                            data["capacidad"], data["color"], stock_actual_val, stock_minimo_val,
+                            stock_actual_val, 0, 1 if data["activo"] else 0, ahora, ahora
+                        ])
+                    else:
+                        # Si no existe el campo peso, INSERT normal
+                        cursor.execute("""
+                            INSERT INTO inventario_productovariante 
+                            (producto_id, sku, nombre_variante, codigo_barras, qr_code, atributo_1, atributo_2, 
+                             stock_actual, stock_minimo, stock, activo, creado, actualizado)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """, [
+                            producto.pk, sku_final, nombre_variante_val, codigo_barras, qr_code,
+                            data["capacidad"], data["color"], stock_actual_val, stock_minimo_val,
+                            stock_actual_val, 1 if data["activo"] else 0, ahora, ahora
+                        ])
+                    variante_id = cursor.lastrowid
+                
+                # Recargar la variante desde la base de datos
+                variante = ProductoVariante.objects.get(pk=variante_id)
+            else:
+                # Si no existe el campo stock, crear normalmente
+                variante = ProductoVariante.objects.create(
+                    producto=producto,
+                    sku=sku_final,
+                    nombre_variante=nombre_variante_val,
+                    codigo_barras=codigo_barras,
+                    qr_code=qr_code,
+                    atributo_1=data["capacidad"],
+                    atributo_2=data["color"],
+                    stock_actual=stock_actual_val,
+                    stock_minimo=stock_minimo_val,
+                    activo=data["activo"],
                 )
+
+            _sincronizar_precios(variante, data)
+
+            # Si es nuevo, establecer salud_bateria a 100
+            salud_bateria = data.get("salud_bateria")
+            if data.get("es_nuevo", False):
+                salud_bateria = 100
+            
+            # Manejar IMEI: si está vacío, guardar como None para evitar conflictos con unique
+            imei_value = data.get("imei", "").strip()
+            imei_final = imei_value if imei_value else None
+            
+            # Si el IMEI está vacío, verificar si ya existe otro registro con imei=''
+            # y en ese caso, asegurarse de usar None (no '')
+            if not imei_final:
+                from django.db.models import Q
+                otros_con_imei_vacio = DetalleIphone.objects.filter(
+                    Q(imei='') | Q(imei__isnull=True)
+                )
+                if otros_con_imei_vacio.exists():
+                    imei_final = None
+            
+            try:
+                detalle = DetalleIphone.objects.create(
+                    variante=variante,
+                    imei=imei_final,
+                    salud_bateria=salud_bateria,
+                    fallas_detectadas=data.get("fallas_observaciones"),
+                    es_plan_canje=data.get("es_plan_canje", False),
+                    costo_usd=data.get("costo_usd"),
+                    precio_venta_usd=data.get("precio_venta_usd"),
+                    precio_oferta_usd=data.get("precio_oferta_usd"),
+                    notas=data.get("notas"),
+                )
+            except Exception as e:
+                # Si hay un error de unique (por ejemplo, imei='' duplicado),
+                # intentar crear con imei=None explícitamente
+                if "Duplicate entry" in str(e) or "unique" in str(e).lower():
+                    detalle = DetalleIphone.objects.create(
+                        variante=variante,
+                        imei=None,  # Forzar None explícitamente
+                        salud_bateria=salud_bateria,
+                        fallas_detectadas=data.get("fallas_observaciones"),
+                        es_plan_canje=data.get("es_plan_canje", False),
+                        costo_usd=data.get("costo_usd"),
+                        precio_venta_usd=data.get("precio_venta_usd"),
+                        precio_oferta_usd=data.get("precio_oferta_usd"),
+                        notas=data.get("notas"),
+                    )
+                else:
+                    raise
+            
+            if data.get("foto"):
+                detalle.foto = data["foto"]
+                detalle.save(update_fields=["foto"])
 
             RegistroHistorial.objects.create(
                 usuario=request.user,
                 tipo_accion=RegistroHistorial.TipoAccion.CREACION,
-                descripcion=f"Se agregó el nuevo iPhone: {variante}."
+                descripcion=f"Alta iPhone {producto.nombre} ({variante.atributos_display})",
             )
-            return redirect('iphones:dashboard')
+            return redirect("iphones:dashboard")
     else:
         form = AgregarIphoneForm()
-        
-    context = { 'form': form }
-    return render(request, 'iphones/agregar_iphone.html', context)
+
+    return render(request, "iphones/agregar_iphone.html", {"form": form})
 
 
 @login_required
 @transaction.atomic
 def editar_iphone(request, variante_id):
-    variante = get_object_or_404(ProductoVariante, id=variante_id)
-    producto = variante.producto
-    precio = variante.precios.filter(moneda='USD').first()
-    detalle = getattr(variante, 'detalle_iphone', None)
+    if not is_detalleiphone_variante_ready():
+        messages.error(
+            request,
+            "Aplicá `python manage.py migrate` para habilitar la gestión avanzada de iPhones.",
+        )
+        return redirect("inventario:dashboard")
 
-    if request.method == 'POST':
-        form = AgregarIphoneForm(request.POST, request.FILES, initial={'imagen': producto.imagen})
+    variante = get_object_or_404(ProductoVariante, pk=variante_id)
+    producto = variante.producto
+    detalle = getattr(variante, "detalle_iphone", None)
+
+    if request.method == "POST":
+        form = AgregarIphoneForm(request.POST, request.FILES)
         if form.is_valid():
             data = form.cleaned_data
-            
-            producto.nombre = data['modelo']
-            producto.activo = data['activo']
-            if data.get('imagen') is not None:
-                producto.imagen = data['imagen']
+            producto.nombre = data["modelo"]
+            producto.activo = data["activo"]
+            producto.categoria = _categoria_celulares()
             producto.save()
+
+            # Generar SKU automático si está habilitado o si está vacío
+            sku_valor = data.get("sku", "").strip()
+            if data.get("sku_auto", True) or not sku_valor:
+                from django.utils.text import slugify
+                nombre = data.get("modelo", "")
+                capacidad = data.get("capacidad", "")
+                color = data.get("color", "")
+                
+                # Generar SKU base
+                sku_base = slugify(f"{nombre}-{capacidad}-{color}".strip("-")).upper()
+                if not sku_base:
+                    sku_base = slugify(nombre).upper() or "IPH"
+                
+                # Asegurar unicidad
+                sku_final = sku_base
+                contador = 1
+                while ProductoVariante.objects.filter(sku=sku_final).exclude(pk=variante.pk).exists():
+                    sku_final = f"{sku_base}-{contador}"
+                    contador += 1
+                
+                variante.sku = sku_final
+            else:
+                variante.sku = sku_valor.upper()
             
-            variante.nombre_variante = f"{data['capacidad']} / {data['color']}"
+            variante.atributo_1 = data["capacidad"]
+            variante.atributo_2 = data["color"]
+            variante.stock_actual = data["stock_actual"]
+            variante.stock_minimo = data["stock_minimo"]
+            variante.activo = data["activo"]
+            
+            # Generar código de barras si está habilitado
+            if data.get("generar_codigo_barras"):
+                import random
+                codigo = f"{random.randint(100000000000, 999999999999)}"
+                variante.codigo_barras = codigo
+            elif data.get("codigo_barras"):
+                variante.codigo_barras = data["codigo_barras"]
+            
+            # Generar QR code si está habilitado
+            if data.get("generar_qr"):
+                sku_final = variante.sku
+                if sku_final:
+                    qr_url = f"https://importstore.com/producto/{sku_final}"
+                    variante.qr_code = qr_url
+            elif data.get("qr_code"):
+                variante.qr_code = data["qr_code"]
+            
             variante.save()
+
+            _sincronizar_precios(variante, data)
+
+            if detalle is None:
+                detalle = DetalleIphone(variante=variante)
+
+            # Manejar IMEI: si está vacío, guardar como None para evitar conflictos con unique
+            imei_value = data.get("imei", "").strip()
+            imei_final = imei_value if imei_value else None
             
-            if precio:
-                precio.costo = data['costo_usd']
-                precio.precio_venta_normal = data['precio_venta_usd']
-                precio.precio_venta_minimo = data['costo_usd']
-                precio.precio_venta_descuento = data.get('precio_oferta_usd')
-                precio.save()
+            # Si el IMEI está vacío y ya existe otro registro con imei='', 
+            # necesitamos verificar y limpiar primero
+            if not imei_final:
+                # Verificar si hay otro registro con imei='' o imei=None
+                from django.db.models import Q
+                otros_con_imei_vacio = DetalleIphone.objects.filter(
+                    Q(imei='') | Q(imei__isnull=True)
+                ).exclude(pk=detalle.pk if detalle.pk else None)
+                
+                # Si hay otros con imei vacío y este también lo será, 
+                # asegurarse de que este sea None (no '')
+                if otros_con_imei_vacio.exists():
+                    imei_final = None
             
-            if detalle:
-                detalle.imei = data.get('imei')
-                detalle.salud_bateria = data.get('salud_bateria')
-                detalle.fallas_detectadas = data.get('fallas_observaciones')
-                detalle.es_plan_canje = data.get('es_plan_canje', False)
+            detalle.imei = imei_final
+            # Si es nuevo, establecer salud_bateria a 100
+            salud_bateria = data.get("salud_bateria")
+            if data.get("es_nuevo", False):
+                salud_bateria = 100
+            detalle.salud_bateria = salud_bateria
+            detalle.fallas_detectadas = data.get("fallas_observaciones")
+            detalle.es_plan_canje = data.get("es_plan_canje", False)
+            detalle.costo_usd = data.get("costo_usd")
+            detalle.precio_venta_usd = data.get("precio_venta_usd")
+            detalle.precio_oferta_usd = data.get("precio_oferta_usd")
+            detalle.notas = data.get("notas")
+            if data.get("foto"):
+                detalle.foto = data["foto"]
+            
+            # Guardar usando update_fields para evitar problemas con unique
+            try:
                 detalle.save()
-            elif data.get('imei'):
-                DetalleIphone.objects.create(
-                    variante=variante,
-                    imei=data.get('imei'),
-                    salud_bateria=data.get('salud_bateria'),
-                    fallas_detectadas=data.get('fallas_observaciones'),
-                    es_plan_canje=data.get('es_plan_canje', False)
-                )
+            except Exception as e:
+                # Si hay un error de unique, intentar limpiar el IMEI a None explícitamente
+                if "Duplicate entry" in str(e) or "unique" in str(e).lower():
+                    detalle.imei = None
+                    detalle.save()
+                else:
+                    raise
 
             RegistroHistorial.objects.create(
                 usuario=request.user,
                 tipo_accion=RegistroHistorial.TipoAccion.MODIFICACION,
-                descripcion=f"Se modificó el iPhone: {variante}."
+                descripcion=f"Actualización iPhone {producto.nombre} ({variante.atributos_display})",
             )
-            return redirect('iphones:dashboard')
+            return redirect("iphones:dashboard")
     else:
-        initial_data = {
-            'modelo': producto.nombre,
-            'capacidad': variante.nombre_variante.split(' / ')[0] if ' / ' in variante.nombre_variante else '',
-            'color': variante.nombre_variante.split(' / ')[1] if ' / ' in variante.nombre_variante else '',
-            'activo': producto.activo,
-            'imagen': producto.imagen,
-            'costo_usd': precio.costo if precio else 0,
-            'precio_venta_usd': precio.precio_venta_normal if precio else 0,
-            'precio_oferta_usd': precio.precio_venta_descuento if precio else None,
-            'imei': detalle.imei if detalle else '',
-            'salud_bateria': detalle.salud_bateria if detalle else None,
-            'fallas_observaciones': detalle.fallas_detectadas if detalle else '',
-            'es_plan_canje': detalle.es_plan_canje if detalle else False
-        }
-        form = AgregarIphoneForm(initial=initial_data)
+        detalle = getattr(variante, "detalle_iphone", None)
+        precio_minorista_ars = variante.precio_activo(Precio.Tipo.MINORISTA, Precio.Moneda.ARS)
+        precio_mayorista_usd = variante.precio_activo(Precio.Tipo.MAYORISTA, Precio.Moneda.USD)
+        precio_mayorista_ars = variante.precio_activo(Precio.Tipo.MAYORISTA, Precio.Moneda.ARS)
         
-    context = {
-        'form': form,
-        'variante': variante 
-    }
-    return render(request, 'iphones/editar_iphone.html', context)
+        form = AgregarIphoneForm(
+            initial={
+                "modelo": producto.nombre,
+                "capacidad": variante.atributo_1,
+                "color": variante.atributo_2,
+                "sku": variante.sku,
+                "sku_auto": True,
+                "codigo_barras": variante.codigo_barras or "",
+                "qr_code": variante.qr_code or "",
+                "stock_actual": variante.stock_actual,
+                "stock_minimo": variante.stock_minimo,
+                "activo": variante.activo,
+                "costo_usd": detalle.costo_usd if detalle else None,
+                "precio_venta_usd": detalle.precio_venta_usd if detalle else None,
+                "precio_oferta_usd": detalle.precio_oferta_usd if detalle else None,
+                "precio_venta_ars": precio_minorista_ars.precio if precio_minorista_ars else None,
+                "precio_mayorista_usd": precio_mayorista_usd.precio if precio_mayorista_usd else None,
+                "precio_mayorista_ars": precio_mayorista_ars.precio if precio_mayorista_ars else None,
+                "imei": detalle.imei if detalle else "",
+                "es_nuevo": detalle.salud_bateria == 100 if detalle and detalle.salud_bateria else False,
+                "salud_bateria": detalle.salud_bateria if detalle else None,
+                "fallas_observaciones": detalle.fallas_detectadas if detalle else "",
+                "es_plan_canje": detalle.es_plan_canje if detalle else False,
+                "notas": detalle.notas if detalle else "",
+            }
+        )
+
+    return render(
+        request,
+        "iphones/editar_iphone.html",
+        {"form": form, "variante": variante, "detalle": detalle},
+    )
 
 
 @require_POST
 @login_required
 def eliminar_iphone(request, variante_id):
-    variante = get_object_or_404(ProductoVariante, id=variante_id)
+    if not is_detalleiphone_variante_ready():
+        messages.error(
+            request,
+            "Aplicá `python manage.py migrate` para habilitar la gestión avanzada de iPhones.",
+        )
+        return redirect("inventario:dashboard")
+
+    variante = get_object_or_404(ProductoVariante, pk=variante_id)
     producto = variante.producto
-    
+
     RegistroHistorial.objects.create(
         usuario=request.user,
         tipo_accion=RegistroHistorial.TipoAccion.ELIMINACION,
-        descripcion=f"Se eliminó el iPhone: {variante}."
+        descripcion=f"Baja iPhone {producto.nombre} ({variante.atributos_display})",
     )
-    
-    producto.delete()
-    return redirect('iphones:dashboard')
+
+    detalle = getattr(variante, "detalle_iphone", None)
+    if detalle:
+        detalle.delete()
+    variante.delete()
+    if not producto.variantes.exists():
+        producto.delete()
+    return redirect("iphones:dashboard")
+
 
 @require_POST
 @login_required
-def toggle_iphone_status(request, producto_id):
-    producto = get_object_or_404(Producto, id=producto_id)
-    producto.activo = not producto.activo
-    producto.save()
-    
-    nuevo_estado = "Activado" if producto.activo else "Desactivado"
+def toggle_iphone_status(request, variante_id):
+    if not is_detalleiphone_variante_ready():
+        messages.error(
+            request,
+            "Aplicá `python manage.py migrate` para habilitar la gestión avanzada de iPhones.",
+        )
+        return redirect("inventario:dashboard")
+
+    variante = get_object_or_404(ProductoVariante, pk=variante_id)
+    variante.activo = not variante.activo
+    variante.save()
+
     RegistroHistorial.objects.create(
         usuario=request.user,
         tipo_accion=RegistroHistorial.TipoAccion.CAMBIO_ESTADO,
-        descripcion=f"Se cambió el estado a '{nuevo_estado}' para el producto: {producto.nombre}."
+        descripcion=f"Estado {('activo' if variante.activo else 'inactivo')} → {variante.producto.nombre} ({variante.atributos_display})",
     )
-    
-    return redirect('iphones:dashboard')
 
-# --- ¡NUEVAS VISTAS DE ACCIÓN AÑADIDAS AQUÍ! ---
+    return redirect("iphones:dashboard")
+
+
+@login_required
+def iphone_historial(request):
+    """Historial de iPhones vendidos (stock = 0)."""
+    if not is_detalleiphone_variante_ready():
+        messages.error(
+            request,
+            "Aplicá `python manage.py migrate` para habilitar la gestión avanzada de iPhones.",
+        )
+        return redirect("inventario:dashboard")
+    
+    from ventas.models import DetalleVenta
+    
+    # Buscar iPhones vendidos (variantes con stock = 0 que tienen DetalleIphone)
+    variantes_vendidas = ProductoVariante.objects.filter(
+        producto__categoria__nombre__iexact="Celulares",
+        stock_actual=0
+    ).select_related("producto", "detalle_iphone").prefetch_related("detalles_venta__venta", "detalles_venta__venta__cliente")
+    
+    # Obtener información de ventas para cada variante
+    historial = []
+    for variante in variantes_vendidas:
+        detalle_iphone = getattr(variante, "detalle_iphone", None)
+        if not detalle_iphone:
+            continue
+        
+        # Buscar la última venta de esta variante
+        ultima_venta_detalle = variante.detalles_venta.select_related("venta", "venta__cliente").order_by("-venta__fecha").first()
+        
+        if ultima_venta_detalle:
+            historial.append({
+                "variante": variante,
+                "detalle_iphone": detalle_iphone,
+                "venta": ultima_venta_detalle.venta,
+                "cliente": ultima_venta_detalle.venta.cliente,
+                "cliente_nombre": ultima_venta_detalle.venta.cliente_nombre or (ultima_venta_detalle.venta.cliente.nombre if ultima_venta_detalle.venta.cliente else "Sin cliente"),
+                "fecha_venta": ultima_venta_detalle.venta.fecha,
+                "precio_venta": ultima_venta_detalle.precio_unitario_ars_congelado,
+            })
+    
+    # Ordenar por fecha de venta (más reciente primero)
+    historial.sort(key=lambda x: x["fecha_venta"], reverse=True)
+    
+    context = {
+        "historial": historial,
+    }
+    return render(request, "iphones/historial.html", context)
+
+
+@login_required
+def descargar_etiqueta_iphone(request, detalle_id: int):
+    """Genera y devuelve la etiqueta térmica PDF para un iPhone específico."""
+    if not is_detalleiphone_variante_ready():
+        messages.error(
+            request,
+            "Aplicá `python manage.py migrate` para habilitar la gestión avanzada de iPhones.",
+        )
+        return redirect("iphones:dashboard")
+
+    detalle = get_object_or_404(
+        DetalleIphone.objects.select_related("variante", "variante__producto"),
+        pk=detalle_id,
+    )
+
+    buffer = BytesIO()
+    generar_etiqueta(buffer, detalle)
+    pdf_bytes = buffer.getvalue()
+
+    sku = detalle.variante.sku if detalle.variante else "iphone"
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = f'inline; filename="etiqueta_{sku}.pdf"'
+    return response

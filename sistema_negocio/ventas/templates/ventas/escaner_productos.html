@@ -1,0 +1,492 @@
+{% extends "base.html" %}
+
+{% block title %}Escáner de Productos{% endblock %}
+
+{% block extra_head %}
+<style>
+    main { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
+    #scanner-container { position: relative; width: 100%; max-width: 100%; }
+    #qr-reader { width: 100%; height: auto; border-radius: 1rem; }
+    .scanner-overlay {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 80%;
+        max-width: 300px;
+        height: 200px;
+        border: 3px solid #3b82f6;
+        border-radius: 1rem;
+        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+        pointer-events: none;
+    }
+    .product-card {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 1.5rem;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+    }
+    .price-badge {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        border-radius: 0.75rem;
+        font-weight: 700;
+        font-size: 1.25rem;
+    }
+    .edit-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(4px);
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+    .edit-modal.show {
+        display: flex;
+    }
+    .edit-modal-content {
+        background: #1e293b;
+        border-radius: 1.5rem;
+        padding: 1.5rem;
+        max-width: 500px;
+        width: 100%;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+</style>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen w-full px-2 sm:px-4 py-4 sm:py-6">
+    <div class="mx-auto max-w-2xl space-y-3 sm:space-y-4">
+        <header class="text-center space-y-1 sm:space-y-2">
+            <h1 class="text-xl sm:text-2xl font-bold text-slate-100 flex items-center justify-center gap-2">
+                <svg class="w-6 h-6 sm:w-7 sm:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                </svg>
+                Escáner de Productos
+            </h1>
+            <p class="text-xs sm:text-sm text-slate-400">Escaneá códigos para ver información completa</p>
+        </header>
+
+        <!-- Estado del escáner -->
+        <div id="scanner-status" class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-4 text-center">
+            <p class="text-xs sm:text-sm font-semibold text-slate-300" id="status-text">Iniciando escáner...</p>
+            <p class="text-[10px] sm:text-xs text-slate-400 mt-1" id="status-detail"></p>
+        </div>
+
+        <!-- Contenedor del escáner -->
+        <div id="scanner-container" class="glass-card rounded-xl sm:rounded-2xl p-2 sm:p-4 overflow-hidden">
+            <div id="qr-reader" class="w-full"></div>
+            <div class="scanner-overlay"></div>
+        </div>
+
+        <!-- Botones de control -->
+        <div class="space-y-2 sm:space-y-3">
+            <button id="toggle-scanner" class="w-full rounded-xl sm:rounded-2xl bg-blue-600 px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white shadow-lg hover:bg-blue-500 transition">
+                Iniciar escáner
+            </button>
+            <button id="stop-scanner" class="hidden w-full rounded-xl sm:rounded-2xl border-2 border-slate-600/40 bg-slate-800/90 px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-slate-100 hover:bg-slate-700 transition">
+                Detener escáner
+            </button>
+        </div>
+
+        <!-- Información del producto escaneado -->
+        <div id="product-info" class="hidden product-card">
+            <div class="space-y-4">
+                <!-- Nombre y SKU -->
+                <div>
+                    <h2 class="text-lg sm:text-xl font-bold text-slate-100 mb-1" id="product-name"></h2>
+                    <p class="text-xs sm:text-sm text-slate-400" id="product-sku"></p>
+                    <p class="text-xs text-slate-500 mt-1" id="product-categoria"></p>
+                </div>
+
+                <!-- Stock -->
+                <div class="p-3 bg-slate-800/50 rounded-xl">
+                    <p class="text-xs text-slate-400 mb-1">Stock actual</p>
+                    <p class="text-xl font-bold text-slate-100" id="product-stock"></p>
+                </div>
+
+                <!-- Precios -->
+                <div class="space-y-2">
+                    <h3 class="text-sm font-semibold text-slate-300">Precios</h3>
+                    
+                    <!-- Precio Minorista ARS -->
+                    <div class="p-3 bg-slate-800/50 rounded-xl">
+                        <p class="text-xs text-slate-400 mb-1">Minorista ARS</p>
+                        <p class="text-xl font-bold text-emerald-400" id="precio-minorista-ars"></p>
+                    </div>
+
+                    <!-- Precio Mayorista ARS -->
+                    <div class="p-3 bg-slate-800/50 rounded-xl">
+                        <p class="text-xs text-slate-400 mb-1">Mayorista ARS</p>
+                        <p class="text-xl font-bold text-blue-400" id="precio-mayorista-ars"></p>
+                    </div>
+
+                    <!-- Precio Minorista USD -->
+                    <div id="precio-minorista-usd-container" class="hidden p-3 bg-slate-800/50 rounded-xl">
+                        <p class="text-xs text-slate-400 mb-1">Minorista USD</p>
+                        <p class="text-xl font-bold text-amber-400" id="precio-minorista-usd"></p>
+                        <p class="text-xs text-slate-500 mt-1" id="precio-minorista-usd-ars"></p>
+                    </div>
+
+                    <!-- Precio Mayorista USD -->
+                    <div id="precio-mayorista-usd-container" class="hidden p-3 bg-slate-800/50 rounded-xl">
+                        <p class="text-xs text-slate-400 mb-1">Mayorista USD</p>
+                        <p class="text-xl font-bold text-amber-400" id="precio-mayorista-usd"></p>
+                        <p class="text-xs text-slate-500 mt-1" id="precio-mayorista-usd-ars"></p>
+                    </div>
+                </div>
+
+                <!-- Información adicional -->
+                <div class="pt-2 border-t border-slate-700/50">
+                    <p class="text-xs text-slate-400 mb-2">Información adicional</p>
+                    <div class="space-y-1 text-xs text-slate-300">
+                        <p id="product-proveedor"></p>
+                        <p id="product-codigo-barras"></p>
+                    </div>
+                </div>
+
+                <!-- Botón de edición rápida -->
+                <button id="edicion-rapida-btn" class="w-full rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:from-blue-500 hover:to-purple-500 transition">
+                    Edición Rápida
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de edición rápida -->
+<div id="edit-modal" class="edit-modal">
+    <div class="edit-modal-content">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-slate-100">Edición Rápida</h3>
+            <button id="close-edit-modal" class="text-slate-400 hover:text-slate-100">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <form id="edit-form" class="space-y-4">
+            <!-- Stock -->
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-2">Stock Actual</label>
+                <input type="number" id="edit-stock" class="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" min="0" step="1">
+            </div>
+
+            <!-- Precios -->
+            <div class="space-y-3">
+                <h4 class="text-sm font-semibold text-slate-300">Precios</h4>
+                
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-2">Minorista ARS</label>
+                    <input type="number" id="edit-precio-minorista-ars" class="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" min="0" step="0.01">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-2">Mayorista ARS</label>
+                    <input type="number" id="edit-precio-mayorista-ars" class="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" min="0" step="0.01">
+                </div>
+
+                <div id="edit-precio-minorista-usd-container" class="hidden">
+                    <label class="block text-xs font-semibold text-slate-400 mb-2">Minorista USD</label>
+                    <input type="number" id="edit-precio-minorista-usd" class="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" min="0" step="0.01">
+                </div>
+
+                <div id="edit-precio-mayorista-usd-container" class="hidden">
+                    <label class="block text-xs font-semibold text-slate-400 mb-2">Mayorista USD</label>
+                    <input type="number" id="edit-precio-mayorista-usd" class="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" min="0" step="0.01">
+                </div>
+            </div>
+
+            <div class="flex gap-3 pt-2">
+                <button type="button" id="cancel-edit" class="flex-1 px-4 py-2 bg-slate-700 text-slate-100 text-sm font-semibold rounded-lg hover:bg-slate-600 transition">
+                    Cancelar
+                </button>
+                <button type="submit" class="flex-1 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-500 transition">
+                    Guardar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let html5QrcodeScanner = null;
+let isScanning = false;
+let ultimoCodigoEscaneado = null;
+let procesandoEscaneo = false;
+let productoActual = null;
+const dolarBlue = {{ dolar_blue|default:0 }};
+
+const scannerContainer = document.getElementById('scanner-container');
+const qrReader = document.getElementById('qr-reader');
+const statusText = document.getElementById('status-text');
+const statusDetail = document.getElementById('status-detail');
+const toggleBtn = document.getElementById('toggle-scanner');
+const stopBtn = document.getElementById('stop-scanner');
+const productInfo = document.getElementById('product-info');
+const editModal = document.getElementById('edit-modal');
+const editForm = document.getElementById('edit-form');
+
+// Función para buscar producto por código
+async function buscarProducto(codigo) {
+    if (procesandoEscaneo) return;
+    if (ultimoCodigoEscaneado === codigo) return;
+    
+    procesandoEscaneo = true;
+    ultimoCodigoEscaneado = codigo;
+    
+    try {
+        statusText.textContent = 'Buscando producto...';
+        statusDetail.textContent = `Código: ${codigo}`;
+        
+        const response = await fetch(`{% url "ventas:buscar_producto_codigo_api" %}?codigo=${encodeURIComponent(codigo)}&completo=true`);
+        const data = await response.json();
+        
+        if (data.result) {
+            productoActual = data.result;
+            mostrarProducto(data.result);
+            statusText.innerHTML = '<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Producto encontrado';
+            statusText.className = 'text-sm font-semibold text-emerald-400';
+            statusDetail.textContent = data.result.nombre;
+        } else {
+            throw new Error(data.error || 'Producto no encontrado');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        statusText.innerHTML = '<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg> Producto no encontrado';
+        statusText.className = 'text-sm font-semibold text-rose-400';
+        statusDetail.textContent = error.message || 'Verifica el código';
+        productInfo.classList.add('hidden');
+    } finally {
+        procesandoEscaneo = false;
+        setTimeout(() => {
+            ultimoCodigoEscaneado = null;
+        }, 3000);
+    }
+}
+
+// Función para mostrar información del producto
+function mostrarProducto(producto) {
+    document.getElementById('product-name').textContent = producto.nombre;
+    document.getElementById('product-sku').textContent = `SKU: ${producto.sku || 'N/A'}`;
+    document.getElementById('product-categoria').textContent = producto.categoria ? `Categoría: ${producto.categoria}` : '';
+    document.getElementById('product-stock').textContent = producto.stock_actual || 0;
+    document.getElementById('product-stock').className = `text-xl font-bold ${producto.stock_actual > 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+    
+    // Precios
+    const precioMinoristaARS = producto.precio_minorista_ars || producto.precio_minorista_ars_convertido;
+    document.getElementById('precio-minorista-ars').textContent = precioMinoristaARS ? `$${parseFloat(precioMinoristaARS).toLocaleString('es-AR', {minimumFractionDigits: 2})}` : 'N/A';
+    
+    const precioMayoristaARS = producto.precio_mayorista_ars || producto.precio_mayorista_ars_convertido;
+    document.getElementById('precio-mayorista-ars').textContent = precioMayoristaARS ? `$${parseFloat(precioMayoristaARS).toLocaleString('es-AR', {minimumFractionDigits: 2})}` : 'N/A';
+    
+    if (producto.precio_minorista_usd) {
+        document.getElementById('precio-minorista-usd-container').classList.remove('hidden');
+        document.getElementById('precio-minorista-usd').textContent = `US$${parseFloat(producto.precio_minorista_usd).toLocaleString('es-AR', {minimumFractionDigits: 2})}`;
+        if (producto.precio_minorista_ars_convertido) {
+            document.getElementById('precio-minorista-usd-ars').textContent = `≈ $${parseFloat(producto.precio_minorista_ars_convertido).toLocaleString('es-AR', {minimumFractionDigits: 2})} ARS`;
+        }
+    } else {
+        document.getElementById('precio-minorista-usd-container').classList.add('hidden');
+    }
+    
+    if (producto.precio_mayorista_usd) {
+        document.getElementById('precio-mayorista-usd-container').classList.remove('hidden');
+        document.getElementById('precio-mayorista-usd').textContent = `US$${parseFloat(producto.precio_mayorista_usd).toLocaleString('es-AR', {minimumFractionDigits: 2})}`;
+        if (producto.precio_mayorista_ars_convertido) {
+            document.getElementById('precio-mayorista-usd-ars').textContent = `≈ $${parseFloat(producto.precio_mayorista_ars_convertido).toLocaleString('es-AR', {minimumFractionDigits: 2})} ARS`;
+        }
+    } else {
+        document.getElementById('precio-mayorista-usd-container').classList.add('hidden');
+    }
+    
+    // Información adicional
+    document.getElementById('product-proveedor').textContent = producto.proveedor ? `Proveedor: ${producto.proveedor}` : '';
+    document.getElementById('product-codigo-barras').textContent = producto.codigo_barras ? `Código de barras: ${producto.codigo_barras}` : '';
+    
+    productInfo.classList.remove('hidden');
+}
+
+// Iniciar escáner
+async function startScanner() {
+    if (isScanning) return;
+    
+    try {
+        statusText.textContent = 'Iniciando cámara...';
+        statusDetail.textContent = 'Solicitando permisos';
+        
+        html5QrcodeScanner = new Html5Qrcode("qr-reader");
+        
+        await html5QrcodeScanner.start(
+            { facingMode: "environment" },
+            {
+                fps: 30, // Aumentar FPS para escaneo más rápido
+                qrbox: { width: 280, height: 280 }, // Área de escaneo más grande
+                aspectRatio: 1.0,
+                disableFlip: false, // Permitir rotación
+                videoConstraints: {
+                    facingMode: "environment",
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }
+            },
+            (decodedText, decodedResult) => {
+                // Escaneo exitoso - procesar inmediatamente
+                if (!procesandoEscaneo && ultimoCodigoEscaneado !== decodedText) {
+                    buscarProducto(decodedText);
+                }
+            },
+            (errorMessage) => {
+                // Ignorar errores de escaneo (solo log en desarrollo)
+                // console.debug('Escaneo:', errorMessage);
+            }
+        );
+        
+        isScanning = true;
+        toggleBtn.classList.add('hidden');
+        stopBtn.classList.remove('hidden');
+        statusText.textContent = 'Escaneando...';
+        statusText.className = 'text-sm font-semibold text-slate-300';
+        statusDetail.textContent = 'Apunta la cámara al código';
+    } catch (error) {
+        console.error('Error al iniciar escáner:', error);
+        statusText.innerHTML = '<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg> Error al iniciar cámara';
+        statusText.className = 'text-sm font-semibold text-rose-400';
+        statusDetail.textContent = 'Verifica los permisos de la cámara';
+        isScanning = false;
+    }
+}
+
+// Detener escáner
+async function stopScanner() {
+    if (!isScanning || !html5QrcodeScanner) return;
+    
+    try {
+        await html5QrcodeScanner.stop();
+        html5QrcodeScanner.clear();
+        html5QrcodeScanner = null;
+        isScanning = false;
+        procesandoEscaneo = false;
+        ultimoCodigoEscaneado = null;
+        
+        toggleBtn.classList.remove('hidden');
+        stopBtn.classList.add('hidden');
+        statusText.textContent = 'Escáner detenido';
+        statusDetail.textContent = 'Presiona "Iniciar escáner" para continuar';
+    } catch (error) {
+        console.error('Error al detener escáner:', error);
+        isScanning = false;
+        procesandoEscaneo = false;
+    }
+}
+
+// Abrir modal de edición rápida
+document.getElementById('edicion-rapida-btn').addEventListener('click', () => {
+    if (!productoActual) return;
+    
+    document.getElementById('edit-stock').value = productoActual.stock_actual || 0;
+    document.getElementById('edit-precio-minorista-ars').value = productoActual.precio_minorista_ars || '';
+    document.getElementById('edit-precio-mayorista-ars').value = productoActual.precio_mayorista_ars || '';
+    
+    if (productoActual.precio_minorista_usd) {
+        document.getElementById('edit-precio-minorista-usd-container').classList.remove('hidden');
+        document.getElementById('edit-precio-minorista-usd').value = productoActual.precio_minorista_usd || '';
+    } else {
+        document.getElementById('edit-precio-minorista-usd-container').classList.add('hidden');
+    }
+    
+    if (productoActual.precio_mayorista_usd) {
+        document.getElementById('edit-precio-mayorista-usd-container').classList.remove('hidden');
+        document.getElementById('edit-precio-mayorista-usd').value = productoActual.precio_mayorista_usd || '';
+    } else {
+        document.getElementById('edit-precio-mayorista-usd-container').classList.add('hidden');
+    }
+    
+    editModal.classList.add('show');
+});
+
+// Cerrar modal
+document.getElementById('close-edit-modal').addEventListener('click', () => {
+    editModal.classList.remove('show');
+});
+document.getElementById('cancel-edit').addEventListener('click', () => {
+    editModal.classList.remove('show');
+});
+
+// Guardar cambios
+editForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    if (!productoActual) return;
+    
+    const data = {
+        variante_id: productoActual.id,
+        stock_actual: parseInt(document.getElementById('edit-stock').value) || 0,
+        precio_minorista_ars: document.getElementById('edit-precio-minorista-ars').value || null,
+        precio_mayorista_ars: document.getElementById('edit-precio-mayorista-ars').value || null,
+        precio_minorista_ars_id: productoActual.precios_ids?.minorista_ars || null,
+        precio_mayorista_ars_id: productoActual.precios_ids?.mayorista_ars || null,
+    };
+    
+    if (productoActual.precio_minorista_usd) {
+        data.precio_minorista_usd = document.getElementById('edit-precio-minorista-usd').value || null;
+        data.precio_minorista_usd_id = productoActual.precios_ids?.minorista_usd || null;
+    }
+    
+    if (productoActual.precio_mayorista_usd) {
+        data.precio_mayorista_usd = document.getElementById('edit-precio-mayorista-usd').value || null;
+        data.precio_mayorista_usd_id = productoActual.precios_ids?.mayorista_usd || null;
+    }
+    
+    try {
+        const response = await fetch('{% url "ventas:actualizar_producto_rapido_api" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.status === 'ok') {
+            productoActual = result.producto;
+            mostrarProducto(result.producto);
+            editModal.classList.remove('show');
+            
+            // Mostrar notificación
+            statusText.innerHTML = '<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Producto actualizado';
+            statusText.className = 'text-sm font-semibold text-emerald-400';
+            statusDetail.textContent = result.mensaje;
+        } else {
+            throw new Error(result.error || 'Error al actualizar');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error al actualizar el producto: ' + error.message);
+    }
+});
+
+// Event listeners
+toggleBtn.addEventListener('click', startScanner);
+stopBtn.addEventListener('click', stopScanner);
+
+// Limpiar al salir
+window.addEventListener('beforeunload', () => {
+    if (html5QrcodeScanner) {
+        html5QrcodeScanner.stop().catch(() => {});
+    }
+});
+</script>
+{% endblock %}
+

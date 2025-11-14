@@ -1,12 +1,31 @@
 from django.contrib import admin
-from .models import Categoria, Proveedor, Producto, ProductoVariante, Precio
+from .models import (
+    Categoria,
+    DetalleIphone,
+    Precio,
+    Producto,
+    ProductoImagen,
+    ProductoVariante,
+    Proveedor,
+)
 
 
 @admin.register(Categoria)
 class CategoriaAdmin(admin.ModelAdmin):
-    list_display = ("nombre", "descripcion")
-    search_fields = ("nombre",)
-    ordering = ("nombre",)
+    list_display = ("nombre_completo_display", "parent", "descripcion", "garantia_dias")
+    list_filter = ("parent", "garantia_dias")
+    search_fields = ("nombre", "descripcion")
+    ordering = ("parent__nombre", "nombre")
+    list_select_related = ("parent",)
+    
+    def nombre_completo_display(self, obj):
+        """Muestra el nombre completo con jerarquía."""
+        nivel = obj.get_nivel()
+        indent = "  " * nivel
+        if obj.parent:
+            return f"{indent}└─ {obj.nombre}"
+        return obj.nombre
+    nombre_completo_display.short_description = "Categoría"
 
 
 @admin.register(Proveedor)
@@ -31,13 +50,42 @@ class VarianteInline(admin.TabularInline):
     classes = ["collapse"]
 
 
+class DetalleIphoneInline(admin.StackedInline):
+    model = DetalleIphone
+    extra = 0
+    classes = ["collapse"]
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "imei",
+                    ("salud_bateria", "es_plan_canje"),
+                    "costo_usd",
+                    ("precio_venta_usd", "precio_oferta_usd"),
+                    "notas",
+                    "foto",
+                )
+            },
+        ),
+    )
+
+
+class ProductoImagenInline(admin.TabularInline):
+    model = ProductoImagen
+    extra = 0
+    fields = ("imagen", "orden", "creado", "actualizado")
+    readonly_fields = ("creado", "actualizado")
+    classes = ["collapse"]
+
+
 @admin.register(Producto)
 class ProductoAdmin(admin.ModelAdmin):
     list_display = ("nombre", "categoria", "proveedor", "activo", "codigo_barras")
     list_filter = ("activo", "categoria", "proveedor")
     search_fields = ("nombre", "codigo_barras")
     list_editable = ("activo",)
-    inlines = [VarianteInline]
+    inlines = [ProductoImagenInline, VarianteInline]
     autocomplete_fields = ("categoria", "proveedor")
 
 
@@ -48,7 +96,7 @@ class ProductoVarianteAdmin(admin.ModelAdmin):
     search_fields = ("sku", "producto__nombre", "producto__codigo_barras")
     list_editable = ("stock_actual", "stock_minimo", "activo")
     autocomplete_fields = ("producto",)
-    inlines = [PrecioInline]
+    inlines = [DetalleIphoneInline, PrecioInline]
 
 
 @admin.register(Precio)

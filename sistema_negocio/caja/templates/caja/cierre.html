@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}Cierre de Caja{% endblock %}
+
+{% block content %}
+<div class="min-h-screen w-full pb-16">
+    <div class="mx-auto max-w-5xl px-6 py-12 space-y-8">
+        <header class="glass-card rounded-3xl px-6 py-8">
+            <p class="text-xs font-semibold uppercase tracking-[0.35em] text-muted">Gestión de caja</p>
+            <h1 class="mt-2 text-3xl font-semibold text-slate-100 sm:text-4xl">Cierre de Caja</h1>
+            <p class="mt-3 max-w-2xl text-sm text-muted">
+                Revisá el resumen de movimientos y realizá el conteo físico para cerrar la caja.
+            </p>
+        </header>
+
+        {% if error %}
+            <div class="glass-card rounded-3xl border border-red-500/40 px-6 py-5 text-sm text-red-200">
+                <p class="font-semibold">Error</p>
+                <p class="mt-1">{{ error }}</p>
+            </div>
+        {% elif caja %}
+            <!-- Resumen de la caja -->
+            <div class="glass-card rounded-3xl p-8 space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6 border-b border-slate-700">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-widest text-muted">Caja</p>
+                        <h2 class="mt-1 text-2xl font-semibold text-slate-100">{{ caja.local.nombre }}</h2>
+                        <p class="mt-1 text-sm text-muted">
+                            Abierta el {{ caja.fecha_apertura|date:"d/m/Y H:i" }} por {{ caja.usuario_apertura.get_full_name|default:caja.usuario_apertura.username }}
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="rounded-full px-4 py-2 text-xs font-semibold {% if caja.estado == 'ABIERTA' %}bg-green-500/20 text-green-400{% else %}bg-slate-500/20 text-slate-400{% endif %}">
+                            {{ caja.get_estado_display }}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Resumen financiero -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="glass-card rounded-2xl px-5 py-4">
+                        <p class="text-xs uppercase tracking-widest text-muted">Monto Inicial</p>
+                        <p class="mt-2 text-2xl font-semibold text-slate-100">${{ caja.monto_inicial_ars|floatformat:2|intcomma }}</p>
+                    </div>
+                    <div class="glass-card rounded-2xl px-5 py-4">
+                        <p class="text-xs uppercase tracking-widest text-muted">Total Ventas</p>
+                        <p class="mt-2 text-2xl font-semibold text-green-400">${{ total_ventas|floatformat:2|intcomma }}</p>
+                    </div>
+                    <div class="glass-card rounded-2xl px-5 py-4">
+                        <p class="text-xs uppercase tracking-widest text-muted">Total Esperado</p>
+                        <p class="mt-2 text-2xl font-semibold text-blue-400">${{ total_esperado|floatformat:2|intcomma }}</p>
+                    </div>
+                    {% if caja.monto_cierre_real_ars %}
+                        <div class="glass-card rounded-2xl px-5 py-4 {% if caja.diferencia_ars < 0 %}border border-red-500/40{% elif caja.diferencia_ars > 0 %}border border-amber-500/40{% endif %}">
+                            <p class="text-xs uppercase tracking-widest text-muted">Diferencia</p>
+                            <p class="mt-2 text-2xl font-semibold {% if caja.diferencia_ars < 0 %}text-red-400{% elif caja.diferencia_ars > 0 %}text-amber-400{% else %}text-slate-100{% endif %}">
+                                ${{ caja.diferencia_ars|floatformat:2|intcomma }}
+                            </p>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Desglose por método de pago -->
+                {% if desglose_pago %}
+                    <div class="glass-card rounded-2xl px-5 py-4">
+                        <p class="text-xs font-semibold uppercase tracking-widest text-muted mb-4">Desglose por método de pago</p>
+                        <div class="space-y-2">
+                            {% for metodo, monto in desglose_pago.items %}
+                                <div class="flex items-center justify-between text-sm">
+                                    <span class="text-slate-300">{{ metodo }}</span>
+                                    <span class="font-semibold text-slate-100">${{ monto|floatformat:2|intcomma }}</span>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+
+                <!-- Formulario de cierre -->
+                {% if caja.estado == 'ABIERTA' %}
+                    <form method="POST" class="glass-card rounded-2xl border border-slate-700 p-6 space-y-4" id="cierre-form">
+                        {% csrf_token %}
+                        <div>
+                            <label for="monto_cierre_real_ars" class="block text-sm font-semibold text-slate-100 mb-2">
+                                Conteo Físico (ARS) <span class="text-red-400">*</span>
+                            </label>
+                            <div class="relative">
+                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                                <input 
+                                    type="number" 
+                                    name="monto_cierre_real_ars" 
+                                    id="monto_cierre_real_ars" 
+                                    step="0.01" 
+                                    min="0" 
+                                    required
+                                    class="w-full rounded-2xl border border-slate-700 bg-slate-900/50 pl-8 pr-4 py-3 text-sm text-slate-100 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-500/50"
+                                    placeholder="0.00"
+                                />
+                            </div>
+                            <p class="mt-2 text-xs text-muted">
+                                Ingresá el monto real contado físicamente en la caja.
+                            </p>
+                            <p class="mt-1 text-xs text-blue-400">
+                                Total esperado: <strong>${{ total_esperado|floatformat:2|intcomma }}</strong>
+                            </p>
+                        </div>
+
+                        <div class="flex flex-col sm:flex-row gap-4 pt-4">
+                            <button 
+                                type="submit" 
+                                class="flex-1 rounded-2xl bg-gradient-to-r from-red-600 to-pink-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-red-600/30 hover:from-red-500 hover:to-pink-500 transition-all"
+                            >
+                                Cerrar Caja
+                            </button>
+                            <a 
+                                href="{% url 'dashboard:dashboard' %}" 
+                                class="flex-1 rounded-2xl border border-slate-700 bg-slate-900/50 px-6 py-3 text-center text-sm font-semibold text-slate-100 hover:bg-slate-800/50 transition-all"
+                            >
+                                Cancelar
+                            </a>
+                        </div>
+                    </form>
+                {% else %}
+                    <div class="glass-card rounded-2xl border border-slate-700 p-6">
+                        <p class="text-sm font-semibold text-slate-100 mb-2">Caja cerrada</p>
+                        <p class="text-xs text-muted">
+                            Esta caja fue cerrada el {{ caja.fecha_cierre|date:"d/m/Y H:i" }}.
+                        </p>
+                        {% if caja.monto_cierre_real_ars %}
+                            <p class="mt-2 text-sm text-slate-100">
+                                Conteo físico: <strong>${{ caja.monto_cierre_real_ars|floatformat:2|intcomma }}</strong>
+                            </p>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        {% else %}
+            <div class="glass-card rounded-3xl border border-amber-500/40 px-6 py-5 text-sm text-amber-200">
+                <p class="font-semibold">No hay cajas abiertas</p>
+                <p class="mt-1">No se encontraron cajas abiertas para cerrar. <a href="{% url 'caja:apertura' %}" class="underline">Abrir una nueva caja</a></p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+{% if caja and caja.estado == 'ABIERTA' %}
+document.getElementById('cierre-form')?.addEventListener('submit', function(e) {
+    const montoReal = parseFloat(document.getElementById('monto_cierre_real_ars').value);
+    const totalEsperado = {{ total_esperado }};
+    const diferencia = montoReal - totalEsperado;
+    
+    if (isNaN(montoReal) || montoReal < 0) {
+        e.preventDefault();
+        alert('El monto del conteo físico debe ser mayor o igual a 0');
+        return false;
+    }
+    
+    if (Math.abs(diferencia) > 100) {
+        const confirmar = confirm(
+            `La diferencia es de $${diferencia.toFixed(2)}. ¿Estás seguro de cerrar la caja con esta diferencia?`
+        );
+        if (!confirmar) {
+            e.preventDefault();
+            return false;
+        }
+    }
+});
+{% endif %}
+</script>
+{% endblock %}
+

@@ -1,7 +1,24 @@
 # crm/models.py
 
 from django.db import models
-from django.contrib.auth.models import User # Para vincular conversaciones a los asesores (empleados)
+from django.contrib.auth.models import User  # Para vincular conversaciones a los asesores (empleados)
+
+
+class Etiqueta(models.Model):
+    nombre = models.CharField(max_length=50, unique=True)
+    color = models.CharField(
+        max_length=7,
+        default="#6366f1",
+        help_text="Color HEX utilizado para renderizar la etiqueta",
+    )
+
+    class Meta:
+        ordering = ["nombre"]
+        verbose_name = "Etiqueta"
+        verbose_name_plural = "Etiquetas"
+
+    def __str__(self):
+        return self.nombre
 
 # Modelo para los Clientes
 class Cliente(models.Model):
@@ -45,6 +62,14 @@ class Conversacion(models.Model):
         ('Abierta', 'Abierta'),
         ('Cerrada', 'Cerrada'),
         ('Pendiente', 'Pendiente'),
+        ('En seguimiento', 'En seguimiento'),
+    ]
+
+    PRIORIDAD_CHOICES = [
+        ('low', 'Baja'),
+        ('medium', 'Media'),
+        ('high', 'Alta'),
+        ('urgent', 'Urgente'),
     ]
 
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name="conversaciones")
@@ -58,6 +83,18 @@ class Conversacion(models.Model):
     fuente = models.CharField(max_length=20, choices=FUENTE_CHOICES)
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='Abierta')
     resumen = models.TextField(blank=True, help_text="Resumen de la conversación generado por la IA.")
+    prioridad = models.CharField(max_length=10, choices=PRIORIDAD_CHOICES, default='medium')
+    sla_vencimiento = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text="Fecha estimada para volver a contactar al cliente",
+    )
+    etiquetas = models.ManyToManyField(
+        Etiqueta,
+        blank=True,
+        related_name="conversaciones",
+        help_text="Etiquetas utilizadas para segmentar la conversación",
+    )
     fecha_inicio = models.DateTimeField(auto_now_add=True)
     ultima_actualizacion = models.DateTimeField(auto_now=True)
 
@@ -85,6 +122,7 @@ class Mensaje(models.Model):
     # --- FIN DEL NUEVO CAMPO --
     fecha_envio = models.DateTimeField(auto_now_add=True)
     enviado_por_ia = models.BooleanField(default=False, help_text="Marca si este mensaje fue enviado automáticamente por la IA.")
+    metadata = models.JSONField(blank=True, null=True, help_text="Datos extra como IDs de mensaje o status de envío")
     
     def __str__(self):
         # Trunca el mensaje para una vista previa corta

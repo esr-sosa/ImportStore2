@@ -1,184 +1,2556 @@
 {% extends "base.html" %}
 
-{% block title %}Punto de Venta{% endblock %}
+{% block title %}POS · ImportStore · Terminal de ventas inteligente{% endblock %}
+
+{% block extra_head %}
+<style>
+    main { background: linear-gradient(135deg, #f1f5f9 0%, #e0e7ff 100%); }
+    .glass-panel { backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); background: rgba(255, 255, 255, 0.78); }
+    @media (max-width: 1024px) {
+        #pos-layout { grid-template-columns: minmax(0, 1fr); }
+    }
+    @media (max-width: 640px) {
+        #pos-layout { gap: 1rem; }
+        .glass-panel { padding: 1rem !important; }
+    }
+    /* Modal de confirmación */
+    #sale-success-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+        align-items: center;
+        justify-content: center;
+        animation: fadeIn 0.2s ease-out;
+    }
+    #sale-success-modal.show {
+        display: flex;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @keyframes slideUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    .modal-content {
+        background: white;
+        border-radius: 24px;
+        padding: 2.5rem;
+        max-width: 480px;
+        width: 90%;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        animation: slideUp 0.3s ease-out;
+    }
+    .modal-content * {
+        color: #1e293b !important;
+    }
+    .modal-content h3 {
+        color: #0f172a !important;
+        font-size: 1.75rem;
+        margin-bottom: 0.5rem;
+    }
+    .modal-content .text-green-600 {
+        color: #16a34a !important;
+    }
+    .modal-content .text-slate-600 {
+        color: #475569 !important;
+    }
+    .modal-content .text-slate-900 {
+        color: #0f172a !important;
+    }
+    .modal-content .text-slate-700 {
+        color: #334155 !important;
+    }
+    .modal-content .modal-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+    }
+    @media (min-width: 640px) {
+        .modal-content .modal-buttons {
+            flex-direction: row;
+        }
+    }
+    .modal-content .modal-buttons a,
+    .modal-content .modal-buttons button {
+        flex: 1;
+        padding: 0.875rem 1.5rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        border-radius: 0.75rem;
+        transition: all 0.2s;
+    }
+    /* Estilo iOS para el modal */
+    .modal-content {
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+    }
+    .modal-content h3 {
+        font-weight: 700;
+        letter-spacing: -0.5px;
+    }
+    .modal-content .modal-buttons a:first-child {
+        background: linear-gradient(135deg, #007AFF 0%, #0051D5 100%);
+        box-shadow: 0 4px 14px rgba(0, 122, 255, 0.3);
+    }
+    /* Custom scrollbar para modal de productos varios */
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(99, 102, 241, 0.4);
+        border-radius: 10px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(99, 102, 241, 0.6);
+    }
+    /* Animaciones para el modal */
+    @keyframes fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @keyframes zoom-in {
+        from { transform: scale(0.95); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+    }
+    .animate-in {
+        animation: fade-in 0.3s ease-out, zoom-in 0.3s ease-out;
+    }
+    .modal-content .modal-buttons a:first-child:hover {
+        background: linear-gradient(135deg, #0051D5 0%, #003D9E 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(0, 122, 255, 0.4);
+    }
+    /* Modal escáner rápido */
+    #quick-scan-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 950;
+        background: rgba(15, 23, 42, 0.45);
+        backdrop-filter: blur(8px);
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+    }
+    #quick-scan-modal.show {
+        display: flex;
+    }
+    .quick-scan-container {
+        width: 100%;
+        max-width: 520px;
+        background: rgba(15, 23, 42, 0.92);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 28px;
+        padding: 1.25rem;
+        color: #e2e8f0;
+        box-shadow: 0 24px 64px rgba(15, 23, 42, 0.4);
+    }
+    #quick-scan-reader {
+        position: relative;
+        border-radius: 22px;
+        overflow: hidden;
+        border: 2px solid rgba(148, 163, 184, 0.35);
+    }
+    #quick-scan-status {
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+</style>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+{% endblock %}
 
 {% block content %}
-<div class="flex h-full bg-gray-100">
-    <div class="w-3/5 p-6 flex flex-col h-full">
-        <h1 class="text-3xl font-bold text-gray-800 mb-6 flex-shrink-0">Punto de Venta</h1>
-        
-        <div class="relative mb-4 flex-shrink-0">
-            <input type="text" id="search-bar" placeholder="Buscar producto por nombre o escanear código..." class="w-full p-4 border rounded-lg focus:ring-2 focus:ring-blue-500">
-            <div id="search-results" class="absolute z-10 w-full bg-white border rounded-lg mt-1 shadow-lg hidden"></div>
+<div class="min-h-screen w-full px-2 sm:px-4 py-4 sm:py-8 lg:px-10">
+    <header class="mb-4 sm:mb-8 flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+            <p class="text-xs font-semibold uppercase tracking-wider text-indigo-500">POS · ImportStore</p>
+            <h1 class="text-xl sm:text-3xl font-bold text-slate-900 lg:text-4xl">Terminal de ventas inteligente</h1>
+            <p class="mt-1 sm:mt-2 max-w-3xl text-xs sm:text-sm text-slate-600">Construí carritos con variantes, aplicá descuentos en tiempo real, registrá pagos mixtos y emití comprobantes profesionales en un flujo táctil optimizado.</p>
         </div>
+        <div class="flex flex-col sm:flex-row sm:items-end gap-2 sm:gap-3">
+            <div id="pos-remoto-status" class="flex items-center gap-2 rounded-full border-2 border-rose-500/40 bg-rose-500/20 px-3 py-1.5 text-xs font-semibold text-rose-300 shadow-sm">
+                <span class="h-2 w-2 rounded-full bg-rose-400 animate-pulse"></span>
+                <span class="hidden sm:inline">POS remoto desconectado</span>
+                <span class="sm:hidden">Remoto desconectado</span>
+            </div>
+            <div id="dolar-indicator" class="hidden rounded-full border-2 border-green-500 bg-green-50 px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-semibold text-green-700 shadow-sm">
+                <span class="font-bold">Dólar Blue:</span> <span id="dolar-value" data-value="{{ dolar_blue|default:"0" }}">${{ dolar_blue|default:"0"|floatformat:2 }}</span>
+            </div>
+            <div class="flex flex-wrap gap-2 sm:gap-3 text-xs font-semibold">
+                <a href="{% url 'ventas:pos_remoto' %}" target="_blank" class="rounded-full border-2 border-blue-600/40 bg-blue-600/20 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-blue-600 hover:bg-blue-600/30 transition shadow-sm flex items-center gap-1.5 sm:gap-2">
+                    <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                    </svg>
+                    <span class="hidden sm:inline">POS Remoto</span>
+                    <span class="sm:hidden">Remoto</span>
+                </a>
+                <button id="load-last" class="rounded-full border border-slate-200 bg-white/70 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-slate-600 hover:text-slate-900">Última venta</button>
+                <button id="export-cart" class="rounded-full bg-slate-900 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-white shadow-lg shadow-slate-900/20 hover:bg-slate-800 disabled:bg-slate-400" disabled>Comprobante</button>
+            </div>
+        </div>
+    </header>
 
-        <div class="bg-white rounded-lg shadow-md flex-grow overflow-y-auto">
-            <table class="w-full">
-                <thead class="bg-gray-50 sticky top-0">
-                    <tr>
-                        <th class="p-3 text-left text-sm font-semibold text-gray-600">Producto</th>
-                        <th class="p-3 text-center text-sm font-semibold text-gray-600 w-32">Cantidad</th>
-                        <th class="p-3 text-right text-sm font-semibold text-gray-600 w-32">Precio Unit.</th>
-                        <th class="p-3 text-right text-sm font-semibold text-gray-600 w-32">Subtotal</th>
-                        <th class="p-3 w-12"></th>
-                    </tr>
-                </thead>
-                <tbody id="cart-items">
-                    <tr id="empty-cart-row" class="text-center">
-                        <td colspan="5" class="p-8 text-gray-400">El carrito está vacío</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+    <div id="pos-layout" class="grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <!-- Lado izquierdo: buscador y carrito -->
+        <section class="glass-panel rounded-2xl sm:rounded-3xl border border-white/60 p-3 sm:p-6 shadow-xl">
+            <div class="rounded-2xl sm:rounded-3xl border border-slate-200/70 bg-white/90 p-3 sm:p-5 shadow-sm">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                    <label for="product-search" class="text-xs font-semibold uppercase tracking-wide text-slate-500">Buscar producto</label>
+                    <button id="add-custom-product" class="text-xs font-semibold text-white px-3 sm:px-4 py-1.5 rounded-xl bg-gradient-to-r from-indigo-500 via-blue-500 to-sky-500 shadow-md shadow-indigo-500/20 hover:from-indigo-600 hover:via-blue-600 hover:to-sky-600 transition focus:outline-none focus:ring-2 focus:ring-indigo-400/50">
+                        + Producto varios
+                    </button>
+                    <button id="open-quick-scan" class="flex items-center gap-1 rounded-xl border border-indigo-200 bg-white/90 px-3 sm:px-4 py-1.5 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-300/60">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 17h.01M17 7h.01M17 17h.01M5 3h4a2 2 0 012 2v0a2 2 0 002 2h0a2 2 0 002-2v0a2 2 0 012-2h4M5 21h4a2 2 0 002-2v0a2 2 0 002-2h0a2 2 0 002 2v0a2 2 0 012 2h4" />
+                        </svg>
+                        Escanear
+                    </button>
+                </div>
+                <div class="relative mt-2 sm:mt-3">
+                    <div class="flex items-center rounded-2xl border border-slate-300 bg-white/95 px-3 sm:px-4 focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-400/30 shadow-sm">
+                        <svg class="h-4 w-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M18 10.5a7.5 7.5 0 11-15 0 7.5 7.5 0 0115 0z" />
+                        </svg>
+                        <input id="product-search" type="search" placeholder="Buscá por nombre, SKU o atributo" class="flex-1 bg-transparent px-2 sm:px-3 py-2 sm:py-3 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none">
+                        <button type="button" id="clear-search" class="hidden text-[11px] font-semibold text-indigo-500 hover:text-indigo-600">Limpiar</button>
+                    </div>
+                    <div id="search-dropdown" class="absolute left-0 top-14 z-30 hidden max-h-60 w-full overflow-y-auto rounded-2xl border border-slate-200 bg-white/98 shadow-2xl ring-1 ring-indigo-100">
+                        <div class="p-3 text-xs text-slate-400">Comienza a escribir para buscar productos…</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 sm:mt-6 overflow-hidden rounded-2xl sm:rounded-3xl border border-white/60 shadow-inner">
+                <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-200/70 text-xs sm:text-sm">
+                    <thead class="bg-slate-100 text-xs font-semibold uppercase tracking-wide text-slate-800">
+                        <tr>
+                            <th class="px-2 sm:px-4 py-2 sm:py-3 text-left">Producto</th>
+                            <th class="px-2 sm:px-4 py-2 sm:py-3 text-center">Cant.</th>
+                            <th class="px-2 sm:px-4 py-2 sm:py-3 text-center hidden lg:table-cell">Stock</th>
+                            <th class="px-2 sm:px-4 py-2 sm:py-3 text-right hidden sm:table-cell">Precio</th>
+                            <th class="px-2 sm:px-4 py-2 sm:py-3 text-right hidden md:table-cell">Desc.</th>
+                            <th class="px-2 sm:px-4 py-2 sm:py-3 text-right">Total</th>
+                            <th class="px-2 sm:px-4 py-2 sm:py-3"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="cart-body" class="divide-y divide-slate-200/70 bg-white/80">
+                        <tr id="empty-cart" class="text-center text-xs sm:text-sm text-slate-400">
+                            <td colspan="7" class="px-2 sm:px-4 py-8 sm:py-12">Buscá un producto para iniciar la venta.</td>
+                        </tr>
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Lado derecho: resumen -->
+        <aside class="glass-panel flex h-full flex-col gap-4 sm:gap-6 rounded-2xl sm:rounded-3xl border border-white/60 p-3 sm:p-6 shadow-xl">
+            <section class="rounded-2xl sm:rounded-3xl border border-slate-200/60 bg-white/90 p-3 sm:p-5 shadow-sm">
+                <h2 class="text-sm sm:text-base font-semibold text-slate-900">Resumen</h2>
+                <dl class="mt-3 sm:mt-4 space-y-2 sm:space-y-3 text-xs sm:text-sm text-slate-700 font-medium">
+                    <div class="flex items-center justify-between">
+                        <dt>Subtotal</dt>
+                        <dd id="summary-subtotal" class="font-semibold text-slate-900">$0.00</dd>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <dt>Descuentos en ítems</dt>
+                        <dd id="summary-item-discount" class="font-semibold text-emerald-600">-$0.00</dd>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <dt>Descuento general</dt>
+                        <dd id="summary-global-discount" class="font-semibold text-emerald-600">-$0.00</dd>
+                    </div>
+                    <div id="summary-descuento-metodo-row" class="flex items-center justify-between hidden">
+                        <dt>Descuento método de pago</dt>
+                        <dd id="summary-descuento-metodo" class="font-semibold text-emerald-600">-$0.00</dd>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <dt>Impuestos</dt>
+                        <dd id="summary-tax" class="font-semibold text-slate-900">$0.00</dd>
+                    </div>
+                </dl>
+                <div class="mt-4 sm:mt-5 rounded-xl sm:rounded-2xl border border-slate-200 bg-slate-900 p-3 sm:p-5 text-white shadow-lg">
+                    <div class="flex items-center justify-between text-xs sm:text-sm uppercase tracking-wide text-slate-300">
+                        <span>Total a cobrar</span>
+                        <span id="summary-items" class="font-semibold">0 ítems</span>
+                    </div>
+                    <p id="summary-total" class="mt-2 text-2xl sm:text-3xl font-bold">$0.00</p>
+                </div>
+            </section>
+
+            <section class="rounded-2xl sm:rounded-3xl border border-slate-200/60 bg-white/95 p-3 sm:p-5 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-[11px] font-semibold uppercase tracking-[0.35em] text-indigo-400 mb-1">Productos personalizados</p>
+                        <h3 class="text-sm sm:text-base font-semibold text-slate-900">Agregar productos varios</h3>
+                        <p class="mt-1 text-xs text-slate-500 max-w-md">Cargá múltiples ítems personalizados de forma rápida. Definí el nombre, precio y cantidad de cada uno. Todos se agregarán al carrito automáticamente.</p>
+                    </div>
+                    <button type="button" id="toggle-custom-products" class="rounded-full border border-slate-200/70 bg-white px-3 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-100">Ocultar</button>
+                </div>
+                <div id="custom-products-container" class="mt-4 space-y-3">
+                    <div class="grid grid-cols-12 gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-sm">
+                        <div class="col-span-12 sm:col-span-6">
+                            <label class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Nombre del producto</label>
+                            <input type="text" name="custom-name" placeholder="Ej: Servicio técnico premium" class="mt-1 w-full rounded-xl border border-slate-200/80 bg-slate-50 px-3 py-2 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-300/40">
+                        </div>
+                        <div class="col-span-6 sm:col-span-3">
+                            <label class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Precio</label>
+                            <div class="mt-1 flex items-center rounded-xl border border-slate-200/80 bg-slate-50 focus-within:border-indigo-300 focus-within:ring-2 focus-within:ring-indigo-300/40">
+                                <span class="px-2 text-xs text-slate-500">$</span>
+                                <input type="number" name="custom-price" placeholder="0.00" class="w-full rounded-r-xl bg-transparent px-2 py-2 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none" step="0.01" min="0">
+                            </div>
+                        </div>
+                        <div class="col-span-6 sm:col-span-2">
+                            <label class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Cantidad</label>
+                            <input type="number" name="custom-quantity" placeholder="1" class="mt-1 w-full rounded-xl border border-slate-200/80 bg-slate-50 px-3 py-2 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-300/40" min="1">
+                        </div>
+                        <div class="col-span-12 sm:col-span-1 flex items-end">
+                            <button type="button" class="w-full rounded-xl bg-indigo-500 px-3 py-2 text-xs sm:text-sm font-semibold text-white shadow hover:bg-indigo-600">Agregar</button>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" id="add-custom-row" class="mt-4 inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-100">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Agregar otro producto personalizado
+                </button>
+            </section>
+
+            <section class="rounded-2xl sm:rounded-3xl border border-slate-200/60 bg-white/90 p-3 sm:p-5 shadow-sm">
+                <h3 class="text-xs sm:text-sm font-semibold text-slate-900">Ajustes</h3>
+                <div class="mt-3 sm:mt-4 space-y-3 sm:space-y-4 text-xs sm:text-sm">
+                    <div>
+                        <label for="sale-status" class="block font-semibold text-slate-800">Estado de la venta</label>
+                        <select id="sale-status" class="mt-2 w-full rounded-lg sm:rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm">
+                            <option value="COMPLETADO">Completado</option>
+                            <option value="PENDIENTE_PAGO">Pendiente de pago</option>
+                            <option value="PENDIENTE_ENVIO">Pendiente de envío</option>
+                            <option value="CANCELADO">Cancelado</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="flex items-center justify-between font-semibold text-slate-800">
+                            Descuento general
+                            <select id="global-discount-type" class="rounded-lg sm:rounded-xl border border-slate-200 bg-white px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm">
+                                <option value="monto">Monto</option>
+                                <option value="porcentaje">Porcentaje</option>
+                            </select>
+                        </label>
+                        <input id="global-discount-value" type="number" min="0" step="0.01" class="mt-2 w-full rounded-lg sm:rounded-xl border border-slate-200 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm" placeholder="0">
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <label class="flex items-center gap-2 text-slate-800 font-semibold"><input type="checkbox" id="toggle-tax" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500">Aplicar IVA</label>
+                        <input id="tax-rate" type="number" value="21" min="0" step="0.1" class="w-16 sm:w-20 rounded-lg sm:rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-right" disabled>
+                    </div>
+                    <div>
+                        <label class="flex items-center gap-2 text-slate-800 mb-2">
+                            <input type="checkbox" id="pago-mixto-toggle" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500">
+                            <span class="font-semibold">Pago mixto</span>
+                        </label>
+                        <div id="pago-simple" class="space-y-2">
+                            <label for="payment-method" class="block text-xs text-slate-500">Método de pago</label>
+                            <select id="payment-method" class="w-full rounded-lg sm:rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm">
+                                <option value="EFECTIVO_ARS">Efectivo (ARS)</option>
+                                <option value="EFECTIVO_USD">Efectivo (USD)</option>
+                                <option value="TRANSFERENCIA">Transferencia</option>
+                                <option value="TARJETA">Tarjeta</option>
+                            </select>
+                            <div class="mt-2 space-y-2">
+                                <label class="flex items-center gap-2 text-xs text-slate-800 font-medium">
+                                    <input type="checkbox" id="descuento-metodo-pago-toggle" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500">
+                                    <span>Descuento por método de pago</span>
+                                </label>
+                                <div id="descuento-metodo-pago-container" class="hidden flex items-center gap-2">
+                                    <input type="number" id="descuento-metodo-pago-porcentaje" min="0" max="100" step="0.01" value="15" class="flex-1 rounded-lg sm:rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm" placeholder="15">
+                                    <span class="text-xs text-slate-500 whitespace-nowrap">%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="pago-mixto" class="hidden space-y-3 mt-3">
+                            <div>
+                                <label for="payment-method-1" class="block text-xs font-semibold text-slate-600 mb-1">Medio de pago 1</label>
+                                <select id="payment-method-1" class="w-full rounded-lg sm:rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm">
+                                    <option value="EFECTIVO_ARS">Efectivo (ARS)</option>
+                                    <option value="EFECTIVO_USD">Efectivo (USD)</option>
+                                    <option value="TRANSFERENCIA">Transferencia</option>
+                                    <option value="TARJETA">Tarjeta</option>
+                                </select>
+                                <div class="mt-2 space-y-2">
+                                    <label class="flex items-center gap-2 text-xs text-slate-600">
+                                        <input type="checkbox" id="descuento-metodo-pago-1-toggle" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500">
+                                        <span>Descuento por método de pago 1</span>
+                                    </label>
+                                    <div id="descuento-metodo-pago-1-container" class="hidden flex items-center gap-2">
+                                        <input type="number" id="descuento-metodo-pago-1-porcentaje" min="0" max="100" step="0.01" value="15" class="w-full rounded-lg sm:rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm" placeholder="15">
+                                        <span class="text-xs text-slate-500">%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="monto-pago-1" class="block text-xs font-semibold text-slate-600 mb-1">Monto pago 1</label>
+                                <input type="number" id="monto-pago-1" min="0" step="0.01" class="w-full rounded-lg sm:rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm" placeholder="0.00">
+                            </div>
+                            <div>
+                                <label for="payment-method-2" class="block text-xs font-semibold text-slate-600 mb-1">Medio de pago 2 (restante)</label>
+                                <select id="payment-method-2" class="w-full rounded-lg sm:rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm">
+                                    <option value="EFECTIVO_ARS">Efectivo (ARS)</option>
+                                    <option value="EFECTIVO_USD">Efectivo (USD)</option>
+                                    <option value="TRANSFERENCIA">Transferencia</option>
+                                    <option value="TARJETA">Tarjeta</option>
+                                </select>
+                                <div class="mt-2 space-y-2">
+                                    <label class="flex items-center gap-2 text-xs text-slate-600">
+                                        <input type="checkbox" id="descuento-metodo-pago-2-toggle" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500">
+                                        <span>Descuento por método de pago 2</span>
+                                    </label>
+                                    <div id="descuento-metodo-pago-2-container" class="hidden flex items-center gap-2">
+                                        <input type="number" id="descuento-metodo-pago-2-porcentaje" min="0" max="100" step="0.01" value="15" class="w-full rounded-lg sm:rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm" placeholder="15">
+                                        <span class="text-xs text-slate-500">%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="monto-pago-2" class="block text-xs font-semibold text-slate-600 mb-1">Monto pago 2 (calculado automáticamente)</label>
+                                <input type="text" id="monto-pago-2" readonly class="w-full rounded-lg sm:rounded-xl border border-slate-200 bg-slate-100 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-slate-900" placeholder="0.00">
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="sale-note" class="block font-semibold text-slate-800">Nota interna</label>
+                        <textarea id="sale-note" rows="3" class="mt-2 w-full rounded-lg sm:rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm" placeholder="Observaciones, referencia de pedido o link de pago"></textarea>
+                    </div>
+                    <div>
+                        <label for="customer-search" class="block font-semibold text-slate-800">Cliente (opcional)</label>
+                        <div class="relative mt-2">
+                            <input id="customer-search" type="text" class="w-full rounded-lg sm:rounded-xl border-2 border-indigo-200 bg-white px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-slate-900 placeholder-slate-500 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/40 focus:outline-none" placeholder="Buscar cliente o dejar en blanco (consumidor final)">
+                            <div id="customer-dropdown" class="absolute left-0 top-full z-20 mt-1 hidden max-h-48 w-full overflow-y-auto rounded-xl border-2 border-slate-300 bg-white shadow-2xl"></div>
+                        </div>
+                        <input type="hidden" id="customer-id" value="">
+                        <input id="customer-name" type="hidden" value="">
+                        <input id="customer-document" type="hidden" value="">
+                        <div id="selected-customer" class="mt-2 hidden rounded-xl border-2 border-emerald-300 bg-emerald-50 px-3 py-2 text-sm">
+                            <div class="flex items-center justify-between">
+                                <span class="font-semibold text-emerald-900"></span>
+                                <button type="button" id="clear-customer" class="text-xs font-semibold text-slate-600 hover:text-rose-600 underline">Quitar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <button id="complete-sale" class="rounded-2xl sm:rounded-3xl bg-slate-900 py-3 sm:py-4 text-sm sm:text-lg font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:bg-slate-800 disabled:bg-slate-400 disabled:shadow-none">Registrar venta</button>
+            <a id="last-sale-link" href="#" class="hidden text-center text-xs font-semibold text-indigo-600 hover:text-indigo-500">Ver último comprobante</a>
+        </aside>
     </div>
 
-    <div class="w-2/5 bg-white p-6 flex flex-col justify-between shadow-lg border-l">
-        <div>
-            <h2 class="text-2xl font-bold text-gray-800 border-b pb-4 mb-4">Resumen de la Venta</h2>
-            <div class="space-y-3 text-gray-700">
-                <div class="flex justify-between">
-                    <span>Subtotal</span>
-                    <span id="subtotal" class="font-medium">$0.00</span>
+    <template id="cart-row-template">
+        <tr class="item-row">
+            <td class="px-2 sm:px-4 py-3 sm:py-4">
+                <p class="font-semibold text-slate-900 text-xs sm:text-sm"></p>
+                <p class="text-[10px] sm:text-xs text-slate-500"></p>
+                <p class="text-[10px] text-slate-400 sm:hidden mt-1"><span class="unit-price-mobile">$0.00</span></p>
+            </td>
+            <td class="px-2 sm:px-4 py-3 sm:py-4 text-center">
+                <input type="number" min="1" class="quantity-input w-16 sm:w-20 rounded-lg sm:rounded-xl border border-slate-300 px-1 sm:px-2 py-1 text-xs sm:text-sm text-center font-semibold text-slate-900" value="1">
+            </td>
+            <td class="cart-stock px-2 sm:px-4 py-3 sm:py-4 text-center font-semibold text-slate-800 hidden lg:table-cell text-xs sm:text-sm">0</td>
+            <td class="px-2 sm:px-4 py-3 sm:py-4 text-right font-semibold text-slate-900 hidden sm:table-cell"><span class="unit-price">$0.00</span></td>
+            <td class="px-2 sm:px-4 py-3 sm:py-4 text-right hidden md:table-cell"><button class="discount-btn text-[10px] sm:text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-full border border-slate-300 px-2 sm:px-3 py-1 transition">Configurar</button></td>
+            <td class="px-2 sm:px-4 py-3 sm:py-4 text-right font-semibold text-slate-900"><span class="line-total text-xs sm:text-sm">$0.00</span></td>
+            <td class="px-2 sm:px-4 py-3 sm:py-4 text-right"><button class="remove-btn text-rose-700 font-semibold hover:text-rose-600 text-[10px] sm:text-xs rounded-full border border-rose-300 bg-rose-50 px-2 sm:px-3 py-1 hover:bg-rose-100 transition">Eliminar</button></td>
+        </tr>
+    </template>
+
+    <template id="discount-modal-template">
+        <div class="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/60 px-4">
+            <div class="w-full max-w-sm rounded-3xl border border-white/60 bg-white p-6 shadow-2xl">
+                <h3 class="text-base font-semibold text-slate-900">Descuento en producto</h3>
+                <p class="mt-1 text-xs text-slate-500">Aplica a esta línea únicamente</p>
+                <div class="mt-4 space-y-3 text-sm">
+                    <select class="discount-type w-full rounded-xl border border-slate-200 px-3 py-2 text-sm">
+                        <option value="monto">Monto</option>
+                        <option value="porcentaje">Porcentaje</option>
+                    </select>
+                    <input type="number" min="0" step="0.01" class="discount-value w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="0">
                 </div>
-                <div class="flex justify-between">
-                    <span>Descuentos</span>
-                    <span id="descuentos" class="font-medium text-green-500">-$0.00</span>
-                </div>
-            </div>
-            <div class="border-t mt-4 pt-4">
-                <div class="flex justify-between font-bold text-xl text-gray-900">
-                    <span>TOTAL</span>
-                    <span id="total">$0.00</span>
+                <div class="mt-6 flex justify-end gap-3 text-sm font-semibold">
+                    <button class="cancel-btn rounded-full border border-slate-200 px-4 py-2 text-slate-500">Cancelar</button>
+                    <button class="apply-btn rounded-full bg-slate-900 px-4 py-2 text-white">Aplicar</button>
                 </div>
             </div>
         </div>
-        <div class="mt-6">
-            <button class="w-full bg-blue-600 text-white font-bold py-4 rounded-lg hover:bg-blue-700 transition-colors text-lg">
-                PROCEDER AL PAGO
+    </template>
+
+    <!-- Modal para productos varios -->
+    <div id="custom-product-modal" class="fixed inset-0 z-40 hidden flex items-center justify-center bg-slate-900/80 backdrop-blur-sm px-4 py-8">
+        <div class="w-full max-w-2xl rounded-3xl border border-white/20 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8 shadow-2xl ring-1 ring-white/10 animate-in fade-in zoom-in duration-300">
+            <!-- Header con icono y animación -->
+            <div class="flex items-start gap-4 mb-6">
+                <div class="flex-shrink-0 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 p-3 ring-1 ring-indigo-500/30">
+                    <svg class="h-6 w-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <p class="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-400 mb-1">Productos personalizados</p>
+                    <h3 class="text-2xl font-bold text-slate-100 mb-2">Agregar productos varios</h3>
+                    <p class="text-sm text-slate-300 leading-relaxed">
+                        Cargá múltiples ítems personalizados de forma rápida. Definí el nombre, precio y cantidad de cada uno. 
+                        <span class="text-indigo-400 font-semibold">Todos se agregarán al carrito automáticamente.</span>
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Contenedor de filas -->
+            <div id="custom-product-rows" class="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar"></div>
+            
+            <!-- Botón agregar fila -->
+            <button type="button" id="custom-product-add-row" class="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-3 text-sm font-semibold text-indigo-300 hover:bg-indigo-500/20 hover:border-indigo-400/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Añadir otra línea
+            </button>
+            
+            <!-- Botones de acción -->
+            <div class="mt-6 flex justify-end gap-3 pt-6 border-t border-white/10">
+                <button id="cancel-custom-product" class="rounded-xl border border-slate-600/50 bg-slate-800/50 px-6 py-2.5 text-sm font-semibold text-slate-300 hover:bg-slate-700/50 hover:border-slate-500/50 transition-all duration-200">Cancelar</button>
+                <button id="custom-product-save" class="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 hover:from-indigo-500 hover:to-purple-500 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">
+                    Agregar al carrito
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal escáner rápido -->
+<div id="quick-scan-modal">
+    <div class="quick-scan-container space-y-4">
+        <div class="flex items-start justify-between">
+            <div>
+                <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Modo escáner</p>
+                <h2 class="mt-1 text-lg font-semibold text-slate-100">Escaneá productos en segundos</h2>
+            </div>
+            <button id="close-quick-scan" class="rounded-full border border-slate-500/40 bg-slate-800/60 p-2 text-slate-300 hover:bg-slate-700 transition focus:outline-none focus:ring-2 focus:ring-indigo-400/60">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div id="quick-scan-reader" class="aspect-square w-full bg-slate-900/70"></div>
+        <div class="rounded-2xl border border-slate-500/40 bg-slate-900/70 px-3 py-2">
+            <p id="quick-scan-status" class="text-slate-300">Apuntá la cámara al código de barras o QR.</p>
+        </div>
+        <div class="flex items-center justify-between gap-3 text-xs">
+            <span class="text-slate-400">Los artículos escaneados se agregan automáticamente al carrito.</span>
+            <button id="toggle-quick-scan" class="rounded-xl bg-indigo-500 px-3 py-1.5 font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-300/60">
+                Detener escáner
             </button>
         </div>
     </div>
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const searchBar = document.getElementById('search-bar');
-        const searchResultsContainer = document.getElementById('search-results');
-        const cartItemsContainer = document.getElementById('cart-items');
-        const emptyCartRow = document.getElementById('empty-cart-row');
-        const subtotalEl = document.getElementById('subtotal');
-        const totalEl = document.getElementById('total');
+    const searchInput = document.getElementById('product-search');
+    const searchDropdown = document.getElementById('search-dropdown');
+    const cartBody = document.getElementById('cart-body');
+    const emptyCart = document.getElementById('empty-cart');
+    const cartRowTemplate = document.getElementById('cart-row-template');
+    const discountModalTemplate = document.getElementById('discount-modal-template');
+    const summarySubtotal = document.getElementById('summary-subtotal');
+    const summaryItemDiscount = document.getElementById('summary-item-discount');
+    const summaryGlobalDiscount = document.getElementById('summary-global-discount');
+    const summaryTax = document.getElementById('summary-tax');
+    const summaryTotal = document.getElementById('summary-total');
+    const summaryItems = document.getElementById('summary-items');
+    const summaryMetodoPagoRow = document.getElementById('summary-descuento-metodo-row');
+    const summaryMetodoPago = document.getElementById('summary-descuento-metodo');
+    const globalDiscountType = document.getElementById('global-discount-type');
+    const globalDiscountValue = document.getElementById('global-discount-value');
+    const toggleTax = document.getElementById('toggle-tax');
+    const taxRate = document.getElementById('tax-rate');
+    const paymentMethod = document.getElementById('payment-method');
+    const pagoMixtoToggle = document.getElementById('pago-mixto-toggle');
+    const pagoSimple = document.getElementById('pago-simple');
+    const pagoMixto = document.getElementById('pago-mixto');
+    const paymentMethod1 = document.getElementById('payment-method-1');
+    const paymentMethod2 = document.getElementById('payment-method-2');
+    const montoPago1 = document.getElementById('monto-pago-1');
+    const montoPago2 = document.getElementById('monto-pago-2');
+    const saleNote = document.getElementById('sale-note');
+    const completeSale = document.getElementById('complete-sale');
+    const loadLast = document.getElementById('load-last');
+    const exportCart = document.getElementById('export-cart');
+    const saleStatus = document.getElementById('sale-status');
+    const customerSearch = document.getElementById('customer-search');
+    const customerDropdown = document.getElementById('customer-dropdown');
+    const customerId = document.getElementById('customer-id');
+    const customerName = document.getElementById('customer-name');
+    const customerDocument = document.getElementById('customer-document');
+    const selectedCustomer = document.getElementById('selected-customer');
+    const clearCustomer = document.getElementById('clear-customer');
+    const lastSaleLink = document.getElementById('last-sale-link');
+    const addCustomProductBtn = document.getElementById('add-custom-product');
+    const customProductModal = document.getElementById('custom-product-modal');
+    const customProductRowsContainer = document.getElementById('custom-product-rows');
+    const customProductAddRowBtn = document.getElementById('custom-product-add-row');
+    const customProductSaveBtn = document.getElementById('custom-product-save');
+    const cancelCustomProduct = document.getElementById('cancel-custom-product');
+    const csrfToken = '{{ csrf_token }}';
+    const openQuickScan = document.getElementById('open-quick-scan');
+    const quickScanModal = document.getElementById('quick-scan-modal');
+    const quickScanReaderContainer = document.getElementById('quick-scan-reader');
+    const quickScanStatus = document.getElementById('quick-scan-status');
+    const toggleQuickScanBtn = document.getElementById('toggle-quick-scan');
+    const closeQuickScanBtn = document.getElementById('close-quick-scan');
 
-        let cart = [];
+    let lastPdfUrl = null;
 
-        searchBar.addEventListener('input', async (e) => {
-            const query = e.target.value;
-            if (query.length < 2) {
-                searchResultsContainer.classList.add('hidden');
-                return;
-            }
-            try {
-                const response = await fetch(`/ventas/api/buscar-productos/?q=${query}`);
-                const productos = await response.json();
-                
-                searchResultsContainer.innerHTML = '';
-                if (productos.length > 0) {
-                    searchResultsContainer.classList.remove('hidden');
-                    productos.forEach(p => {
-                        const resultItem = document.createElement('div');
-                        resultItem.className = 'p-3 hover:bg-gray-100 cursor-pointer border-b';
-                        resultItem.innerHTML = `<p class="font-semibold">${p.nombre}</p><p class="text-sm text-gray-500">Stock: ${p.stock} | Precio: $${p.precio}</p>`;
-                        resultItem.addEventListener('click', () => addProductToCart(p));
-                        searchResultsContainer.appendChild(resultItem);
-                    });
-                } else {
-                    searchResultsContainer.innerHTML = '<p class="p-3 text-gray-500">No se encontraron productos.</p>';
+    let cart = [];
+    let quickScanInstance = null;
+    let quickScanActive = false;
+    let quickScanProcessing = false;
+    let quickScanLastCode = null;
+    let quickScanTimeoutId = null;
+    
+    function createCustomProductRow(name = '', price = '', quantity = 1) {
+        const row = document.createElement('div');
+        row.className = 'custom-row grid gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3 sm:grid-cols-[1.2fr_auto_auto_auto] sm:items-center';
+        row.innerHTML = `
+            <input type="text" data-field="name" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" placeholder="Nombre del producto" value="${name}">
+            <input type="number" data-field="price" min="0" step="0.01" class="rounded-xl border border-slate-300 px-3 py-2 text-sm text-right" placeholder="0.00" value="${price}">
+            <input type="number" data-field="quantity" min="1" step="1" class="rounded-xl border border-slate-300 px-3 py-2 text-sm text-right" value="${quantity}">
+            <button type="button" class="remove-custom-row inline-flex items-center justify-center rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-rose-500 hover:bg-rose-100 transition">Quitar</button>
+        `;
+        return row;
+    }
+
+    function resetCustomProductModal() {
+        if (!customProductRowsContainer) return;
+        customProductRowsContainer.innerHTML = '';
+        customProductRowsContainer.appendChild(createCustomProductRow());
+    }
+
+    if (addCustomProductBtn && customProductModal) {
+        addCustomProductBtn.addEventListener('click', () => {
+            resetCustomProductModal();
+            customProductModal.classList.remove('hidden');
+            customProductModal.classList.add('flex');
+        });
+    }
+
+    if (cancelCustomProduct && customProductModal) {
+        cancelCustomProduct.addEventListener('click', () => {
+            customProductModal.classList.add('hidden');
+            customProductModal.classList.remove('flex');
+        });
+    }
+
+    if (customProductAddRowBtn) {
+        customProductAddRowBtn.addEventListener('click', () => {
+            customProductRowsContainer.appendChild(createCustomProductRow());
+        });
+    }
+
+    if (customProductRowsContainer) {
+        customProductRowsContainer.addEventListener('click', (event) => {
+            if (event.target.matches('.remove-custom-row')) {
+                const row = event.target.closest('.custom-row');
+                row.remove();
+                if (!customProductRowsContainer.querySelector('.custom-row')) {
+                    customProductRowsContainer.appendChild(createCustomProductRow());
                 }
-            } catch (error) { console.error('Error buscando productos:', error); }
-        });
-
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.relative')) {
-                searchResultsContainer.classList.add('hidden');
             }
         });
+    }
 
-        function addProductToCart(product) {
-            if (parseFloat(product.precio) <= 0) {
-                alert('Este producto no tiene un precio válido cargado. Por favor, configúralo en el panel de administrador.');
+    if (customProductSaveBtn) {
+        customProductSaveBtn.addEventListener('click', () => {
+            if (!customProductRowsContainer) return;
+            const rows = Array.from(customProductRowsContainer.querySelectorAll('.custom-row'));
+            const timestamp = Date.now();
+            let added = 0;
+            rows.forEach((row, idx) => {
+                const nameInput = row.querySelector('[data-field="name"]');
+                const priceInput = row.querySelector('[data-field="price"]');
+                const quantityInput = row.querySelector('[data-field="quantity"]');
+                const nombre = (nameInput?.value || '').trim();
+                const precio = parseFloat(priceInput?.value || '0');
+                const cantidad = Math.max(1, parseInt(quantityInput?.value || '1', 10));
+
+                if (!nombre) {
+                    return;
+                }
+                if (Number.isNaN(precio) || precio <= 0) {
+                    return;
+                }
+
+                const customProduct = {
+                    id: `custom-${timestamp}-${idx}`,
+                    variante_id: null,
+                    sku: `VAR-${timestamp}-${idx}`,
+                    nombre,
+                    descripcion: nombre,
+                    precio_unitario_ars: precio,
+                    stock_actual: 999,
+                    cantidad,
+                    es_custom: true,
+                };
+
+                addToCart(customProduct);
+                added += 1;
+            });
+
+            if (!added) {
+                alert('Ingresá al menos un producto con nombre y precio válido.');
                 return;
             }
 
-            if (emptyCartRow) emptyCartRow.style.display = 'none';
-            const existingProduct = cart.find(item => item.id === product.id);
+            customProductModal.classList.add('hidden');
+            customProductModal.classList.remove('flex');
+        });
+    }
+    
+    // ========= ESCÁNER RÁPIDO =========
+    function updateQuickScanStatus(text, tone = 'info') {
+        if (!quickScanStatus) return;
+        const toneClasses = {
+            info: 'text-slate-300',
+            success: 'text-emerald-300',
+            error: 'text-rose-300',
+            warning: 'text-amber-300'
+        };
+        quickScanStatus.textContent = text;
+        quickScanStatus.className = `font-semibold ${toneClasses[tone] || toneClasses.info}`;
+    }
 
-            if (existingProduct) {
-                existingProduct.quantity++;
-            } else {
-                cart.push({ ...product, quantity: 1 });
+    async function startQuickScan() {
+        if (quickScanActive) return;
+        try {
+            if (!quickScanInstance) {
+                quickScanInstance = new Html5Qrcode("quick-scan-reader");
             }
-            
-            renderCart();
-            searchBar.value = '';
-            searchResultsContainer.classList.add('hidden');
-            searchBar.focus();
-        }
-
-        function renderCart() {
-            cartItemsContainer.innerHTML = '';
-            if (cart.length === 0 && emptyCartRow) {
-                emptyCartRow.style.display = 'table-row';
-            }
-
-            cart.forEach(item => {
-                const row = document.createElement('tr');
-                row.className = 'border-b';
-                row.innerHTML = `
-                    <td class="p-3"><p class="font-semibold text-gray-800">${item.nombre}</p></td>
-                    <td class="p-3">
-                        <div class="flex justify-center items-center">
-                            <input type="number" value="${item.quantity}" min="1" max="${item.stock}" class="w-16 text-center border rounded-md p-1" data-id="${item.id}">
-                        </div>
-                    </td>
-                    <td class="p-3 text-right">$${parseFloat(item.precio).toFixed(2)}</td>
-                    <td class="p-3 text-right font-semibold">$${(item.quantity * item.precio).toFixed(2)}</td>
-                    <td class="p-3 text-center">
-                        <button class="text-red-500 hover:text-red-700" data-id="${item.id}">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                        </button>
-                    </td>
-                `;
-                cartItemsContainer.appendChild(row);
-            });
-
-            cartItemsContainer.querySelectorAll('button[data-id]').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const id = parseInt(e.currentTarget.dataset.id);
-                    cart = cart.filter(item => item.id !== id);
-                    renderCart();
-                });
-            });
-
-            cartItemsContainer.querySelectorAll('input[type="number"]').forEach(input => {
-                input.addEventListener('change', (e) => {
-                    const id = parseInt(e.target.dataset.id);
-                    const newQuantity = parseInt(e.target.value);
-                    const productInCart = cart.find(item => item.id === id);
-                    if (productInCart) {
-                        productInCart.quantity = newQuantity;
-                        renderCart();
+            await quickScanInstance.start(
+                { facingMode: "environment" },
+                {
+                    fps: 24,
+                    qrbox: { width: 240, height: 240 },
+                    aspectRatio: 1.0,
+                    disableFlip: true,
+                    videoConstraints: {
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: "environment"
                     }
-                });
-            });
+                },
+                (decodedText) => {
+                    handleQuickScanDecode(decodedText);
+                },
+                (errorMessage) => {
+                    // Ignorar errores momentáneos de detección
+                }
+            );
+            quickScanActive = true;
+            if (toggleQuickScanBtn) {
+                toggleQuickScanBtn.textContent = 'Detener escáner';
+                toggleQuickScanBtn.classList.remove('bg-emerald-500');
+                toggleQuickScanBtn.classList.add('bg-indigo-500');
+            }
+            updateQuickScanStatus('Apuntá la cámara al código de barras o QR.', 'info');
+        } catch (error) {
+            console.error('Error al iniciar escáner rápido:', error);
+            updateQuickScanStatus('No se pudo iniciar la cámara. Verificá permisos.', 'error');
+        }
+    }
 
-            updateSummary();
+    async function stopQuickScan() {
+        if (quickScanInstance && quickScanActive) {
+            try {
+                await quickScanInstance.stop();
+                await quickScanInstance.clear();
+            } catch (error) {
+                console.warn('Error al detener escáner rápido:', error);
+            }
+        }
+        quickScanActive = false;
+        if (toggleQuickScanBtn) {
+            toggleQuickScanBtn.textContent = 'Iniciar escáner';
+            toggleQuickScanBtn.classList.remove('bg-indigo-500');
+            toggleQuickScanBtn.classList.add('bg-emerald-500');
+        }
+    }
+
+    function resetQuickScanFlagsSoon() {
+        if (quickScanTimeoutId) {
+            clearTimeout(quickScanTimeoutId);
+        }
+        quickScanTimeoutId = setTimeout(() => {
+            quickScanProcessing = false;
+            quickScanLastCode = null;
+            updateQuickScanStatus('Listo para seguir escaneando.', 'info');
+        }, 2000);
+    }
+
+    async function handleQuickScanDecode(rawCode) {
+        const code = (rawCode || '').trim();
+        if (!code) return;
+        if (quickScanProcessing) return;
+        if (quickScanLastCode && quickScanLastCode === code) {
+            resetQuickScanFlagsSoon();
+            return;
         }
 
-        function updateSummary() {
-            const subtotal = cart.reduce((acc, item) => acc + (item.quantity * item.precio), 0);
-            subtotalEl.textContent = `$${subtotal.toFixed(2)}`;
-            totalEl.textContent = `$${subtotal.toFixed(2)}`;
+        quickScanProcessing = true;
+        quickScanLastCode = code;
+        updateQuickScanStatus(`Buscando producto (${code})...`, 'warning');
+
+        try {
+            const response = await fetch(`{% url "ventas:buscar_producto_codigo_api" %}?codigo=${encodeURIComponent(code)}`);
+            const data = await response.json();
+
+            if (!response.ok || !data.result) {
+                updateQuickScanStatus(data.error || 'Producto no encontrado.', 'error');
+                resetQuickScanFlagsSoon();
+                return;
+            }
+
+            addToCart(data.result);
+            renderCart();
+            updateSummary();
+            updateQuickScanStatus(`Agregado: ${data.result.nombre || data.result.producto || data.result.sku}`, 'success');
+            playBeep();
+            resetQuickScanFlagsSoon();
+        } catch (error) {
+            console.error('Error al agregar producto desde escáner:', error);
+            updateQuickScanStatus('Ocurrió un error al agregar el producto.', 'error');
+            resetQuickScanFlagsSoon();
+        }
+    }
+
+    function openQuickScanModal() {
+        if (!quickScanModal) return;
+        quickScanModal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+        quickScanProcessing = false;
+        quickScanLastCode = null;
+        updateQuickScanStatus('Inicializando cámara...', 'info');
+        startQuickScan();
+    }
+
+    function closeQuickScanModal() {
+        if (!quickScanModal) return;
+        stopQuickScan();
+        quickScanModal.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+
+    if (openQuickScan) {
+        openQuickScan.addEventListener('click', () => {
+            openQuickScanModal();
+        });
+    }
+
+    if (toggleQuickScanBtn) {
+        toggleQuickScanBtn.addEventListener('click', () => {
+            if (quickScanActive) {
+                stopQuickScan();
+                updateQuickScanStatus('Escáner en pausa. Podés reanudarlo cuando quieras.', 'warning');
+            } else {
+                startQuickScan();
+            }
+        });
+    }
+
+    if (closeQuickScanBtn) {
+        closeQuickScanBtn.addEventListener('click', closeQuickScanModal);
+    }
+
+    if (quickScanModal) {
+        quickScanModal.addEventListener('click', (event) => {
+            if (event.target === quickScanModal) {
+                closeQuickScanModal();
+            }
+        });
+    }
+
+    // Búsqueda de clientes
+    let customerSearchTimeout;
+    customerSearch.addEventListener('input', async () => {
+        clearTimeout(customerSearchTimeout);
+        const query = customerSearch.value.trim();
+        if (query.length < 2) {
+            customerDropdown.classList.add('hidden');
+            return;
+        }
+        
+        customerSearchTimeout = setTimeout(async () => {
+            const response = await fetch(`/ventas/api/buscar-clientes/?q=${encodeURIComponent(query)}`);
+            const data = await response.json();
+            renderCustomerResults(data.results || []);
+        }, 300);
+    });
+    
+    function renderCustomerResults(results) {
+        if (!results.length) {
+            customerDropdown.innerHTML = `
+                <div class="p-4 text-sm text-slate-500">
+                    <p>Sin resultados. Se creará un nuevo cliente al registrar la venta.</p>
+                </div>
+            `;
+            customerDropdown.classList.remove('hidden');
+            return;
+        }
+        
+        customerDropdown.innerHTML = '';
+        results.forEach(cliente => {
+            const option = document.createElement('button');
+            option.type = 'button';
+            option.className = 'flex w-full flex-col items-start gap-1 border-b border-slate-100 px-5 py-3 text-left text-sm hover:bg-slate-50';
+            option.innerHTML = `
+                <span class="font-semibold text-slate-900">${cliente.nombre}</span>
+                <span class="text-xs text-slate-500">${cliente.telefono}${cliente.email ? ' · ' + cliente.email : ''}</span>
+            `;
+            option.addEventListener('click', () => {
+                selectCustomer(cliente);
+            });
+            customerDropdown.appendChild(option);
+        });
+        customerDropdown.classList.remove('hidden');
+    }
+    
+    function selectCustomer(cliente) {
+        customerId.value = cliente.id;
+        customerName.value = cliente.nombre;
+        customerDocument.value = cliente.telefono;
+        customerSearch.value = cliente.nombre;
+        customerDropdown.classList.add('hidden');
+        selectedCustomer.querySelector('span').textContent = `${cliente.nombre} (${cliente.telefono})`;
+        selectedCustomer.classList.remove('hidden');
+    }
+    
+    clearCustomer.addEventListener('click', () => {
+        customerId.value = '';
+        customerName.value = '';
+        customerDocument.value = '';
+        customerSearch.value = '';
+        selectedCustomer.classList.add('hidden');
+    });
+    
+    // Cerrar dropdown al hacer click fuera
+    document.addEventListener('click', (e) => {
+        if (!customerSearch.contains(e.target) && !customerDropdown.contains(e.target)) {
+            customerDropdown.classList.add('hidden');
         }
     });
+
+    searchInput.addEventListener('input', async () => {
+        const query = searchInput.value.trim();
+        if (query.length < 2) {
+            searchDropdown.classList.add('hidden');
+            return;
+        }
+
+        const response = await fetch(`/ventas/api/buscar-productos/?q=${encodeURIComponent(query)}`);
+        const data = await response.json();
+        renderSearchResults(data.results || []);
+    });
+
+    function renderSearchResults(results) {
+        if (!results.length) {
+            searchDropdown.innerHTML = '<div class="p-4 text-sm text-slate-500">Sin resultados.</div>';
+            searchDropdown.classList.remove('hidden');
+            return;
+        }
+
+        searchDropdown.innerHTML = '';
+        const formatCurrency = (value, currency = 'ARS') => {
+            if (!value || isNaN(value)) return null;
+            try {
+                return new Intl.NumberFormat('es-AR', {
+                    style: 'currency',
+                    currency,
+                    minimumFractionDigits: 2
+                }).format(value);
+            } catch (error) {
+                return `${currency === 'USD' ? 'USD ' : '$'}${Number(value).toFixed(2)}`;
+            }
+        };
+
+        results.forEach(item => {
+            const option = document.createElement('button');
+            option.className = 'flex w-full flex-col items-start gap-1.5 border-b border-slate-100 px-5 py-3 text-left transition hover:bg-slate-50';
+
+            const stockText = item.stock_status === 'sin stock'
+                ? '<span class="text-[11px] font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">Sin stock</span>'
+                : `<span class="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Stock: ${item.stock_actual ?? item.stock ?? 0}</span>`;
+
+            const precioMinoristaArs = item.precios?.minorista_ars ? parseFloat(item.precios.minorista_ars) : null;
+            const precioMayoristaArs = item.precios?.mayorista_ars ? parseFloat(item.precios.mayorista_ars) : null;
+            const precioMinoristaUsd = item.precios?.minorista_usd ? parseFloat(item.precios.minorista_usd) : null;
+
+            const precioPrincipal = formatCurrency(precioMinoristaArs || precioMayoristaArs, 'ARS');
+            const precioSecundario = formatCurrency(precioMinoristaUsd, 'USD');
+
+            const atributos = (item.descripcion && item.descripcion !== item.nombre)
+                ? item.descripcion.replace(item.nombre, '').trim()
+                : (item.atributos || '').trim();
+
+            option.innerHTML = `
+                <span class="font-semibold text-slate-900 text-sm">${item.nombre || item.producto || 'Producto'}</span>
+                <div class="flex flex-wrap items-center gap-2">
+                    ${precioPrincipal ? `<span class="inline-flex items-center gap-1 rounded-full bg-slate-900/90 px-2.5 py-0.5 text-[11px] font-semibold text-white shadow-sm">${precioPrincipal}</span>` : ''}
+                    ${precioSecundario ? `<span class="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-600">USD ${Number(precioMinoristaUsd).toFixed(2)}</span>` : ''}
+                    ${stockText}
+                </div>
+                <span class="text-[11px] text-slate-500">SKU: ${item.sku || '—'}</span>
+                ${atributos ? `<span class="text-[11px] text-slate-400">${atributos}</span>` : ''}
+            `;
+            option.addEventListener('click', () => {
+                if (item.stock_status === 'sin stock') {
+                    if (!confirm('Este producto no tiene stock. ¿Deseas agregarlo igual?')) {
+                        return;
+                    }
+                }
+                addToCart(item);
+                searchDropdown.classList.add('hidden');
+                searchInput.value = '';
+            });
+            searchDropdown.appendChild(option);
+        });
+        searchDropdown.classList.remove('hidden');
+    }
+
+    document.addEventListener('click', (event) => {
+        if (!event.target.closest('#product-search') && !event.target.closest('#search-dropdown')) {
+            searchDropdown.classList.add('hidden');
+        }
+    });
+
+    function addToCart(item) {
+        // Si es un producto varios, usar su ID único
+        const itemId = item.es_custom ? item.id : item.id;
+        const existing = cart.find(line => {
+            if (item.es_custom) {
+                return line.es_custom && line.sku === item.sku;
+            }
+            return line.variante_id === itemId;
+        });
+        
+        // Verificar stock antes de agregar (solo para productos del catálogo)
+        if (!item.es_custom && itemId) {
+            const cantidad_a_agregar = existing ? existing.cantidad + 1 : 1;
+            const stock_actual = item.stock_actual ?? item.stock ?? 0;
+            
+            if (stock_actual < cantidad_a_agregar) {
+                // Mostrar modal de stock insuficiente
+                mostrarModalStockInsuficiente({
+                    variante_id: itemId,
+                    nombre: item.nombre || item.producto || 'Producto',
+                    sku: item.sku || 'N/A',
+                    stock_actual: stock_actual,
+                    cantidad_solicitada: cantidad_a_agregar
+                });
+                return;
+            }
+        }
+        
+        if (existing) {
+            existing.cantidad += 1;
+        } else {
+            let precioSeleccionado;
+            let nombre, descripcion, sku;
+            let esIphone = false;
+            let precioUsdOriginal = null;
+            
+            if (item.es_custom) {
+                // Producto varios - usar el nombre que el usuario ingresó
+                precioSeleccionado = item.precio_unitario_ars;
+                // Priorizar nombre, luego descripcion, luego fallback
+                nombre = item.nombre || item.descripcion || 'Producto varios';
+                descripcion = nombre; // Usar el nombre ingresado como descripción
+                sku = item.sku;
+            } else {
+                // Producto del catálogo
+                const precioArs = parseFloat(item.precios?.minorista_ars || 0);
+                const precioUsd = parseFloat(item.precios?.minorista_usd || 0);
+                
+                // Verificar si es iPhone (categoría Celulares o nombre contiene "iphone")
+                esIphone = (item.producto && item.producto.toLowerCase().includes('iphone')) || 
+                           (item.categoria && item.categoria.toLowerCase() === 'celulares');
+                
+                // Si es iPhone y solo tiene precio USD, convertir a ARS
+                if (esIphone && precioArs === 0 && precioUsd > 0) {
+                    precioUsdOriginal = precioUsd;
+                    const dolarValueEl = document.getElementById('dolar-value');
+                    const dolarBlue = parseFloat(dolarValueEl?.dataset.value || dolarValueEl?.textContent.replace('$', '').replace(',', '') || '0');
+                    if (dolarBlue > 0) {
+                        precioSeleccionado = precioUsd * dolarBlue;
+                    } else {
+                        precioSeleccionado = precioUsd; // Fallback si no hay dólar
+                    }
+                } else if (esIphone && precioArs > 0 && precioUsd > 0) {
+                    // Si tiene ambos precios, usar ARS pero guardar USD también
+                    precioUsdOriginal = precioUsd;
+                    precioSeleccionado = precioArs;
+                } else {
+                    precioSeleccionado = precioArs > 0 ? precioArs : precioUsd;
+                    if (precioUsd > 0) {
+                        precioUsdOriginal = precioUsd;
+                    }
+                }
+                
+                nombre = item.nombre || item.producto;
+                descripcion = item.descripcion || item.atributos || '';
+                sku = item.sku;
+            }
+            
+            cart.push({
+                variante_id: item.es_custom ? null : itemId,
+                nombre: nombre,
+                descripcion: descripcion,
+                sku: sku,
+                cantidad: 1,
+                precios: item.precios || {},
+                precio_unitario_ars: precioSeleccionado,
+                precio_usd_original: precioUsdOriginal, // Guardar precio USD si existe
+                es_iphone: esIphone || false, // Marcar si es iPhone
+                stock_actual: item.stock_actual ?? item.stock ?? 0, // Incluir stock actual
+                descuento: null,
+                es_custom: item.es_custom || false,
+            });
+        }
+        renderCart();
+    }
+
+    function renderCart() {
+        cartBody.innerHTML = '';
+        if (!cart.length) {
+            emptyCart.style.display = '';
+            summarySubtotal.textContent = '$0.00';
+            summaryItemDiscount.textContent = '-$0.00';
+            summaryGlobalDiscount.textContent = '-$0.00';
+            summaryTax.textContent = '$0.00';
+            summaryTotal.textContent = '$0.00';
+            summaryItems.textContent = '0 ítems';
+            if (summaryMetodoPagoRow && summaryMetodoPago) {
+                summaryMetodoPago.textContent = '-$0.00';
+                summaryMetodoPagoRow.classList.add('hidden');
+            }
+            completeSale.disabled = true;
+            return;
+        }
+        emptyCart.style.display = 'none';
+        completeSale.disabled = false;
+
+        cart.forEach((item, index) => {
+            const clone = cartRowTemplate.content.cloneNode(true);
+            const row = clone.querySelector('tr');
+            row.dataset.index = index;
+            const nombreEl = row.querySelector('p.font-semibold');
+            if (nombreEl) nombreEl.textContent = item.nombre;
+            const textBlocks = row.querySelectorAll('p');
+            const detallePartes = [];
+            const descripcionLimpia = (item.descripcion || '').trim();
+            if (descripcionLimpia) {
+                detallePartes.push(descripcionLimpia);
+            }
+            if (item.sku) {
+                detallePartes.push(`SKU ${item.sku}`);
+            }
+            const detalleTexto = detallePartes.length ? detallePartes.join(' · ') : 'Detalle no disponible';
+            const descEl = textBlocks.length > 1 ? textBlocks[1] : null;
+            if (descEl) descEl.textContent = detalleTexto;
+            const quantityInput = row.querySelector('.quantity-input');
+            if (quantityInput) {
+                quantityInput.value = item.cantidad;
+                quantityInput.addEventListener('change', (event) => {
+                    const value = Math.max(1, parseInt(event.target.value, 10) || 1);
+                    cart[index].cantidad = value;
+                    renderCart();
+                });
+            }
+            const discountBtn = row.querySelector('.discount-btn');
+            if (discountBtn) {
+                discountBtn.addEventListener('click', () => openDiscountModal(index));
+            }
+            const removeBtn = row.querySelector('.remove-btn');
+            if (removeBtn) {
+                removeBtn.addEventListener('click', () => {
+                    cart.splice(index, 1);
+                    renderCart();
+                });
+            }
+
+            const lineTotals = calculateLineTotal(item);
+            
+            // Mostrar precio: si es iPhone y tiene precio USD, mostrar ambos
+            let precioText = `$${lineTotals.precio.toFixed(2)}`;
+            if (item.es_iphone && item.precio_usd_original) {
+                precioText = `US$${item.precio_usd_original.toFixed(2)} / $${lineTotals.precio.toFixed(2)}`;
+            }
+            const unitPriceEl = row.querySelector('.unit-price');
+            if (unitPriceEl) {
+                unitPriceEl.textContent = precioText;
+            }
+            const unitPriceMobileEl = row.querySelector('.unit-price-mobile');
+            if (unitPriceMobileEl) {
+                unitPriceMobileEl.textContent = precioText;
+            }
+            
+            // Mostrar stock
+            const stockEl = row.querySelector('.cart-stock');
+            if (stockEl) {
+                if (item.es_custom) {
+                    stockEl.textContent = '—';
+                } else {
+                    const stockActual = item.stock_actual || 0;
+                    stockEl.textContent = stockActual;
+                    // Colorear según el stock
+                    if (stockActual <= 0) {
+                        stockEl.classList.add('text-rose-600', 'font-bold');
+                    } else if (stockActual <= 5) {
+                        stockEl.classList.add('text-amber-600', 'font-bold');
+                    } else {
+                        stockEl.classList.add('text-emerald-600');
+                    }
+                }
+            }
+            
+            if (discountBtn) {
+                discountBtn.textContent = lineTotals.descuento > 0 ? `-$${lineTotals.descuento.toFixed(2)}` : 'Configurar';
+            }
+            const lineTotalEl = row.querySelector('.line-total');
+            if (lineTotalEl) {
+                lineTotalEl.textContent = `$${lineTotals.total.toFixed(2)}`;
+            }
+            cartBody.appendChild(clone);
+        });
+
+        updateSummary();
+        updateDolarIndicator();
+    }
+    
+    function updateDolarIndicator() {
+        // Verificar si hay iPhones en el carrito
+        const hasIphone = cart.some(item => {
+            // Verificar si el producto contiene "iphone" en el nombre o descripción
+            const nombre = (item.nombre || '').toLowerCase();
+            const descripcion = (item.descripcion || '').toLowerCase();
+            return nombre.includes('iphone') || descripcion.includes('iphone');
+        });
+        
+        const dolarIndicator = document.getElementById('dolar-indicator');
+        if (hasIphone && dolarIndicator) {
+            dolarIndicator.classList.remove('hidden');
+        } else if (dolarIndicator) {
+            dolarIndicator.classList.add('hidden');
+        }
+    }
+
+    function calculateLineTotal(item) {
+        const precio = parseFloat(item.precio_unitario_ars || 0);
+        const cantidad = parseInt(item.cantidad, 10) || 1;
+        const bruto = precio * cantidad;
+        let descuento = 0;
+        if (item.descuento) {
+            if (item.descuento.tipo === 'monto') {
+                descuento = Math.min(bruto, parseFloat(item.descuento.valor));
+            } else if (item.descuento.tipo === 'porcentaje') {
+                descuento = bruto * (parseFloat(item.descuento.valor) / 100);
+            }
+        }
+        return { precio, cantidad, descuento, total: bruto - descuento };
+    }
+
+    function openDiscountModal(index) {
+        const modal = discountModalTemplate.content.cloneNode(true);
+        const overlay = modal.querySelector('div');
+        const typeSelect = overlay.querySelector('.discount-type');
+        const valueInput = overlay.querySelector('.discount-value');
+        const applyBtn = overlay.querySelector('.apply-btn');
+        const cancelBtn = overlay.querySelector('.cancel-btn');
+
+        const current = cart[index].descuento;
+        if (current) {
+            typeSelect.value = current.tipo;
+            valueInput.value = current.valor;
+        }
+
+        cancelBtn.addEventListener('click', () => overlay.remove());
+        overlay.addEventListener('click', (event) => {
+            if (event.target === overlay) overlay.remove();
+        });
+
+        applyBtn.addEventListener('click', () => {
+            const valor = parseFloat(valueInput.value);
+            if (isNaN(valor) || valor < 0) {
+                valueInput.focus();
+                return;
+            }
+            cart[index].descuento = { tipo: typeSelect.value, valor };
+            overlay.remove();
+            renderCart();
+        });
+
+        document.body.appendChild(overlay);
+    }
+
+    function updateSummary() {
+        let subtotal = 0;
+        let descuentoItems = 0;
+        let itemsCount = 0;
+
+        cart.forEach(item => {
+            const totals = calculateLineTotal(item);
+            subtotal += totals.precio * totals.cantidad;
+            descuentoItems += totals.descuento;
+            itemsCount += totals.cantidad;
+        });
+
+        let descuentoGeneral = parseFloat(globalDiscountValue.value || 0);
+        if (globalDiscountType.value === 'porcentaje') {
+            descuentoGeneral = (subtotal - descuentoItems) * (descuentoGeneral / 100);
+        }
+
+        // Calcular descuento por método de pago
+        let descuentoMetodoPago = 0;
+        const baseAntesDescuentoMetodo = subtotal - descuentoItems - descuentoGeneral;
+        
+        if (pagoMixtoToggle.checked) {
+            // Pago mixto: calcular descuento proporcional para cada método
+            const descuentoMetodo1Toggle = document.getElementById('descuento-metodo-pago-1-toggle');
+            const descuentoMetodo1Porcentaje = document.getElementById('descuento-metodo-pago-1-porcentaje');
+            const descuentoMetodo2Toggle = document.getElementById('descuento-metodo-pago-2-toggle');
+            const descuentoMetodo2Porcentaje = document.getElementById('descuento-metodo-pago-2-porcentaje');
+            
+            const monto1 = parseNumber(montoPago1.value) || 0;
+            const monto2 = parseNumber(montoPago2.value) || 0;
+            const totalAntesDescuentoMetodo = baseAntesDescuentoMetodo;
+            
+            if (descuentoMetodo1Toggle && descuentoMetodo1Toggle.checked && monto1 > 0 && totalAntesDescuentoMetodo > 0) {
+                const porcentaje1 = parseFloat(descuentoMetodo1Porcentaje.value || 15);
+                // Calcular proporción del monto1 sobre el total antes de descuentos
+                const proporcion1 = monto1 / totalAntesDescuentoMetodo;
+                // Aplicar descuento proporcionalmente
+                descuentoMetodoPago += baseAntesDescuentoMetodo * proporcion1 * (porcentaje1 / 100);
+            }
+            
+            if (descuentoMetodo2Toggle && descuentoMetodo2Toggle.checked && monto2 > 0 && totalAntesDescuentoMetodo > 0) {
+                const porcentaje2 = parseFloat(descuentoMetodo2Porcentaje.value || 15);
+                // Calcular proporción del monto2 sobre el total antes de descuentos
+                const proporcion2 = monto2 / totalAntesDescuentoMetodo;
+                // Aplicar descuento proporcionalmente
+                descuentoMetodoPago += baseAntesDescuentoMetodo * proporcion2 * (porcentaje2 / 100);
+            }
+        } else {
+            // Pago simple: calcular descuento para el método seleccionado
+            const descuentoMetodoPagoToggle = document.getElementById('descuento-metodo-pago-toggle');
+            const descuentoMetodoPagoPorcentaje = document.getElementById('descuento-metodo-pago-porcentaje');
+            
+            if (descuentoMetodoPagoToggle && descuentoMetodoPagoToggle.checked) {
+                const porcentaje = parseFloat(descuentoMetodoPagoPorcentaje.value || 15);
+                descuentoMetodoPago = baseAntesDescuentoMetodo * (porcentaje / 100);
+            }
+        }
+
+        if (!toggleTax.checked) {
+            taxRate.disabled = true;
+        } else {
+            taxRate.disabled = false;
+        }
+
+        const base = baseAntesDescuentoMetodo - descuentoMetodoPago;
+        const impuesto = toggleTax.checked ? base * (parseFloat(taxRate.value || 0) / 100) : 0;
+        const total = base + impuesto;
+
+        summarySubtotal.textContent = `$${subtotal.toFixed(2)}`;
+        summaryItemDiscount.textContent = `-$${descuentoItems.toFixed(2)}`;
+        summaryGlobalDiscount.textContent = `-$${descuentoGeneral.toFixed(2)}`;
+        
+        // Mostrar descuento por método de pago si existe
+        if (summaryMetodoPagoRow && summaryMetodoPago) {
+            if (descuentoMetodoPago > 0) {
+                summaryMetodoPago.textContent = `-$${descuentoMetodoPago.toFixed(2)}`;
+                summaryMetodoPagoRow.classList.remove('hidden');
+            } else {
+                summaryMetodoPago.textContent = '-$0.00';
+                summaryMetodoPagoRow.classList.add('hidden');
+            }
+        }
+        
+        summaryTax.textContent = `$${impuesto.toFixed(2)}`;
+        summaryTotal.textContent = `$${total.toFixed(2)}`;
+        summaryItems.textContent = `${itemsCount} ítems`;
+    }
+
+    globalDiscountType.addEventListener('change', updateSummary);
+    globalDiscountValue.addEventListener('input', updateSummary);
+    toggleTax.addEventListener('change', updateSummary);
+    taxRate.addEventListener('input', updateSummary);
+    
+    // Manejar toggle de pago mixto
+    pagoMixtoToggle.addEventListener('change', () => {
+        if (pagoMixtoToggle.checked) {
+            pagoSimple.classList.add('hidden');
+            pagoMixto.classList.remove('hidden');
+            updateMontoPago2();
+        } else {
+            pagoSimple.classList.remove('hidden');
+            pagoMixto.classList.add('hidden');
+        }
+        updateSummary();
+    });
+    
+    // Manejar descuentos por método de pago
+    const descuentoMetodoPagoToggle = document.getElementById('descuento-metodo-pago-toggle');
+    const descuentoMetodoPagoContainer = document.getElementById('descuento-metodo-pago-container');
+    const descuentoMetodoPagoPorcentaje = document.getElementById('descuento-metodo-pago-porcentaje');
+    
+    if (descuentoMetodoPagoToggle) {
+        descuentoMetodoPagoToggle.addEventListener('change', () => {
+            if (descuentoMetodoPagoToggle.checked) {
+                descuentoMetodoPagoContainer.classList.remove('hidden');
+            } else {
+                descuentoMetodoPagoContainer.classList.add('hidden');
+            }
+            updateSummary();
+        });
+        descuentoMetodoPagoPorcentaje?.addEventListener('input', updateSummary);
+    }
+    
+    // Manejar descuentos por método de pago en pago mixto
+    const descuentoMetodoPago1Toggle = document.getElementById('descuento-metodo-pago-1-toggle');
+    const descuentoMetodoPago1Container = document.getElementById('descuento-metodo-pago-1-container');
+    const descuentoMetodoPago1Porcentaje = document.getElementById('descuento-metodo-pago-1-porcentaje');
+    
+    if (descuentoMetodoPago1Toggle) {
+        descuentoMetodoPago1Toggle.addEventListener('change', () => {
+            if (descuentoMetodoPago1Toggle.checked) {
+                descuentoMetodoPago1Container.classList.remove('hidden');
+            } else {
+                descuentoMetodoPago1Container.classList.add('hidden');
+            }
+            updateSummary();
+        });
+        descuentoMetodoPago1Porcentaje?.addEventListener('input', updateSummary);
+    }
+    
+    const descuentoMetodoPago2Toggle = document.getElementById('descuento-metodo-pago-2-toggle');
+    const descuentoMetodoPago2Container = document.getElementById('descuento-metodo-pago-2-container');
+    const descuentoMetodoPago2Porcentaje = document.getElementById('descuento-metodo-pago-2-porcentaje');
+    
+    if (descuentoMetodoPago2Toggle) {
+        descuentoMetodoPago2Toggle.addEventListener('change', () => {
+            if (descuentoMetodoPago2Toggle.checked) {
+                descuentoMetodoPago2Container.classList.remove('hidden');
+            } else {
+                descuentoMetodoPago2Container.classList.add('hidden');
+            }
+            updateSummary();
+        });
+        descuentoMetodoPago2Porcentaje?.addEventListener('input', updateSummary);
+    }
+    
+    // Actualizar cuando cambia el método de pago
+    paymentMethod?.addEventListener('change', updateSummary);
+    paymentMethod1?.addEventListener('change', updateSummary);
+    paymentMethod2?.addEventListener('change', updateSummary);
+    
+    // Función auxiliar para parsear números con formato argentino o inglés
+    function parseNumber(text) {
+        if (!text) return 0;
+        let clean = text.toString().replace('$', '').trim();
+        
+        // Si tiene coma, asumir formato argentino: "10.000,00" o "10000,00"
+        if (clean.includes(',')) {
+            // Eliminar puntos (separadores de miles) y reemplazar coma por punto
+            clean = clean.replace(/\./g, '').replace(',', '.');
+            return parseFloat(clean) || 0;
+        }
+        
+        // Si tiene punto, verificar si es separador de miles o decimal
+        // Si tiene más de un punto o el punto está antes de los últimos 3 dígitos, es separador de miles
+        const parts = clean.split('.');
+        if (parts.length > 2) {
+            // Múltiples puntos = separador de miles: "10.000.000"
+            clean = clean.replace(/\./g, '');
+            return parseFloat(clean) || 0;
+        } else if (parts.length === 2) {
+            // Un punto: verificar si la parte después del punto tiene 2 dígitos (probable decimal)
+            // o más de 3 dígitos (probable separador de miles)
+            if (parts[1].length <= 2) {
+                // Probable decimal: "10000.00"
+                return parseFloat(clean) || 0;
+            } else {
+                // Probable separador de miles: "10.000"
+                clean = clean.replace(/\./g, '');
+                return parseFloat(clean) || 0;
+            }
+        }
+        
+        // Sin puntos ni comas
+        return parseFloat(clean) || 0;
+    }
+    
+    // Actualizar monto pago 2 cuando cambia el total o el monto pago 1
+    function updateMontoPago2() {
+        if (!pagoMixtoToggle.checked) return;
+        
+        // Calcular la base antes de descuentos por método de pago
+        const subtotal = parseNumber(summarySubtotal.textContent.replace(/[^0-9.-]/g, '')) || 0;
+        const descuentoItems = parseNumber(summaryItemDiscount.textContent.replace(/[^0-9.-]/g, '')) || 0;
+        const descuentoGeneral = parseNumber(summaryGlobalDiscount.textContent.replace(/[^0-9.-]/g, '')) || 0;
+        const baseAntesDescuentoMetodo = subtotal - Math.abs(descuentoItems) - Math.abs(descuentoGeneral);
+        
+        // Parsear monto1
+        const monto1 = parseNumber(montoPago1.value) || 0;
+        
+        // El monto2 debe ser la base menos el monto1
+        const monto2 = Math.max(0, baseAntesDescuentoMetodo - monto1);
+        // Formatear con punto como separador decimal (para parseFloat)
+        montoPago2.value = monto2.toFixed(2);
+    }
+    
+    montoPago1.addEventListener('input', updateMontoPago2);
+    // También actualizar cuando cambia el resumen
+    const originalUpdateSummary = updateSummary;
+    updateSummary = function() {
+        originalUpdateSummary();
+        setTimeout(updateMontoPago2, 100); // Pequeño delay para asegurar que el DOM se actualizó
+    };
+
+    completeSale.addEventListener('click', async () => {
+        if (!cart.length) return;
+        completeSale.disabled = true;
+
+        // Preparar datos de pago
+        const esPagoMixto = pagoMixtoToggle.checked;
+        let metodoPagoData = {};
+        
+        if (esPagoMixto) {
+            // Calcular la base antes de descuentos por método de pago
+            const subtotal = parseNumber(summarySubtotal.textContent.replace(/[^0-9.-]/g, '')) || 0;
+            const descuentoItems = parseNumber(summaryItemDiscount.textContent.replace(/[^0-9.-]/g, '')) || 0;
+            const descuentoGeneral = parseNumber(summaryGlobalDiscount.textContent.replace(/[^0-9.-]/g, '')) || 0;
+            const baseAntesDescuentoMetodo = subtotal - Math.abs(descuentoItems) - Math.abs(descuentoGeneral);
+            
+            const monto1 = parseNumber(montoPago1.value);
+            const monto2 = parseNumber(montoPago2.value);
+            
+            if (monto1 <= 0 || monto1 > baseAntesDescuentoMetodo) {
+                alert(`El monto del pago 1 debe ser mayor a 0 y menor o igual a la base ($${baseAntesDescuentoMetodo.toFixed(2)})`);
+                completeSale.disabled = false;
+                return;
+            }
+            
+            // Validar que los montos sumen la base ANTES de aplicar descuentos por método de pago
+            const suma = monto1 + monto2;
+            if (Math.abs(suma - baseAntesDescuentoMetodo) > 0.01) {
+                alert(`Los montos no suman la base correcta. Base: $${baseAntesDescuentoMetodo.toFixed(2)}, Suma: $${suma.toFixed(2)}. Los montos deben sumar la base antes de aplicar descuentos por método de pago.`);
+                completeSale.disabled = false;
+                return;
+            }
+            
+            // Obtener descuentos por método de pago
+            const descuentoMetodo1Toggle = document.getElementById('descuento-metodo-pago-1-toggle');
+            const descuentoMetodo1Porcentaje = document.getElementById('descuento-metodo-pago-1-porcentaje');
+            const descuentoMetodo2Toggle = document.getElementById('descuento-metodo-pago-2-toggle');
+            const descuentoMetodo2Porcentaje = document.getElementById('descuento-metodo-pago-2-porcentaje');
+            
+            metodoPagoData = {
+                es_pago_mixto: true,
+                metodo_pago: paymentMethod1.value,
+                metodo_pago_2: paymentMethod2.value,
+                monto_pago_1: monto1,
+                monto_pago_2: monto2,
+                descuento_metodo_pago_1: descuentoMetodo1Toggle && descuentoMetodo1Toggle.checked ? parseFloat(descuentoMetodo1Porcentaje.value || 15) : null,
+                descuento_metodo_pago_2: descuentoMetodo2Toggle && descuentoMetodo2Toggle.checked ? parseFloat(descuentoMetodo2Porcentaje.value || 15) : null,
+            };
+        } else {
+            // Obtener descuento por método de pago simple
+            const descuentoMetodoPagoToggle = document.getElementById('descuento-metodo-pago-toggle');
+            const descuentoMetodoPagoPorcentaje = document.getElementById('descuento-metodo-pago-porcentaje');
+            
+            metodoPagoData = {
+                es_pago_mixto: false,
+                metodo_pago: paymentMethod.value,
+                descuento_metodo_pago: descuentoMetodoPagoToggle && descuentoMetodoPagoToggle.checked ? parseFloat(descuentoMetodoPagoPorcentaje.value || 15) : null,
+            };
+        }
+        
+        const payload = {
+            items: cart.map(item => ({
+                variante_id: item.variante_id,
+                cantidad: item.cantidad,
+                precio_unitario_ars: item.precio_unitario_ars,
+                descuento: item.descuento,
+                // Para productos varios, incluir nombre y descripción
+                nombre: item.es_custom ? item.nombre : undefined,
+                descripcion: item.es_custom ? item.descripcion : undefined,
+                sku: item.es_custom ? item.sku : undefined,
+                es_custom: item.es_custom || false,
+            })),
+            descuento_general: { tipo: globalDiscountType.value, valor: parseFloat(globalDiscountValue.value || 0) },
+            aplicar_iva: toggleTax.checked,
+            iva_porcentaje: parseFloat(taxRate.value || 0),
+            nota: saleNote.value,
+            status: saleStatus.value,
+            cliente_id: customerId.value || null,
+            cliente_nombre: customerSearch.value.trim() || customerName.value || '',
+            cliente_telefono: customerDocument.value || customerSearch.value.trim() || '',
+            cliente_documento: customerDocument.value || '',
+            ...metodoPagoData,
+        };
+
+        const response = await fetch('{% url "ventas:crear_venta_api" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        
+        if (!response.ok) {
+            completeSale.disabled = false;
+            
+            // Si es error de stock insuficiente, mostrar modal
+            if (data.error && data.error.includes('Stock insuficiente')) {
+                // Extraer información del error
+                const match = data.error.match(/Stock insuficiente para (.+?) \(([^)]+)\)\. Disponible: (\d+)/);
+                if (match) {
+                    const [, nombre, sku, stockActual] = match;
+                    // Buscar el item en el carrito para obtener el variante_id
+                    const itemEnCarrito = cart.find(item => item.sku === sku || item.nombre === nombre);
+                    if (itemEnCarrito && itemEnCarrito.variante_id) {
+                        mostrarModalStockInsuficiente({
+                            variante_id: itemEnCarrito.variante_id,
+                            nombre: nombre,
+                            sku: sku,
+                            stock_actual: parseInt(stockActual, 10),
+                            cantidad_solicitada: itemEnCarrito.cantidad
+                        });
+                        return;
+                    }
+                }
+            }
+            
+            alert(data.error || 'Error al crear la venta');
+            return;
+        }
+        
+        if (response.ok) {
+            cart = [];
+            renderCart();
+            
+            // Limpiar carrito remoto también
+            fetch('{% url "ventas:limpiar_carrito_remoto_api" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                }
+            }).catch(err => console.error('Error al limpiar carrito remoto:', err));
+            saleNote.value = '';
+            globalDiscountValue.value = '';
+            toggleTax.checked = false;
+            saleStatus.value = 'COMPLETADO';
+            customerSearch.value = '';
+            customerId.value = '';
+            customerName.value = '';
+            customerDocument.value = '';
+            selectedCustomer.classList.add('hidden');
+            // Resetear pago mixto
+            pagoMixtoToggle.checked = false;
+            pagoSimple.classList.remove('hidden');
+            pagoMixto.classList.add('hidden');
+            montoPago1.value = '';
+            montoPago2.value = '';
+            // Resetear descuentos por método de pago
+            const descuentoMetodoPagoToggle = document.getElementById('descuento-metodo-pago-toggle');
+            const descuentoMetodoPagoContainer = document.getElementById('descuento-metodo-pago-container');
+            if (descuentoMetodoPagoToggle) {
+                descuentoMetodoPagoToggle.checked = false;
+                if (descuentoMetodoPagoContainer) descuentoMetodoPagoContainer.classList.add('hidden');
+            }
+            const descuentoMetodoPago1Toggle = document.getElementById('descuento-metodo-pago-1-toggle');
+            const descuentoMetodoPago1Container = document.getElementById('descuento-metodo-pago-1-container');
+            if (descuentoMetodoPago1Toggle) {
+                descuentoMetodoPago1Toggle.checked = false;
+                if (descuentoMetodoPago1Container) descuentoMetodoPago1Container.classList.add('hidden');
+            }
+            const descuentoMetodoPago2Toggle = document.getElementById('descuento-metodo-pago-2-toggle');
+            const descuentoMetodoPago2Container = document.getElementById('descuento-metodo-pago-2-container');
+            if (descuentoMetodoPago2Toggle) {
+                descuentoMetodoPago2Toggle.checked = false;
+                if (descuentoMetodoPago2Container) descuentoMetodoPago2Container.classList.add('hidden');
+            }
+            updateSummary();
+            lastPdfUrl = data.venta.pdf;
+            if (lastPdfUrl) {
+                exportCart.disabled = false;
+                lastSaleLink.classList.remove('hidden');
+                lastSaleLink.href = lastPdfUrl;
+            }
+            // Mostrar modal de confirmación
+            if (window.showSaleModal) {
+                window.showSaleModal(data.venta.id, data.venta.total_ars, lastPdfUrl);
+            } else {
+                // Fallback si el modal no está disponible
+                alert(`Venta ${data.venta.id} registrada. Total: $${data.venta.total_ars}`);
+            }
+        } else {
+            alert(data.error || 'No se pudo registrar la venta');
+        }
+        completeSale.disabled = false;
+    });
+
+    loadLast.addEventListener('click', async () => {
+        try {
+            const response = await fetch('{% url "ventas:ultima_venta_api" %}');
+            const data = await response.json();
+            if (response.ok && data.venta && data.venta.pdf) {
+                window.open(data.venta.pdf, '_blank');
+            } else {
+                alert('No se encontró ninguna venta reciente.');
+            }
+        } catch (error) {
+            console.error('Error al cargar última venta:', error);
+            alert('Error al cargar la última venta.');
+        }
+    });
+
+    exportCart.addEventListener('click', () => {
+        if (!lastPdfUrl) {
+            alert('Registrá una venta para descargar el comprobante PDF.');
+            return;
+        }
+        window.open(lastPdfUrl, '_blank');
+    });
+
+    // Modal de confirmación de venta - Definir funciones GLOBALMENTE primero
+    window.showSaleModal = function(ventaId, total, pdfUrl) {
+        const saleModal = document.getElementById('sale-success-modal');
+        const saleModalVentaId = document.getElementById('sale-modal-venta-id');
+        const saleModalTotal = document.getElementById('sale-modal-total');
+        const saleModalView = document.getElementById('sale-modal-view');
+        const saleModalPrint = document.getElementById('sale-modal-print');
+        
+        if (!saleModal) {
+            console.error('Modal no encontrado');
+            alert(`Venta ${ventaId} registrada. Total: $${total}`);
+            return;
+        }
+        
+        if (saleModalVentaId) saleModalVentaId.textContent = ventaId;
+        if (saleModalTotal) saleModalTotal.textContent = `$${parseFloat(total).toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        if (saleModalView) saleModalView.href = pdfUrl || '#';
+        // Usar la URL de impresión en lugar de la URL del PDF directo
+        if (saleModalPrint) {
+            const printUrl = `{% url 'ventas:imprimir_voucher' 'VENTA_ID' %}`.replace('VENTA_ID', ventaId);
+            saleModalPrint.href = printUrl;
+        }
+        saleModal.classList.add('show');
+    };
+
+    window.hideSaleModal = function() {
+        const saleModal = document.getElementById('sale-success-modal');
+        if (saleModal) {
+            saleModal.classList.remove('show');
+        }
+    };
+
+    renderCart();
+
+    // ========= MODAL DE STOCK INSUFICIENTE =========
+    let productoStockInsuficiente = null;
+    
+    function mostrarModalStockInsuficiente(data) {
+        productoStockInsuficiente = data;
+        const modal = document.getElementById('stock-insufficient-modal');
+        if (!modal) return;
+        
+        document.getElementById('stock-modal-product-name').textContent = data.nombre;
+        document.getElementById('stock-modal-product-sku').textContent = data.sku;
+        document.getElementById('stock-modal-stock-actual').textContent = data.stock_actual;
+        document.getElementById('stock-modal-cantidad-solicitada').textContent = data.cantidad_solicitada;
+        
+        const nuevoStockInput = document.getElementById('stock-modal-nuevo-stock');
+        if (nuevoStockInput) {
+            nuevoStockInput.value = data.stock_actual;
+            nuevoStockInput.focus();
+        }
+        
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+    
+    function ocultarModalStockInsuficiente() {
+        const modal = document.getElementById('stock-insufficient-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+        productoStockInsuficiente = null;
+    }
+    
+    // Event listeners para el modal de stock - usar delegación de eventos para asegurar que funcionen
+    document.addEventListener('click', (e) => {
+        // Botón cancelar
+        if (e.target && e.target.id === 'stock-modal-cancel') {
+            e.preventDefault();
+            e.stopPropagation();
+            // Si el producto está en el carrito, eliminarlo
+            if (productoStockInsuficiente && productoStockInsuficiente.variante_id) {
+                const index = cart.findIndex(item => {
+                    if (item.es_custom) {
+                        return false; // No eliminar productos varios
+                    }
+                    return item.variante_id === productoStockInsuficiente.variante_id;
+                });
+                
+                if (index !== -1) {
+                    cart.splice(index, 1);
+                    renderCart();
+                }
+            }
+            ocultarModalStockInsuficiente();
+            return;
+        }
+        
+        // Cerrar al hacer click fuera del modal
+        if (e.target && e.target.id === 'stock-insufficient-modal') {
+            ocultarModalStockInsuficiente();
+            return;
+        }
+    });
+    
+    // Botón actualizar stock
+    document.addEventListener('click', async (e) => {
+        if (e.target && e.target.id === 'stock-modal-update') {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            if (!productoStockInsuficiente) return;
+            
+            const nuevoStockInput = document.getElementById('stock-modal-nuevo-stock');
+            const nuevoStock = parseInt(nuevoStockInput?.value || '0', 10);
+            
+            if (isNaN(nuevoStock) || nuevoStock < 0) {
+                alert('Ingresá un stock válido (número entero mayor o igual a 0)');
+                nuevoStockInput?.focus();
+                return;
+            }
+            
+            // Deshabilitar botón mientras se procesa
+            const updateBtn = e.target;
+            const originalText = updateBtn.textContent;
+            updateBtn.disabled = true;
+            updateBtn.textContent = 'Actualizando...';
+            
+            try {
+                const response = await fetch('{% url "ventas:actualizar_stock_variante_api" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        variante_id: productoStockInsuficiente.variante_id,
+                        stock: nuevoStock
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'ok') {
+                    // Actualizar el stock en el objeto del producto si está en la búsqueda
+                    // Y luego intentar agregar al carrito nuevamente
+                    ocultarModalStockInsuficiente();
+                    
+                    // Mostrar mensaje de éxito
+                    console.log('✅ Stock actualizado:', data.mensaje);
+                    
+                    // Buscar el producto actualizado y agregarlo al carrito
+                    try {
+                        const searchResponse = await fetch(`{% url "ventas:buscar_productos_api" %}?q=${encodeURIComponent(productoStockInsuficiente.sku)}`);
+                        const searchData = await searchResponse.json();
+                        
+                        if (searchData.results && searchData.results.length > 0) {
+                            const productoActualizado = searchData.results.find(p => p.id === productoStockInsuficiente.variante_id);
+                            if (productoActualizado) {
+                                // Verificar que el stock sea suficiente antes de agregar
+                                const cantidad_solicitada = productoStockInsuficiente.cantidad_solicitada || 1;
+                                if (productoActualizado.stock_actual >= cantidad_solicitada) {
+                                    addToCart(productoActualizado);
+                                } else {
+                                    // Si aún no hay suficiente stock, mostrar el modal nuevamente
+                                    mostrarModalStockInsuficiente({
+                                        variante_id: productoStockInsuficiente.variante_id,
+                                        nombre: productoStockInsuficiente.nombre,
+                                        sku: productoStockInsuficiente.sku,
+                                        stock_actual: productoActualizado.stock_actual || 0,
+                                        cantidad_solicitada: cantidad_solicitada
+                                    });
+                                }
+                            }
+                        }
+                    } catch (searchError) {
+                        console.error('Error al buscar producto actualizado:', searchError);
+                        // No mostrar error al usuario, solo loguear
+                    }
+                } else {
+                    const errorMsg = data.error || 'Error al actualizar el stock';
+                    console.error('❌ Error al actualizar stock:', errorMsg);
+                    alert(errorMsg);
+                }
+            } catch (error) {
+                console.error('❌ Error al actualizar stock:', error);
+                alert('Error al actualizar el stock. Por favor, intentá nuevamente.');
+            } finally {
+                // Rehabilitar botón
+                updateBtn.disabled = false;
+                updateBtn.textContent = originalText;
+            }
+        }
+    });
+
+    // Sincronizar carrito remoto (desde móvil) y actualizar indicador de conexión
+    let ultimoCarritoRemotoHash = null;
+    let ultimaConexionExitosa = Date.now();
+    let ultimoTimestampActualizado = null;
+    const posRemotoStatus = document.getElementById('pos-remoto-status');
+    
+    // Mejorar la detección de conexión - usar timestamp más reciente
+    function actualizarTimestampConexion(timestamp) {
+        if (timestamp) {
+            const nuevoTimestamp = new Date(timestamp).getTime();
+            if (nuevoTimestamp > ultimaConexionExitosa) {
+                ultimaConexionExitosa = nuevoTimestamp;
+            } else {
+                ultimaConexionExitosa = Date.now();
+            }
+        } else {
+            ultimaConexionExitosa = Date.now();
+        }
+    }
+    
+    function actualizarIndicadorConexion(conectado, timestampActualizado = null) {
+        if (!posRemotoStatus) return;
+        
+        if (conectado) {
+            // Siempre actualizar a conectado si hay una respuesta exitosa
+            posRemotoStatus.className = 'flex items-center gap-2 rounded-full border-2 border-emerald-500/60 bg-emerald-500/30 px-3 py-1.5 text-xs font-semibold text-emerald-300 shadow-lg';
+            posRemotoStatus.style.boxShadow = '0 0 10px rgba(16, 185, 129, 0.5), 0 0 20px rgba(16, 185, 129, 0.3)';
+            posRemotoStatus.innerHTML = '<span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" style="box-shadow: 0 0 8px rgba(16, 185, 129, 0.8);"></span><span class="hidden sm:inline">POS remoto conectado</span><span class="sm:hidden">Remoto conectado</span>';
+            ultimaConexionExitosa = Date.now();
+            if (timestampActualizado) {
+                ultimoTimestampActualizado = new Date(timestampActualizado).getTime();
+            }
+        } else {
+            // Verificar si realmente está desconectado (más de 3 segundos sin respuesta)
+            const tiempoDesdeUltimaConexion = Date.now() - ultimaConexionExitosa;
+            if (tiempoDesdeUltimaConexion > 3000) {
+                posRemotoStatus.className = 'flex items-center gap-2 rounded-full border-2 border-rose-500/40 bg-rose-500/20 px-3 py-1.5 text-xs font-semibold text-rose-300 shadow-sm';
+                posRemotoStatus.style.boxShadow = '';
+                posRemotoStatus.innerHTML = '<span class="h-2 w-2 rounded-full bg-rose-400 animate-pulse"></span><span class="hidden sm:inline">POS remoto desconectado</span><span class="sm:hidden">Remoto desconectado</span>';
+            }
+        }
+    }
+    
+    async function sincronizarCarritoRemoto() {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000); // Timeout de 3 segundos
+            
+            const response = await fetch('{% url "ventas:obtener_carrito_remoto_api" %}', {
+                signal: controller.signal,
+                cache: 'no-cache'
+            });
+            clearTimeout(timeoutId);
+            
+            if (!response.ok) {
+                throw new Error('Error en la respuesta');
+            }
+            
+            const data = await response.json();
+            
+            // Actualizar timestamp de conexión y indicador
+            if (data.actualizado) {
+                actualizarTimestampConexion(data.actualizado);
+            } else {
+                ultimaConexionExitosa = Date.now();
+            }
+            
+            // Siempre actualizar el indicador a conectado si hay respuesta exitosa
+            actualizarIndicadorConexion(true, data.actualizado);
+            
+            const carritoRemoto = data.carrito || [];
+            
+            // Verificar si hay cambios basándose en el timestamp de actualización
+            let hayCambiosEnTimestamp = false;
+            if (data.actualizado) {
+                const nuevoTimestamp = new Date(data.actualizado).getTime();
+                if (!ultimoTimestampActualizado || nuevoTimestamp > ultimoTimestampActualizado) {
+                    ultimoTimestampActualizado = nuevoTimestamp;
+                    hayCambiosEnTimestamp = true;
+                }
+            } else {
+                // Si no hay timestamp, asumir que puede haber cambios
+                hayCambiosEnTimestamp = true;
+            }
+            
+            // Crear hash del carrito para detectar cambios (solo IDs y cantidades)
+            const carritoHash = JSON.stringify(carritoRemoto.map(item => ({
+                variante_id: item.variante_id,
+                cantidad: item.cantidad
+            })));
+            
+            let huboCambios = false;
+            
+            // Si hay cambios en el timestamp o en el hash del carrito, sincronizar
+            if (hayCambiosEnTimestamp || carritoHash !== ultimoCarritoRemotoHash) {
+                if (carritoHash !== ultimoCarritoRemotoHash) {
+                    ultimoCarritoRemotoHash = carritoHash;
+                }
+                huboCambios = true;
+                
+                // Sincronizar productos del carrito remoto con el local
+                // Primero, eliminar items que ya no están en el remoto (solo los que vinieron del remoto)
+                const itemsRemotosIds = new Set(carritoRemoto.map(item => item.variante_id).filter(Boolean));
+                cart = cart.filter(item => {
+                    // Mantener items custom y items que no vinieron del remoto
+                    if (item.es_custom || !item.variante_id) return true;
+                    // Mantener solo si está en el carrito remoto
+                    return itemsRemotosIds.has(item.variante_id);
+                });
+                
+                // Agregar o actualizar productos del carrito remoto
+                for (const itemRemoto of carritoRemoto) {
+                    if (!itemRemoto.variante_id) continue;
+                    
+                    // Buscar si ya existe en el carrito local
+                    const existe = cart.find(item => 
+                        item.variante_id === itemRemoto.variante_id && !item.es_custom
+                    );
+                    
+                    if (!existe) {
+                        const cantidadSolicitada = parseInt(itemRemoto.cantidad || 1);
+                        const stockActual = itemRemoto.stock_actual ?? 0;
+                        
+                        // Verificar stock antes de agregar desde remoto
+                        if (stockActual < cantidadSolicitada && stockActual >= 0) {
+                            // Mostrar modal de stock insuficiente en el POS (PC)
+                            mostrarModalStockInsuficiente({
+                                variante_id: itemRemoto.variante_id,
+                                nombre: itemRemoto.nombre || itemRemoto.descripcion || 'Producto',
+                                sku: itemRemoto.sku || 'N/A',
+                                stock_actual: stockActual,
+                                cantidad_solicitada: cantidadSolicitada
+                            });
+                            console.warn('⚠️ Stock insuficiente desde remoto:', itemRemoto.nombre);
+                            continue; // No agregar este item
+                        }
+                        
+                        // Usar directamente los datos del carrito remoto que ya tienen toda la info
+                        const nuevoItem = {
+                            variante_id: itemRemoto.variante_id,
+                            sku: itemRemoto.sku,
+                            nombre: itemRemoto.nombre || itemRemoto.descripcion || 'Producto',
+                            descripcion: itemRemoto.descripcion || itemRemoto.nombre || '',
+                            precio_unitario_ars: parseFloat(itemRemoto.precio_unitario_ars || 0),
+                            precio_usd_original: itemRemoto.precio_usd_original ? parseFloat(itemRemoto.precio_usd_original) : null,
+                            es_iphone: itemRemoto.es_iphone || false,
+                            cantidad: cantidadSolicitada,
+                            es_custom: itemRemoto.es_custom || false,
+                            stock_actual: stockActual,
+                            precios: itemRemoto.precios || {},
+                            descuento: null
+                        };
+                        
+                        // Agregar directamente al carrito
+                        cart.push(nuevoItem);
+                        console.log('✅ Producto agregado desde remoto:', nuevoItem);
+                    } else {
+                        // Actualizar cantidad si es diferente
+                        const cantidadRemota = parseInt(itemRemoto.cantidad || 1);
+                        const stockActual = itemRemoto.stock_actual ?? existe.stock_actual ?? 0;
+                        
+                        // Verificar stock al actualizar cantidad
+                        if (cantidadRemota > stockActual && stockActual >= 0) {
+                            // Mostrar modal de stock insuficiente
+                            mostrarModalStockInsuficiente({
+                                variante_id: existe.variante_id,
+                                nombre: existe.nombre,
+                                sku: existe.sku || 'N/A',
+                                stock_actual: stockActual,
+                                cantidad_solicitada: cantidadRemota
+                            });
+                            console.warn('⚠️ Stock insuficiente al actualizar desde remoto:', existe.nombre);
+                        } else if (existe.cantidad !== cantidadRemota) {
+                            existe.cantidad = cantidadRemota;
+                            console.log('🔄 Cantidad actualizada desde remoto:', existe.nombre, cantidadRemota);
+                        }
+                    }
+                }
+            }
+            
+            // Renderizar el carrito si hubo cambios
+            if (huboCambios) {
+                renderCart();
+                updateSummary();
+            }
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                console.warn('Timeout al sincronizar carrito remoto');
+            } else {
+                console.error('Error al sincronizar carrito remoto:', error);
+            }
+            actualizarIndicadorConexion(false);
+        }
+    }
+    
+    // Sincronizar cada 800ms para mejor tiempo real
+    setInterval(sincronizarCarritoRemoto, 800);
+    sincronizarCarritoRemoto(); // Sincronizar inmediatamente
+    
+    // Actualizar indicador de conexión periódicamente
+    setInterval(() => {
+        const tiempoDesdeUltimaConexion = Date.now() - ultimaConexionExitosa;
+        if (tiempoDesdeUltimaConexion > 3000) { // 3 segundos sin respuesta = desconectado
+            actualizarIndicadorConexion(false);
+        }
+    }, 1000);
+    
+    // ========== SISTEMA DE IMPRESIÓN REMOTA ==========
+    // La PC consulta periódicamente si hay solicitudes de impresión pendientes
+    // y las imprime automáticamente
+    const solicitudesProcesadas = new Set(); // Para evitar procesar la misma solicitud dos veces
+    
+    // Función para mostrar notificación visual de impresión
+    function mostrarNotificacionImpresion(cantidad) {
+        // Crear o actualizar notificación
+        let notif = document.getElementById('notificacion-impresion');
+        if (!notif) {
+            notif = document.createElement('div');
+            notif.id = 'notificacion-impresion';
+            notif.className = 'fixed top-4 right-4 z-50 rounded-xl border-2 border-blue-500/60 bg-blue-500/30 px-4 py-3 text-sm font-semibold text-blue-100 shadow-lg';
+            notif.style.boxShadow = '0 0 20px rgba(59, 130, 246, 0.5)';
+            document.body.appendChild(notif);
+        }
+        notif.innerHTML = `
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                </svg>
+                <span>Imprimiendo ${cantidad} comprobante(s)...</span>
+            </div>
+        `;
+        notif.style.display = 'block';
+        
+        // Ocultar después de 5 segundos
+        setTimeout(() => {
+            if (notif) {
+                notif.style.display = 'none';
+            }
+        }, 5000);
+    }
+    
+    async function procesarColaImpresion() {
+        try {
+            const response = await fetch('{% url "ventas:obtener_solicitudes_impresion_api" %}');
+            if (!response.ok) {
+                console.warn('Error al obtener solicitudes de impresión:', response.status);
+                return;
+            }
+            
+            const data = await response.json();
+            const solicitudes = data.solicitudes || [];
+            
+            if (solicitudes.length > 0) {
+                console.log(`📄 Encontradas ${solicitudes.length} solicitud(es) de impresión pendiente(s)`);
+                // Mostrar notificación visual
+                mostrarNotificacionImpresion(solicitudes.length);
+            }
+            
+            for (const solicitud of solicitudes) {
+                // Evitar procesar la misma solicitud dos veces
+                if (solicitudesProcesadas.has(solicitud.id)) {
+                    continue;
+                }
+                
+                solicitudesProcesadas.add(solicitud.id);
+                console.log(`🖨️ Procesando solicitud de impresión para venta: ${solicitud.venta_id}`);
+                
+                try {
+                    // Marcar como procesando
+                    await fetch('{% url "ventas:marcar_impresion_completada_api" %}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken
+                        },
+                        body: JSON.stringify({
+                            solicitud_id: solicitud.id,
+                            estado: 'PROCESANDO'
+                        })
+                    });
+                    
+                    // Construir URL del PDF
+                    const pdfUrl = `{% url 'ventas:voucher' 'VENTA_ID' %}`.replace('VENTA_ID', solicitud.venta_id);
+                    console.log('📄 Abriendo PDF para impresión automática:', pdfUrl);
+                    
+                    // Abrir el PDF en una nueva ventana
+                    const printWindow = window.open(pdfUrl, '_blank');
+                    
+                    if (!printWindow) {
+                        throw new Error('No se pudo abrir la ventana de impresión. Verifica que los pop-ups estén habilitados.');
+                    }
+                    
+                    // Función para imprimir automáticamente
+                    let impresionEjecutada = false;
+                    const imprimirAutomatico = () => {
+                        if (impresionEjecutada) return;
+                        impresionEjecutada = true;
+                        
+                        try {
+                            console.log('🖨️ Ejecutando impresión automática...');
+                            
+                            // Enfocar la ventana y imprimir
+                            printWindow.focus();
+                            
+                            // Esperar un momento y luego imprimir
+                            setTimeout(() => {
+                                try {
+                                    printWindow.print();
+                                    console.log('✅ Diálogo de impresión abierto automáticamente');
+                                    
+                                    // Marcar como completada después de un delay
+                                    setTimeout(async () => {
+                                        try {
+                                            await fetch('{% url "ventas:marcar_impresion_completada_api" %}', {
+                                                method: 'POST',
+                                                headers: {
+                                                    'Content-Type': 'application/json',
+                                                    'X-CSRFToken': csrfToken
+                                                },
+                                                body: JSON.stringify({
+                                                    solicitud_id: solicitud.id,
+                                                    estado: 'COMPLETADA'
+                                                })
+                                            });
+                                            console.log('✅ Impresión completada automáticamente para venta:', solicitud.venta_id);
+                                            
+                                            // Cerrar la ventana después de un tiempo (si el usuario no la cerró)
+                                            setTimeout(() => {
+                                                try {
+                                                    if (printWindow && !printWindow.closed) {
+                                                        printWindow.close();
+                                                    }
+                                                } catch (e) {
+                                                    // Ignorar errores al cerrar
+                                                }
+                                            }, 5000);
+                                            
+                                            // Remover de la lista de procesadas después de 5 minutos
+                                            setTimeout(() => {
+                                                solicitudesProcesadas.delete(solicitud.id);
+                                            }, 300000);
+                                        } catch (error) {
+                                            console.error('Error al marcar como completada:', error);
+                                        }
+                                    }, 3000);
+                                } catch (error) {
+                                    console.error('Error al ejecutar print():', error);
+                                    throw error;
+                                }
+                            }, 2000); // Esperar 2 segundos para que el PDF se cargue
+                            
+                        } catch (error) {
+                            console.error('Error en impresión automática:', error);
+                            throw error;
+                        }
+                    };
+                    
+                    // Intentar detectar cuando el PDF está listo
+                    // Método 1: Esperar a que la ventana cargue
+                    let checkReady = setInterval(() => {
+                        try {
+                            if (printWindow.document && printWindow.document.readyState === 'complete') {
+                                clearInterval(checkReady);
+                                console.log('📄 PDF cargado, iniciando impresión automática...');
+                                imprimirAutomatico();
+                            }
+                        } catch (e) {
+                            // Si hay error de acceso (cross-origin o PDF), continuar con timeout
+                        }
+                    }, 500);
+                    
+                    // Método 2: Timeout de seguridad (si el PDF no dispara readyState)
+                    setTimeout(() => {
+                        clearInterval(checkReady);
+                        if (!impresionEjecutada) {
+                            console.log('📄 Timeout: iniciando impresión automática...');
+                            imprimirAutomatico();
+                        }
+                    }, 4000);
+                    
+                } catch (error) {
+                    console.error('❌ Error al procesar solicitud de impresión:', error);
+                    // Marcar como error
+                    try {
+                        await fetch('{% url "ventas:marcar_impresion_completada_api" %}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': csrfToken
+                            },
+                            body: JSON.stringify({
+                                solicitud_id: solicitud.id,
+                                estado: 'ERROR',
+                                error: error.message || 'Error desconocido'
+                            })
+                        });
+                        // Remover de procesadas para poder reintentar
+                        solicitudesProcesadas.delete(solicitud.id);
+                    } catch (e) {
+                        console.error('Error al marcar como error:', e);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error al consultar cola de impresión:', error);
+        }
+    }
+    
+    // Consultar cola de impresión cada 2 segundos
+    setInterval(procesarColaImpresion, 2000);
+    procesarColaImpresion(); // Procesar inmediatamente
+    
+    console.log('🖨️ Sistema de impresión remota iniciado');
+
+    // Cargar productos desde localStorage (desde preview)
+    function cargarProductosDesdePreview() {
+        try {
+            const productosPOS = JSON.parse(localStorage.getItem('productos_para_pos') || '[]');
+            if (productosPOS.length > 0) {
+                // Limpiar productos procesados
+                localStorage.removeItem('productos_para_pos');
+                
+                // Agregar cada producto al carrito
+                productosPOS.forEach(producto => {
+                    if (producto.variante_id) {
+                        // Buscar el producto en el sistema
+                        fetch(`/ventas/api/buscar-productos/?q=${encodeURIComponent(producto.sku)}`)
+                            .then(response => response.json())
+                            .then(data => {
+                                const resultados = data.results || [];
+                                const encontrado = resultados.find(r => r.id === producto.variante_id || r.sku === producto.sku);
+                                if (encontrado) {
+                                    addToCart(encontrado);
+                                } else {
+                                    // Si no se encuentra, crear producto varios
+                                    const customProduct = {
+                                        id: `custom-${Date.now()}`,
+                                        variante_id: null,
+                                        sku: producto.sku,
+                                        nombre: `Producto ${producto.sku}`,
+                                        descripcion: `Producto ${producto.sku}`,
+                                        precio_unitario_ars: producto.precio_ars || 0,
+                                        stock_actual: 999,
+                                        es_custom: true
+                                    };
+                                    addToCart(customProduct);
+                                }
+                            })
+                            .catch(err => {
+                                console.error('Error al buscar producto:', err);
+                            });
+                    }
+                });
+                
+                // Mostrar notificación
+                const notification = document.createElement('div');
+                notification.className = 'fixed top-4 right-4 z-50 rounded-2xl border-2 border-blue-600/40 bg-blue-600/20 px-4 py-3 text-sm font-semibold text-blue-300 shadow-lg';
+                notification.innerHTML = `<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> ${productosPOS.length} producto${productosPOS.length > 1 ? 's' : ''} agregado${productosPOS.length > 1 ? 's' : ''} al carrito`;
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    notification.remove();
+                }, 3000);
+            }
+        } catch (e) {
+            console.error('Error al cargar productos desde preview:', e);
+        }
+    }
+
+    // Configurar event listeners cuando el DOM esté listo
+    document.addEventListener('DOMContentLoaded', function() {
+        // Cargar productos desde preview
+        cargarProductosDesdePreview();
+        
+        const saleModal = document.getElementById('sale-success-modal');
+        const saleModalClose = document.getElementById('sale-modal-close');
+        const saleModalPrint = document.getElementById('sale-modal-print');
+        
+        if (saleModalClose) {
+            saleModalClose.addEventListener('click', window.hideSaleModal);
+        }
+        
+        if (saleModal) {
+            saleModal.addEventListener('click', (e) => {
+                if (e.target === saleModal) window.hideSaleModal();
+            });
+        }
+        
+        if (saleModalPrint) {
+            saleModalPrint.addEventListener('click', (e) => {
+                e.preventDefault();
+                const pdfUrl = saleModalPrint.href;
+                if (pdfUrl && pdfUrl !== '#') {
+                    window.open(pdfUrl, '_blank');
+                }
+            });
+        }
+    });
+
+    let audioContext = null;
+    function playBeep() {
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+            if (!audioContext) {
+                audioContext = new AudioCtx();
+            }
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            const oscillator = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            oscillator.type = 'sine';
+            oscillator.frequency.value = 880;
+            gain.gain.setValueAtTime(0.12, audioContext.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.15);
+            oscillator.connect(gain);
+            gain.connect(audioContext.destination);
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.15);
+        } catch (error) {
+            console.warn('No se pudo reproducir el sonido de escaneo:', error);
+        }
+    }
+
+    window.addEventListener('click', () => {
+        try { audioContext && audioContext.resume(); } catch (e) { /* ignore */ }
+    }, { once: true, passive: true });
 </script>
+
+<!-- Modal de confirmación de venta -->
+<div id="sale-success-modal">
+    <div class="modal-content">
+        <div class="text-center">
+            <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 mb-4">
+                <svg class="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </div>
+            <h3 class="text-2xl font-bold mb-3" style="color: #0f172a !important; letter-spacing: -0.5px;">¡Venta registrada!</h3>
+            <p class="mb-1 text-sm font-medium" style="color: #64748b !important;">Comprobante</p>
+            <p class="mb-4 text-lg font-semibold" style="color: #0f172a !important;"><span id="sale-modal-venta-id"></span></p>
+            <p class="text-4xl font-bold mb-8" id="sale-modal-total" style="color: #16a34a !important; letter-spacing: -1px;"></p>
+            
+            <div class="modal-buttons">
+                <a id="sale-modal-view" href="#" target="_blank" class="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-center text-white shadow-lg hover:from-blue-500 hover:to-indigo-500 transition-all font-semibold">
+                    Ver comprobante
+                </a>
+                <a id="sale-modal-print" href="#" target="_blank" class="rounded-xl border-2 border-slate-300 bg-white text-center hover:bg-slate-50 transition-all font-semibold" style="color: #334155 !important;">
+                    Imprimir
+                </a>
+                <button id="sale-modal-close" class="rounded-xl border-2 border-slate-300 bg-white hover:bg-slate-50 transition-all font-semibold" style="color: #334155 !important;">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de stock insuficiente -->
+<div id="stock-insufficient-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 backdrop-blur-sm px-4">
+    <div class="glass-card w-full max-w-md rounded-3xl p-8 shadow-2xl animate-fade-in-up">
+        <div class="flex items-center gap-4 mb-6">
+            <div class="relative flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg">
+                <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+            </div>
+            <div>
+                <h3 class="text-2xl font-bold text-slate-100">Producto sin stock</h3>
+                <p class="mt-1 text-sm text-slate-400">El producto no tiene suficiente stock disponible</p>
+            </div>
+        </div>
+        
+        <div class="space-y-4 mb-6">
+            <div class="glass-card rounded-2xl p-4 border border-amber-500/30">
+                <p class="text-sm font-semibold text-slate-300 mb-1">Producto</p>
+                <p class="text-lg font-bold text-slate-100" id="stock-modal-product-name">-</p>
+                <p class="text-xs text-slate-400 mt-1">SKU: <span id="stock-modal-product-sku">-</span></p>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+                <div class="glass-card rounded-2xl p-4">
+                    <p class="text-xs font-semibold text-slate-400 mb-1">Stock disponible</p>
+                    <p class="text-2xl font-bold text-rose-400" id="stock-modal-stock-actual">0</p>
+                </div>
+                <div class="glass-card rounded-2xl p-4">
+                    <p class="text-xs font-semibold text-slate-400 mb-1">Cantidad solicitada</p>
+                    <p class="text-2xl font-bold text-amber-400" id="stock-modal-cantidad-solicitada">0</p>
+                </div>
+            </div>
+            
+            <div class="glass-card rounded-2xl p-4 border border-blue-500/30">
+                <label for="stock-modal-nuevo-stock" class="block text-sm font-semibold text-slate-300 mb-2">
+                    Nuevo stock
+                </label>
+                <input
+                    type="number"
+                    id="stock-modal-nuevo-stock"
+                    min="0"
+                    step="1"
+                    class="w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-lg font-semibold text-slate-100 placeholder-slate-400 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    placeholder="Ingresá el nuevo stock"
+                />
+                <p class="mt-2 text-xs text-slate-400">¿Deseas modificar el stock de este producto?</p>
+            </div>
+        </div>
+        
+        <div class="flex gap-4">
+            <button
+                type="button"
+                id="stock-modal-cancel"
+                class="flex-1 rounded-2xl border border-slate-700 bg-slate-800/50 px-6 py-3 text-sm font-semibold text-slate-300 shadow-lg hover:bg-slate-700/50 transition-all"
+            >
+                Cancelar
+            </button>
+            <button
+                type="button"
+                id="stock-modal-update"
+                class="flex-1 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/30 hover:from-blue-500 hover:to-indigo-500 transition-all"
+            >
+                Actualizar stock
+            </button>
+        </div>
+    </div>
+</div>
 {% endblock %}
+

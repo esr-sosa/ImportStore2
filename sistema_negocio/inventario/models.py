@@ -1,21 +1,62 @@
+import os
+from uuid import uuid4
+from decimal import Decimal
+
 from django.db import models
 from django.utils import timezone
 
 
 class Categoria(models.Model):
-    nombre = models.CharField(max_length=120, unique=True)
+    nombre = models.CharField(max_length=120)
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="subcategorias",
+        verbose_name="Categoría padre",
+        help_text="Seleccioná la categoría padre si esta es una subcategoría"
+    )
     descripcion = models.TextField(blank=True)
+    garantia_dias = models.PositiveIntegerField(null=True, blank=True, help_text="Días de garantía específicos para esta categoría. Si está vacío, se usa la garantía general.")
 
     class Meta:
         verbose_name = "Categoría"
         verbose_name_plural = "Categorías"
-        ordering = ["nombre"]
+        ordering = ["parent__nombre", "nombre"]
         indexes = [
             models.Index(fields=["nombre"], name="idx_categoria_nombre"),
+            models.Index(fields=["parent"], name="idx_categoria_parent"),
+        ]
+        constraints = [
+            models.UniqueConstraint(fields=["nombre", "parent"], name="unique_categoria_nombre_parent"),
         ]
 
     def __str__(self):
+        if self.parent:
+            return f"{self.parent.nombre} > {self.nombre}"
         return self.nombre
+    
+    @property
+    def nombre_completo(self):
+        """Retorna el nombre completo con la jerarquía completa."""
+        if self.parent:
+            return f"{self.parent.nombre_completo} > {self.nombre}"
+        return self.nombre
+    
+    @property
+    def es_subcategoria(self):
+        """Retorna True si esta categoría es una subcategoría."""
+        return self.parent is not None
+    
+    def get_nivel(self):
+        """Retorna el nivel de profundidad en la jerarquía (0 = categoría principal)."""
+        nivel = 0
+        categoria = self.parent
+        while categoria:
+            nivel += 1
+            categoria = categoria.parent
+        return nivel
 
 
 class Proveedor(models.Model):
@@ -47,6 +88,7 @@ class Producto(models.Model):
 
     # Campos que ya estás usando en tu DB:
     activo = models.BooleanField(default=True)
+    estado = models.CharField(max_length=20, default="ACTIVO", blank=True, help_text="Estado del producto en la base de datos")
     codigo_barras = models.CharField(max_length=64, blank=True, null=True)
     # Guardás un path/ruta (VARCHAR en DB). Lo dejo CharField para compatibilidad.
     imagen_codigo_barras = models.CharField(max_length=255, blank=True, null=True)
@@ -66,6 +108,29 @@ class Producto(models.Model):
         return self.nombre
 
 
+def _producto_imagen_upload_to(instance, filename: str) -> str:
+    base, ext = os.path.splitext(filename or "")
+    ext = ext or ".png"
+    unique = uuid4().hex
+    return os.path.join("productos", str(instance.producto_id or "tmp"), f"{unique}{ext}")
+
+
+class ProductoImagen(models.Model):
+    producto = models.ForeignKey(Producto, related_name="imagenes", on_delete=models.CASCADE)
+    imagen = models.ImageField(upload_to=_producto_imagen_upload_to)
+    orden = models.PositiveIntegerField(default=0)
+    creado = models.DateTimeField(auto_now_add=True)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["orden", "id"]
+        verbose_name = "Imagen de producto"
+        verbose_name_plural = "Imágenes de producto"
+
+    def __str__(self) -> str:
+        return f"Imagen {self.pk} de {self.producto.nombre}"
+
+
 class ProductoVariante(models.Model):
     """
     Variante de un producto (por ejemplo: color, capacidad, tamaño).
@@ -74,6 +139,9 @@ class ProductoVariante(models.Model):
         Producto, on_delete=models.CASCADE, related_name="variantes"
     )
     sku = models.CharField(max_length=64, unique=True)
+    nombre_variante = models.CharField(max_length=200, blank=True, default="", help_text="Nombre descriptivo de la variante")
+    codigo_barras = models.CharField(max_length=64, blank=True, null=True, help_text="Código de barras EAN/UPC")
+    qr_code = models.CharField(max_length=255, blank=True, null=True, help_text="Código QR (URL o texto)")
     atributo_1 = models.CharField(max_length=120, blank=True)  # ej: color
     atributo_2 = models.CharField(max_length=120, blank=True)  # ej: capacidad/tamaño
     stock_actual = models.IntegerField(default=0)
@@ -101,6 +169,24 @@ class ProductoVariante(models.Model):
     @property
     def bajo_stock(self):
         return self.stock_minimo and self.stock_actual <= self.stock_minimo
+
+    @property
+    def atributos_display(self):
+        partes = [parte for parte in [self.atributo_1, self.atributo_2] if parte]
+        return " / ".join(partes) if partes else ""
+
+    def precio_activo(self, tipo: str, moneda: str):
+        return (
+            self.precios.filter(tipo=tipo, moneda=moneda, activo=True)
+            .order_by("-actualizado")
+            .first()
+        )
+
+    def valor_estimado(self, tipo: str, moneda: str) -> Decimal:
+        precio = self.precio_activo(tipo=tipo, moneda=moneda)
+        if not precio:
+            return Decimal("0")
+        return Decimal(precio.precio) * Decimal(self.stock_actual or 0)
 
 
 class Precio(models.Model):
@@ -136,7 +222,7 @@ class Precio(models.Model):
             models.Index(fields=["activo"], name="idx_precio_activo"),
             models.Index(fields=["variante", "tipo", "moneda"], name="idx_precio_var_tipo_mon"),
         ]
-        # ⚠️ Antes de activar este UniqueConstraint en una migración, verificá duplicados.
+        # NOTA: Antes de activar este UniqueConstraint en una migración, verificá duplicados.
         # constraints = [
         #     models.UniqueConstraint(
         #         fields=["variante", "tipo", "moneda"],
@@ -146,3 +232,75 @@ class Precio(models.Model):
 
     def __str__(self):
         return f"{self.variante.sku} — {self.tipo} {self.precio} {self.moneda}"
+
+
+class DetalleIphone(models.Model):
+    variante = models.OneToOneField(
+        ProductoVariante,
+        on_delete=models.CASCADE,
+        related_name="detalle_iphone",
+        blank=True,
+        null=True,
+        help_text="Variante asociada al equipo dentro del inventario",
+    )
+    imei = models.CharField(
+        max_length=15,
+        unique=True,
+        blank=True,
+        null=True,
+        help_text="IMEI único del equipo",
+    )
+    salud_bateria = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        help_text="Porcentaje de salud de la batería (1-100)",
+    )
+    fallas_detectadas = models.TextField(
+        blank=True,
+        help_text="Observaciones o detalles a tener en cuenta",
+    )
+    es_plan_canje = models.BooleanField(
+        default=False,
+        help_text="Indica si fue recibido como parte de un plan canje",
+    )
+    costo_usd = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Costo de adquisición en USD",
+    )
+    precio_venta_usd = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="Precio minorista en USD",
+    )
+    precio_oferta_usd = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Precio promocional en USD",
+    )
+    notas = models.TextField(
+        blank=True,
+        help_text="Notas internas adicionales",
+    )
+    foto = models.ImageField(
+        upload_to="iphones/",
+        blank=True,
+        null=True,
+        help_text="Fotografía principal del equipo",
+    )
+    creado = models.DateTimeField(default=timezone.now, editable=False)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Detalle de iPhone"
+        verbose_name_plural = "Detalles de iPhone"
+        ordering = ["-actualizado"]
+
+    def __str__(self):
+        nombre = self.variante.producto.nombre if self.variante_id else "iPhone"
+        atributos = self.variante.atributos_display if self.variante_id else ""
+        return f"{nombre} {atributos}".strip()

@@ -3,6 +3,82 @@ import django.db.models.deletion
 import django.utils.timezone
 from django.db import migrations, models
 
+
+def _create_indexes(apps, schema_editor):
+    """Recrea los índices heredados únicamente cuando la base es MySQL."""
+
+    connection = schema_editor.connection
+    if connection.vendor != "mysql":
+        return
+
+    with connection.cursor() as cursor:
+        existing_tables = {
+            name.lower(): name for name in connection.introspection.table_names(cursor)
+        }
+
+    def has_column(table: str, column: str) -> bool:
+        normalized = existing_tables.get(table.lower())
+        if not normalized:
+            return False
+
+        with connection.cursor() as cursor:
+            description = connection.introspection.get_table_description(cursor, normalized)
+
+        return any(col.name.lower() == column.lower() for col in description)
+
+    statements = []
+    if has_column("inventario_categoria", "nombre"):
+        statements.append(
+            "CREATE INDEX IF NOT EXISTS idx_categoria_nombre  ON inventario_categoria (nombre);"
+        )
+    if has_column("inventario_precio", "activo"):
+        statements.append(
+            "CREATE INDEX IF NOT EXISTS idx_precio_activo     ON inventario_precio (activo);"
+        )
+    if all(
+        has_column("inventario_precio", col)
+        for col in ("variante_id", "tipo", "moneda")
+    ):
+        statements.append(
+            "CREATE INDEX IF NOT EXISTS idx_precio_var_tipo_mon ON inventario_precio (variante_id, tipo, moneda);"
+        )
+    if has_column("inventario_producto", "activo"):
+        statements.append(
+            "CREATE INDEX IF NOT EXISTS idx_producto_activo   ON inventario_producto (activo);"
+        )
+    if has_column("inventario_producto", "nombre"):
+        statements.append(
+            "CREATE INDEX IF NOT EXISTS idx_producto_nombre   ON inventario_producto (nombre);"
+        )
+    if has_column("inventario_productovariante", "activo"):
+        statements.append(
+            "CREATE INDEX IF NOT EXISTS idx_var_activo        ON inventario_productovariante (activo);"
+        )
+    if has_column("inventario_productovariante", "stock_actual"):
+        statements.append(
+            "CREATE INDEX IF NOT EXISTS idx_var_stock         ON inventario_productovariante (stock_actual);"
+        )
+    if has_column("inventario_proveedor", "activo"):
+        statements.append(
+            "CREATE INDEX IF NOT EXISTS idx_proveedor_activo  ON inventario_proveedor (activo);"
+        )
+    if has_column("inventario_proveedor", "nombre"):
+        statements.append(
+            "CREATE INDEX IF NOT EXISTS idx_proveedor_nombre  ON inventario_proveedor (nombre);"
+        )
+
+    if not statements:
+        return
+
+    with connection.cursor() as cursor:
+        for statement in statements:
+            try:
+                cursor.execute(statement)
+            except Exception:
+                # Si el índice ya existe o la versión no soporta IF NOT EXISTS,
+                # simplemente continuamos sin interrumpir la migración.
+                continue
+
 class Migration(migrations.Migration):
     """
     Objetivo:
@@ -21,7 +97,9 @@ class Migration(migrations.Migration):
     # Colócala DESPUÉS de la 0006 que ya figura aplicada en tu tabla django_migrations
     # (según tu dump): 0006_remove_producto_activo_remove_producto_codigo_barras_and_more
     dependencies = [
-        ('inventario', '0006_remove_producto_activo_remove_producto_codigo_barras_and_more'),
+        # Debe apuntar al mismo nodo que la migración reemplazada para que
+        # Django pueda trazar correctamente el grafo de dependencias.
+        ('inventario', '0005_remove_detalleiphone_fecha_compra_and_more'),
     ]
 
     operations = [
@@ -180,30 +258,7 @@ class Migration(migrations.Migration):
         # ------------------------------------------------------------
         # 7) Índices: crear solo si NO existen (seguro en MySQL 8.0+)
         # ------------------------------------------------------------
-        migrations.RunSQL(
-            sql=(
-                "CREATE INDEX IF NOT EXISTS idx_categoria_nombre  ON inventario_categoria (nombre);"
-                "CREATE INDEX IF NOT EXISTS idx_precio_activo     ON inventario_precio (activo);"
-                "CREATE INDEX IF NOT EXISTS idx_precio_var_tipo_mon ON inventario_precio (variante_id, tipo, moneda);"
-                "CREATE INDEX IF NOT EXISTS idx_producto_activo   ON inventario_producto (activo);"
-                "CREATE INDEX IF NOT EXISTS idx_producto_nombre   ON inventario_producto (nombre);"
-                "CREATE INDEX IF NOT EXISTS idx_var_activo        ON inventario_productovariante (activo);"
-                "CREATE INDEX IF NOT EXISTS idx_var_stock         ON inventario_productovariante (stock_actual);"
-                "CREATE INDEX IF NOT EXISTS idx_proveedor_activo  ON inventario_proveedor (activo);"
-                "CREATE INDEX IF NOT EXISTS idx_proveedor_nombre  ON inventario_proveedor (nombre);"
-            ),
-            reverse_sql=(
-                "DROP INDEX IF EXISTS idx_categoria_nombre  ON inventario_categoria;"
-                "DROP INDEX IF EXISTS idx_precio_activo     ON inventario_precio;"
-                "DROP INDEX IF EXISTS idx_precio_var_tipo_mon ON inventario_precio;"
-                "DROP INDEX IF EXISTS idx_producto_activo   ON inventario_producto;"
-                "DROP INDEX IF EXISTS idx_producto_nombre   ON inventario_producto;"
-                "DROP INDEX IF EXISTS idx_var_activo        ON inventario_productovariante;"
-                "DROP INDEX IF EXISTS idx_var_stock         ON inventario_productovariante;"
-                "DROP INDEX IF EXISTS idx_proveedor_activo  ON inventario_proveedor;"
-                "DROP INDEX IF EXISTS idx_proveedor_nombre  ON inventario_proveedor;"
-            ),
-        ),
+        migrations.RunPython(_create_indexes, migrations.RunPython.noop),
 
         # ------------------------------------------------------------
         # 8) Quitar del ESTADO campos viejos que en tu DB aún existen

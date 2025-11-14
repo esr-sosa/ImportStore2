@@ -1,54 +1,75 @@
 # crm/whatsapp_service.py
 
-import requests
 import json
+import logging
 import re
+from typing import Any, Dict
+
+import requests
 from django.conf import settings
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
-def send_whatsapp_message(to_number, message_text):
+logger = logging.getLogger(__name__)
+
+
+def _build_session() -> requests.Session:
+    session = requests.Session()
+    retries = Retry(
+        total=3,
+        backoff_factor=0.5,
+        status_forcelist=(429, 500, 502, 503, 504),
+        allowed_methods=frozenset(["POST"]),
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(max_retries=retries, pool_maxsize=10)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
+
+
+def _normalize_argentina_number(number: str) -> str:
+    clean_number = re.sub(r"\D", "", number or "")
+    if clean_number.startswith("549") and len(clean_number) == 13:
+        # Corrige formato AR removiendo el '9' intermedio (celulares)
+        return "54" + clean_number[3:]
+    return clean_number
+
+
+def send_whatsapp_message(to_number: str, message_text: str) -> Dict[str, Any]:
     """
-    Envía un mensaje de texto a un número de WhatsApp usando la API de Meta.
+    Envía un mensaje de texto a WhatsApp usando la API de Meta con timeouts/reintentos y logging.
     """
+    access_token = settings.WHATSAPP_ACCESS_TOKEN
+    phone_number_id = settings.WHATSAPP_PHONE_NUMBER_ID
+    if not access_token or not phone_number_id:
+        raise RuntimeError("Configuración de WhatsApp faltante: verifique el .env")
+
+    timeout = getattr(settings, "REQUESTS_TIMEOUT_SECONDS", 15)
+    session = _build_session()
+
+    to_normalized = _normalize_argentina_number(to_number)
+    url = f"https://graph.facebook.com/v19.0/{phone_number_id}/messages"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to_normalized,
+        "type": "text",
+        "text": {"body": message_text, "preview_url": False},
+    }
+
+    logger.info("Enviando WhatsApp", extra={"to": to_normalized, "length": len(message_text or "")})
+
     try:
-        # 1. Limpiamos caracteres no numéricos
-        clean_number = re.sub(r'\D', '', to_number)
-
-        # 2. --- ¡ESTA ES LA CORRECCIÓN CLAVE PARA ARGENTINA! ---
-        # Si el número empieza con 549 y tiene 13 dígitos, le quitamos el 9.
-        if clean_number.startswith('549') and len(clean_number) == 13:
-            clean_number = '54' + clean_number[3:]
-            print(f"Número argentino detectado. Corrigiendo a: {clean_number}")
-
-        access_token = settings.WHATSAPP_ACCESS_TOKEN
-        phone_number_id = settings.WHATSAPP_PHONE_NUMBER_ID
-        
-        url = f"https://graph.facebook.com/v19.0/{phone_number_id}/messages"
-        
-        headers = {
-            "Authorization": f"Bearer {access_token}",
-            "Content-Type": "application/json",
-        }
-        
-        payload = {
-            "messaging_product": "whatsapp",
-            "to": clean_number, # <-- Usamos el número corregido
-            "type": "text",
-            "text": { "body": message_text, "preview_url": False }
-        }
-        
-        print(f"--- Intentando enviar a WhatsApp ---")
-        print(f"Payload final: {json.dumps(payload)}")
-        
-        response = requests.post(url, headers=headers, data=json.dumps(payload))
+        response = session.post(url, headers=headers, data=json.dumps(payload), timeout=timeout)
         response.raise_for_status()
-
-        response_data = response.json()
-        print(f"--- Éxito --- Mensaje enviado a {clean_number}: {response_data}")
-        return response_data
-
-    except requests.exceptions.RequestException as e:
-        print(f"--- ¡ERROR! --- Falla en la solicitud a la API de WhatsApp.")
-        print(f"Error: {e}")
-        if e.response is not None:
-            print(f"Detalle del error de Meta: {e.response.text}")
-        raise e
+        data = response.json()
+        logger.info("WhatsApp enviado", extra={"to": to_normalized, "message_id": data.get("messages", [{}])[0].get("id")})
+        return data
+    except requests.exceptions.RequestException as exc:
+        body = getattr(exc.response, "text", None) if getattr(exc, "response", None) is not None else None
+        logger.error("Falla enviando WhatsApp", extra={"to": to_normalized, "error": str(exc), "meta_body": body})
+        raise

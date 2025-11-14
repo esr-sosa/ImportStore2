@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Configuración{% endblock %}
+
+{% block extra_head %}
+<style>
+  .glass-surface {
+    background: var(--surface-alt-color);
+    backdrop-filter: blur(18px);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+  <div id="configuracion-panel">
+    {% include "configuracion/_panel_content.html" %}
+  </div>
+{% endblock %}

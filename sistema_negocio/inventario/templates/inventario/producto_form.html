@@ -1,430 +1,555 @@
 {% extends "base.html" %}
+{% load static %}
 
-{% block title %}Agregar Producto{% endblock %}
+{% block title %}{% if modo == "crear" %}Nuevo producto{% else %}Editar producto{% endif %}{% endblock %}
 
 {% block extra_head %}
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
-    /* Estilos para ocultar y mostrar secciones */
-    .seccion-simple, .seccion-variantes {
-        transition: all 0.3s ease-in-out;
+    .glass-input {
+        background: linear-gradient(145deg, rgba(17, 24, 39, 0.75), rgba(14, 19, 30, 0.55));
+        border: 1px solid rgba(111, 134, 214, 0.25);
+        backdrop-filter: blur(20px);
+        color: #edf2ff;
     }
-    
-    .seccion-simple.hidden, .seccion-variantes.hidden, .variante-form.hidden {
-        opacity: 0;
-        max-height: 0;
-        overflow: hidden;
-        margin: 0 !important; /* Forzar a que no ocupe espacio */
-        padding-top: 0 !important;
-        padding-bottom: 0 !important;
-        border: none !important;
+    .glass-input::placeholder {
+        color: rgba(168, 182, 214, 0.5);
     }
-    
-    .seccion-simple, .seccion-variantes, .variante-form {
-        opacity: 1;
-        max-height: 9999px; /* Altura suficiente */
+    .glass-card {
+        background: linear-gradient(155deg, rgba(17, 24, 39, 0.72), rgba(17, 24, 39, 0.45));
+        border: 1px solid rgba(111, 134, 214, 0.25);
+        backdrop-filter: blur(26px) saturate(180%);
+        box-shadow: 0 25px 65px -40px rgba(8, 12, 24, 0.85);
     }
-    
-    /* Estilos para los tabs de precios */
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
-    .tab-button.active { 
-        background-color: #ffffff;
-        border-bottom-color: transparent;
-        border-left-width: 1px;
-        border-right-width: 1px;
-        border-top-width: 2px;
-        border-top-color: #3b82f6; /* blue-500 */
-        font-weight: 600;
+    #camera-container {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        background: rgba(4, 7, 17, 0.95);
+        backdrop-filter: blur(8px);
     }
-    .tab-button {
-        background-color: #f3f4f6; /* gray-100 */
-        border-bottom: 1px solid #d1d5db; /* gray-300 */
+    #camera-container.active {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    #qr-reader {
+        max-width: 90vw;
+        max-height: 90vh;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="p-4 sm:p-6 lg:p-8">
-    <div class="max-w-4xl mx-auto">
-        <div class="flex items-center mb-6">
-            <a href="{% url 'inventario:dashboard' %}" class="text-gray-500 hover:text-gray-700">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
+<div class="min-h-screen w-full px-4 py-8 sm:px-6 lg:px-10">
+    <div class="mx-auto w-full max-w-6xl">
+        <header class="mb-8">
+            <a href="{% url 'inventario:dashboard' %}" class="inline-flex items-center gap-2 text-sm font-semibold text-slate-400 hover:text-slate-100">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                Volver al inventario
             </a>
-            <h1 class="text-3xl font-bold text-gray-900 ml-4">Agregar Nuevo Producto</h1>
-        </div>
-        
-        <form method="post" enctype="multipart/form-data" class="space-y-6" id="producto-form">
+            <h1 class="mt-3 text-3xl font-bold text-slate-100">{% if modo == "crear" %}Alta de producto{% else %}Editar producto{% endif %}</h1>
+            <p class="mt-2 text-sm text-slate-300">Definí la ficha base y la variante principal con precios en ARS (minorista, mayorista y márgenes clave).</p>
+        </header>
+
+        <form method="post" class="space-y-8 glass-card rounded-3xl p-8" id="producto-form" enctype="multipart/form-data">
             {% csrf_token %}
             
-            <div class="bg-white p-6 rounded-lg shadow-sm space-y-6">
-                <h2 class="text-xl font-semibold text-gray-800 border-b pb-4">Datos Principales</h2>
-                <div>
-                    <label for="{{ form.nombre.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Nombre del Producto</label>
-                    {{ form.nombre }}
-                    {{ form.nombre.errors }}
-                </div>
-                <div>
-                    <label for="{{ form.descripcion.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Descripción (Opcional)</label>
-                    {{ form.descripcion }}
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <section class="grid gap-6 lg:grid-cols-2">
+                <div class="glass-card rounded-2xl p-6 space-y-6">
                     <div>
-                        <label for="{{ form.categoria.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
-                        {{ form.categoria }}
-                        {{ form.categoria.errors }}
-                    </div>
-                    <div>
-                        <label for="{{ form.proveedor.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Proveedor</label>
-                        {{ form.proveedor }}
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Imagen Principal</label>
-                    {{ form.imagen }}
-                </div>
-                <div class="flex items-center pt-4">
-                    {{ form.activo }}
-                    <label for="{{ form.activo.id_for_label }}" class="ml-3 block text-sm font-medium text-gray-900">Producto activo para la venta</label>
-                </div>
-            </div>
-
-            <div class="bg-white p-6 rounded-lg shadow-sm">
-                <h2 class="text-xl font-semibold text-gray-800 border-b pb-4 mb-4">Variantes</h2>
-                <div class="flex items-center">
-                    <input type="checkbox" id="tiene_variantes_toggle" name="tiene_variantes" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" {% if tiene_variantes %}checked{% endif %}>
-                    <label for="tiene_variantes_toggle" class="ml-3 block text-sm font-medium text-gray-900">Este producto tiene variantes (ej: Talle, Color)</label>
-                </div>
-            </div>
-
-            <div id="seccion-producto-simple" class="bg-white p-6 rounded-lg shadow-sm space-y-6 seccion-simple {% if tiene_variantes %}hidden{% endif %}">
-                <h2 class="text-xl font-semibold text-gray-800 border-b pb-4">Precio y Stock</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label for="{{ form.stock.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Stock</label>
-                        {{ form.stock }}
-                    </div>
-                </div>
-
-                <div class="mt-4" data-price-section="simple">
-                    <div class="border-b border-gray-300">
-                        <nav class="-mb-px flex space-x-4" aria-label="Tabs">
-                            <button type="button" class="tab-button active py-3 px-4 text-sm font-medium text-gray-700 rounded-t-lg border-t-2 border-l border-r border-transparent" data-tab="ars">
-                                Precios en Pesos (ARS)
-                            </button>
-                            <button type="button" class="tab-button py-3 px-4 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-t-lg border-t-2 border-l border-r border-transparent" data-tab="usd">
-                                Precios en Dólares (USD)
-                            </button>
-                        </nav>
-                    </div>
-                    <div class="border border-t-0 rounded-b-lg p-4">
-                        <div id="tab-content-ars" class="tab-content active space-y-4">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label for="{{ form.costo_ars.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Costo (ARS)</label>
-                                    {{ form.costo_ars }}
-                                </div>
-                                <div>
-                                    <label for="{{ form.precio_ars.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Precio de Venta (ARS)</label>
-                                    {{ form.precio_ars }}
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Descuento (%)</label>
-                                    <input type="number" step="0.01" class="form-input-simple w-full border-gray-300 rounded-lg shadow-sm" placeholder="Ej: 10" data-discount-pc-for="precio_ars">
-                                </div>
-                                <div>
-                                    <span class="block text-sm font-medium text-gray-700 mb-1">Precio Final (con desc.)</span>
-                                    <span class="text-2xl font-bold text-gray-800" data-final-price-for="precio_ars">$ 0.00</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div id="tab-content-usd" class="tab-content space-y-4">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label for="{{ form.costo_usd.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Costo (USD)</label>
-                                    {{ form.costo_usd }}
-                                </div>
-                                <div>
-                                    <label for="{{ form.precio_usd.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Precio de Venta (USD)</label>
-                                    {{ form.precio_usd }}
-                                </div>
-                            </div>
-                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Descuento (%)</label>
-                                    <input type="number" step="0.01" class="form-input-simple w-full border-gray-300 rounded-lg shadow-sm" placeholder="Ej: 10" data-discount-pc-for="precio_usd">
-                                </div>
-                                <div>
-                                    <span class="block text-sm font-medium text-gray-700 mb-1">Precio Final (con desc.)</span>
-                                    <span class="text-2xl font-bold text-gray-800" data-final-price-for="precio_usd">USD 0.00</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div id="seccion-producto-variantes" class="bg-white p-6 rounded-lg shadow-sm space-y-6 seccion-variantes {% if not tiene_variantes %}hidden{% endif %}">
-                <h2 class="text-xl font-semibold text-gray-800 border-b pb-4">Configuración de Variantes</h2>
-                
-                {{ variante_formset.management_form }}
-                {{ variante_formset.non_form_errors }}
-
-                <div id="variante-forms-container" class="space-y-6">
-                    {% for v_form in variante_formset %}
-                    <div class="variante-form p-4 border rounded-lg bg-gray-50/50 relative">
-                        <button type="button" class="remove-variante-btn absolute top-2 right-2 text-gray-400 hover:text-red-600" title="Eliminar Variante">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
-                        </button>
-                        
-                        {{ v_form.management_form }}
-                        <h3 class="font-semibold text-lg text-gray-700 mb-3">Variante</h3>
-                        
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-300 mb-4">Datos del producto</h2>
+                        <div class="space-y-4 text-sm">
+                            {{ producto_form.non_field_errors }}
                             <div>
-                                <label for="{{ v_form.nombre_variante.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Nombre de Variante</label>
-                                {{ v_form.nombre_variante }}
-                                {{ v_form.nombre_variante.errors }}
+                                <label class="mb-1 block font-semibold text-slate-100">{{ producto_form.nombre.label }}</label>
+                                {{ producto_form.nombre }}
+                                {{ producto_form.nombre.errors }}
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="mb-1 block font-semibold text-slate-100">{{ producto_form.categoria.label }}</label>
+                                    {{ producto_form.categoria }}
+                                    {{ producto_form.categoria.errors }}
+                                </div>
+                                <div>
+                                    <label class="mb-1 block font-semibold text-slate-100">{{ producto_form.proveedor.label }}</label>
+                                    {{ producto_form.proveedor }}
+                                    {{ producto_form.proveedor.errors }}
+                                </div>
                             </div>
                             <div>
-                                <label for="{{ v_form.stock.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Stock</label>
-                                {{ v_form.stock }}
-                                {{ v_form.stock.errors }}
+                                <label class="mb-1 block font-semibold text-slate-100">{{ producto_form.descripcion.label }}</label>
+                                {{ producto_form.descripcion }}
+                                {{ producto_form.descripcion.errors }}
+                            </div>
+                            <div>
+                                <label class="mb-1 block font-semibold text-slate-100">{{ producto_form.codigo_barras.label }}</label>
+                                <div class="flex gap-2">
+                                    {{ producto_form.codigo_barras }}
+                                    <button type="button" id="scan-barcode-btn" class="glass-input rounded-2xl border border-white/20 px-4 py-3 text-sm text-slate-100 hover:bg-white/10 transition">
+                                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
+                                    </button>
+                                    <button type="button" id="generate-barcode-btn" class="glass-input rounded-2xl border border-white/20 px-4 py-3 text-sm text-slate-100 hover:bg-white/10 transition">
+                                        Generar
+                                    </button>
+                                </div>
+                                {{ producto_form.codigo_barras.errors }}
+                                <div class="mt-2 flex gap-4">
+                                    <label class="flex items-center gap-2 text-xs text-slate-300">
+                                        {{ producto_form.generar_codigo_barras }}
+                                        {{ producto_form.generar_codigo_barras.label }}
+                                    </label>
+                                    <label class="flex items-center gap-2 text-xs text-slate-300">
+                                        {{ producto_form.generar_qr }}
+                                        {{ producto_form.generar_qr.label }}
+                                    </label>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="flex items-center gap-2 text-slate-100">
+                                    {{ producto_form.activo }}
+                                    <span class="font-semibold">{{ producto_form.activo.label }}</span>
+                                </label>
                             </div>
                         </div>
+                    </div>
 
-                        <div class="mt-4 pt-4 border-t">
-                            <h4 class="font-semibold text-md text-gray-600 mb-2">Precios de esta Variante</h4>
-                            {{ v_form.precio_formset.management_form }}
-                            {{ v_form.precio_formset.non_form_errors }}
-                            
-                            <div class="precio-forms-container space-y-3">
-                                {% for p_form in v_form.precio_formset %}
-                                <div class="precio-form grid grid-cols-2 md:grid-cols-7 gap-2 items-end">
-                                    {{ p_form.id }}
-                                    <div class="col-span-1"><label class="block text-xs font-medium text-gray-600">Moneda</label>{{ p_form.moneda }}</div>
-                                    <div class="col-span-1"><label class="block text-xs font-medium text-gray-600">Tipo</label>{{ p_form.tipo_precio }}</div>
-                                    <div class="col-span-1"><label class="block text-xs font-medium text-gray-600">Costo</label>{{ p_form.costo }}</div>
-                                    <div class="col-span-1"><label class="block text-xs font-medium text-gray-600">P. Venta</label>{{ p_form.precio_venta_normal }}</div>
-                                    <div class="col-span-1"><label class="block text-xs font-medium text-gray-600">P. Oferta</label>{{ p_form.precio_venta_descuento }}</div>
-                                    <div class="col-span-1"><label class="block text-xs font-medium text-gray-600">P. Mínimo</label>{{ p_form.precio_venta_minimo }}</div>
-                                    <div class="col-span-1 flex items-end">
-                                        {% if p_form.DELETE.field.widget.attrs.disabled %}
-                                            {% else %}
-                                            <div class="flex items-center h-10">{{ p_form.DELETE }} <label for="{{ p_form.DELETE.id_for_label }}" class="ml-1 text-xs text-gray-500">Borrar</label></div>
-                                        {% endif %}
-                                    </div>
+                    <div class="glass-card rounded-2xl p-5">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-300">Imágenes</h3>
+                                <p class="text-xs text-slate-400">Podés cargar hasta {{ max_imagenes }} imágenes. Elegí hasta 5 y opcionalmente quitá el fondo.</p>
+                            </div>
+                            <button type="button" id="imagenes-trigger" class="glass-input rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-slate-100 hover:bg-white/20 transition">
+                                Seleccionar
+                            </button>
+                        </div>
+                        {{ producto_form.imagenes }}
+                        {{ producto_form.imagenes.errors }}
+                        <div id="imagenes-preview" class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3" data-max="{{ max_imagenes }}"></div>
+
+                        {% if imagenes %}
+                            <div class="mt-6 border-t border-white/10 pt-4">
+                                <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-300 mb-3">Imágenes actuales</h4>
+                                <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                                    {% for imagen in imagenes %}
+                                        <label class="group relative block overflow-hidden rounded-xl border border-white/10 bg-white/5 p-2 text-xs text-slate-200 shadow-lg">
+                                            <input type="checkbox" name="imagenes_eliminar" value="{{ imagen.id }}" class="peer absolute inset-0 z-10 opacity-0">
+                                            <img src="{{ imagen.imagen.url }}" alt="Imagen {{ forloop.counter }}" class="h-28 w-full rounded-lg object-cover">
+                                            <div class="pointer-events-none absolute inset-0 rounded-lg border-2 border-rose-500 opacity-0 transition peer-checked:opacity-100"></div>
+                                            <span class="pointer-events-none absolute top-2 right-2 inline-flex items-center gap-1 rounded-full bg-rose-500/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white opacity-0 transition group-hover:opacity-100 peer-checked:opacity-100">Eliminar</span>
+                                        </label>
+                                    {% endfor %}
                                 </div>
-                                {{ p_form.errors }}
-                                {% endfor %}
                             </div>
-                            </div>
-                        
-                        {% if v_form.non_field_errors %}
-                        <div class="text-red-500 text-sm mt-2">{{ v_form.non_field_errors }}</div>
                         {% endif %}
-                        {{ v_form.id }}
-                        {{ v_form.DELETE }} </div>
-                    {% endfor %}
+                    </div>
                 </div>
-                
-                <button type="button" id="add-variante-btn" class="mt-4 bg-blue-100 text-blue-700 font-semibold py-2 px-4 rounded-lg border border-blue-200 hover:bg-blue-200">
-                    + Agregar otra Variante
-                </button>
-            </div>
 
-            <div class="pt-6 flex justify-end gap-3">
-                <a href="{% url 'inventario:dashboard' %}" class="bg-gray-100 text-gray-700 font-semibold py-2 px-4 rounded-lg border hover:bg-gray-200">Cancelar</a>
-                <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 shadow-sm">Guardar Producto</button>
+                <div class="glass-card rounded-2xl p-6">
+                    <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-300 mb-4">Variante inicial</h2>
+                    <div class="space-y-4 text-sm">
+                        {{ variante_form.non_field_errors }}
+                        <div>
+                            <label class="mb-1 block font-semibold text-slate-100">{{ variante_form.sku.label }}</label>
+                            <div class="flex items-center gap-3">
+                                {{ variante_form.sku }}
+                                <label class="flex items-center gap-2 text-xs text-slate-300 whitespace-nowrap">
+                                    {{ variante_form.sku_auto }}
+                                    <span>Auto</span>
+                                </label>
+                            </div>
+                            {{ variante_form.sku.errors }}
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="mb-1 block font-semibold text-slate-100">{{ variante_form.codigo_barras.label }}</label>
+                                <div class="flex items-center gap-2">
+                                    {{ variante_form.codigo_barras }}
+                                    <label class="flex items-center gap-2 text-xs text-slate-300 whitespace-nowrap">
+                                        {{ variante_form.generar_codigo_barras }}
+                                        <span>Generar</span>
+                                    </label>
+                                </div>
+                                {{ variante_form.codigo_barras.errors }}
+                            </div>
+                            <div>
+                                <label class="mb-1 block font-semibold text-slate-100">{{ variante_form.qr_code.label }}</label>
+                                <div class="flex items-center gap-2">
+                                    {{ variante_form.qr_code }}
+                                    <label class="flex items-center gap-2 text-xs text-slate-300 whitespace-nowrap">
+                                        {{ variante_form.generar_qr }}
+                                        <span>Generar</span>
+                                    </label>
+                                </div>
+                                {{ variante_form.qr_code.errors }}
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="mb-1 block font-semibold text-slate-100">{{ variante_form.atributo_1.label }}</label>
+                                {{ variante_form.atributo_1 }}
+                                {{ variante_form.atributo_1.errors }}
+                            </div>
+                            <div>
+                                <label class="mb-1 block font-semibold text-slate-100">{{ variante_form.atributo_2.label }}</label>
+                                {{ variante_form.atributo_2 }}
+                                {{ variante_form.atributo_2.errors }}
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="mb-1 block font-semibold text-slate-100">{{ variante_form.stock_actual.label }}</label>
+                                {{ variante_form.stock_actual }}
+                                {{ variante_form.stock_actual.errors }}
+                            </div>
+                            <div>
+                                <label class="mb-1 block font-semibold text-slate-100">{{ variante_form.stock_minimo.label }}</label>
+                                {{ variante_form.stock_minimo }}
+                                {{ variante_form.stock_minimo.errors }}
+                            </div>
+                        </div>
+                        <div>
+                            <label class="flex items-center gap-2 text-slate-100">
+                                {{ variante_form.activo }}
+                                <span class="font-semibold">{{ variante_form.activo.label }}</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="glass-card rounded-2xl p-6">
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
+                    <div>
+                        <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-300">Precios y costos (ARS)</h2>
+                        <p class="text-xs text-slate-300">Ingresá valores en pesos. Para iPhones (categoría Celulares) los montos en USD se recalcularán con la lógica del sistema.</p>
+                    </div>
+                </div>
+
+                <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    <div class="space-y-3">
+                        <h3 class="text-xs font-semibold uppercase text-slate-300">Costo base</h3>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.costo_ars.label }}</label>
+                            {{ variante_form.costo_ars }}
+                            {{ variante_form.costo_ars.errors }}
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <h3 class="text-xs font-semibold uppercase text-slate-300">Precio de lista</h3>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_venta_ars.label }}</label>
+                            {{ variante_form.precio_venta_ars }}
+                            {{ variante_form.precio_venta_ars.errors }}
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <h3 class="text-xs font-semibold uppercase text-slate-300">Precio mínimo</h3>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_minimo_ars.label }}</label>
+                            {{ variante_form.precio_minimo_ars }}
+                            {{ variante_form.precio_minimo_ars.errors }}
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <h3 class="text-xs font-semibold uppercase text-slate-300">Minorista</h3>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_minorista_ars.label }}</label>
+                            {{ variante_form.precio_minorista_ars }}
+                            {{ variante_form.precio_minorista_ars.errors }}
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <h3 class="text-xs font-semibold uppercase text-slate-300">Mayorista</h3>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-slate-100">{{ variante_form.precio_mayorista_ars.label }}</label>
+                            {{ variante_form.precio_mayorista_ars }}
+                            {{ variante_form.precio_mayorista_ars.errors }}
+                        </div>
+                    </div>
+                </div>
+
+                <input type="hidden" name="{{ variante_form.moneda_base.name }}" value="{{ variante_form.moneda_base.value|default:'ARS' }}">
+                {{ variante_form.costo_usd.as_hidden }}
+                {{ variante_form.precio_venta_usd.as_hidden }}
+                {{ variante_form.precio_minimo_usd.as_hidden }}
+                {{ variante_form.precio_minorista_usd.as_hidden }}
+                {{ variante_form.precio_mayorista_usd.as_hidden }}
+            </section>
+
+            <div class="flex justify-end gap-3">
+                <a href="{% url 'inventario:dashboard' %}" class="glass-input rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-slate-100 hover:bg-white/10 transition">Cancelar</a>
+                <button type="submit" class="glass-input rounded-full border border-white/20 bg-white/10 px-5 py-2 text-sm font-semibold text-slate-100 hover:bg-white/20 transition shadow-lg">Guardar</button>
             </div>
         </form>
+    </div>
+</div>
 
-        <div id="variante-template" class="hidden">
-            <div class="variante-form p-4 border rounded-lg bg-gray-50/50 relative">
-                <button type="button" class="remove-variante-btn absolute top-2 right-2 text-gray-400 hover:text-red-600" title="Eliminar Variante">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
-                </button>
-
-                {{ variante_formset.empty_form.management_form }}
-                <h3 class="font-semibold text-lg text-gray-700 mb-3">Nueva Variante</h3>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label for="{{ variante_formset.empty_form.nombre_variante.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Nombre de Variante</label>
-                        {{ variante_formset.empty_form.nombre_variante }}
-                    </div>
-                    <div>
-                        <label for="{{ variante_formset.empty_form.stock.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Stock</label>
-                        {{ variante_formset.empty_form.stock }}
-                    </div>
-                </div>
-
-                <div class="mt-4 pt-4 border-t">
-                    <h4 class="font-semibold text-md text-gray-600 mb-2">Precios de esta Variante</h4>
-                    {{ variante_formset.empty_form.precio_formset.management_form }}
-                    <div class="precio-forms-container space-y-3">
-                        {% for p_form in variante_formset.empty_form.precio_formset %}
-                        <div class="precio-form grid grid-cols-2 md:grid-cols-7 gap-2 items-end">
-                            {{ p_form.id }}
-                            <div class="col-span-1"><label class="block text-xs font-medium text-gray-600">Moneda</label>{{ p_form.moneda }}</div>
-                            <div class="col-span-1"><label class="block text-xs font-medium text-gray-600">Tipo</label>{{ p_form.tipo_precio }}</div>
-                            <div class="col-span-1"><label class="block text-xs font-medium text-gray-600">Costo</label>{{ p_form.costo }}</div>
-                            <div class="col-span-1"><label class="block text-xs font-medium text-gray-600">P. Venta</label>{{ p_form.precio_venta_normal }}</div>
-                            <div class="col-span-1"><label class="block text-xs font-medium text-gray-600">P. Oferta</label>{{ p_form.precio_venta_descuento }}</div>
-                            <div class="col-span-1"><label class="block text-xs font-medium text-gray-600">P. Mínimo</label>{{ p_form.precio_venta_minimo }}</div>
-                            <div class="col-span-1 flex items-end">{{ p_form.DELETE }} <label for="{{ p_form.DELETE.id_for_label }}" class="ml-1 text-xs text-gray-500">Borrar</label></div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-                {{ variante_formset.empty_form.id }}
-                {{ variante_formset.empty_form.DELETE }} </div>
+<div id="camera-container">
+    <div class="glass-card rounded-3xl p-6 max-w-md w-full mx-4">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold text-slate-100">Escanear código de barras</h3>
+            <button type="button" id="close-camera" class="text-slate-100 hover:text-slate-300">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
         </div>
-
+        <div id="qr-reader"></div>
     </div>
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    const form = document.getElementById('producto-form');
-    
-    // --- LÓGICA DEL TOGGLE DE VARIANTES ---
-    const toggle = document.getElementById('tiene_variantes_toggle');
-    const seccionSimple = document.getElementById('seccion-producto-simple');
-    const seccionVariantes = document.getElementById('seccion-producto-variantes');
-    
-    function toggleSecciones() {
-        if (toggle.checked) {
-            seccionSimple.classList.add('hidden');
-            seccionVariantes.classList.remove('hidden');
-            // Deshabilitamos los inputs del form simple para que no se envíen
-            seccionSimple.querySelectorAll('.form-input-simple').forEach(input => input.disabled = true);
-            // Habilitamos los del formset
-            seccionVariantes.querySelectorAll('input, select').forEach(input => input.disabled = false);
+(function() {
+    const nombreInput = document.getElementById('producto-nombre');
+    const skuInput = document.getElementById('sku-input');
+    const skuAutoToggle = document.getElementById('sku-auto-toggle');
+    const atributo1 = document.querySelector('[name="atributo_1"]');
+    const atributo2 = document.querySelector('[name="atributo_2"]');
+    const categoriaSelect = document.querySelector('[name="categoria"]');
+    const monedaBaseHidden = document.querySelector('input[name="moneda_base"]');
+
+    function actualizarMonedaBase() {
+        if (!monedaBaseHidden) return;
+        if (!categoriaSelect) {
+            if (!monedaBaseHidden.value) {
+                monedaBaseHidden.value = 'ARS';
+            }
+            return;
+        }
+        const opcion = categoriaSelect.options[categoriaSelect.selectedIndex];
+        const texto = opcion ? opcion.text.toLowerCase() : '';
+        if (texto.includes('celular')) {
+            monedaBaseHidden.value = 'USD';
         } else {
-            seccionSimple.classList.remove('hidden');
-            seccionVariantes.classList.add('hidden');
-            // Habilitamos los inputs del form simple
-            seccionSimple.querySelectorAll('.form-input-simple').forEach(input => input.disabled = false);
-            // Deshabilitamos los del formset (excepto los de management)
-            seccionVariantes.querySelectorAll('input, select').forEach(input => {
-                if (!input.name.includes('MANAGEMENT')) {
-                    input.disabled = true;
-                }
-            });
+            monedaBaseHidden.value = 'ARS';
         }
     }
-    toggle.addEventListener('change', toggleSecciones);
-    toggleSecciones(); // Ejecutar al inicio
 
-    // --- LÓGICA DE TABS DE PRECIOS SIMPLES ---
-    const priceSectionSimple = document.querySelector('[data-price-section="simple"]');
-    priceSectionSimple.querySelectorAll('.tab-button').forEach(button => {
-        button.addEventListener('click', (e) => {
-            e.preventDefault(); // Prevenir que el form se envíe
-            const tabId = button.dataset.tab;
-            priceSectionSimple.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-            button.classList.add('active');
-            
-            priceSectionSimple.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.toggle('active', content.id === `tab-content-${tabId}`);
+    actualizarMonedaBase();
+    if (categoriaSelect) {
+        categoriaSelect.addEventListener('change', actualizarMonedaBase);
+    }
+
+    // SKU automático - siempre generar si está vacío
+    function generarSKU() {
+        const nombre = nombreInput?.value || '';
+        const attr1 = atributo1?.value || '';
+        const attr2 = atributo2?.value || '';
+        const sku = `${nombre}-${attr1}-${attr2}`.toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+        if (sku && skuInput) {
+            // Solo actualizar si está vacío o si el toggle está activado
+            if (!skuInput.value || (skuAutoToggle && skuAutoToggle.checked)) {
+                skuInput.value = sku;
+            }
+        }
+    }
+
+    // Generar automáticamente al cargar si está vacío
+    if (skuInput && !skuInput.value && nombreInput && nombreInput.value) {
+        generarSKU();
+    }
+
+    [nombreInput, atributo1, atributo2].forEach(el => {
+        if (el) el.addEventListener('input', generarSKU);
+    });
+    if (skuAutoToggle && skuInput) {
+        skuAutoToggle.addEventListener('change', function() {
+            skuInput.readOnly = this.checked;
+            if (this.checked) generarSKU();
+        });
+        if (skuAutoToggle.checked) {
+            skuInput.readOnly = true;
+            generarSKU();
+        }
+    }
+    
+    // Generar código de barras automáticamente
+    const generarBarcodeBtn = document.getElementById('generate-barcode-btn');
+    const codigoBarrasInput = document.querySelector('[name="codigo_barras"]');
+    if (generarBarcodeBtn && codigoBarrasInput) {
+        generarBarcodeBtn.addEventListener('click', function() {
+            const randomCode = Math.floor(100000000000 + Math.random() * 900000000000);
+            codigoBarrasInput.value = randomCode.toString();
+        });
+    }
+
+    // Escaneo de código de barras
+    const scanBtn = document.getElementById('scan-barcode-btn');
+    const cameraContainer = document.getElementById('camera-container');
+    const closeCamera = document.getElementById('close-camera');
+    const barcodeInput = document.getElementById('codigo-barras-input');
+    let html5QrcodeScanner = null;
+
+    if (scanBtn && cameraContainer && closeCamera) {
+        scanBtn.addEventListener('click', function() {
+            cameraContainer.classList.add('active');
+            if (!html5QrcodeScanner) {
+                html5QrcodeScanner = new Html5Qrcode('qr-reader');
+            }
+            html5QrcodeScanner.start(
+                { facingMode: 'environment' },
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                (decodedText) => {
+                    if (barcodeInput) {
+                        barcodeInput.value = decodedText;
+                    }
+                    html5QrcodeScanner.stop();
+                    cameraContainer.classList.remove('active');
+                },
+                () => {}
+            );
+        });
+
+        closeCamera.addEventListener('click', function() {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.stop();
+            }
+            cameraContainer.classList.remove('active');
+        });
+    }
+
+    // Generar código de barras
+    const generarCodigoBtn = document.getElementById('generate-barcode-btn');
+    if (generarCodigoBtn && barcodeInput) {
+        generarCodigoBtn.addEventListener('click', function() {
+            const codigo = Math.floor(100000000000 + Math.random() * 900000000000).toString();
+            barcodeInput.value = codigo;
+        });
+    }
+
+    const customProductPrice = document.getElementById('custom-product-price');
+    const csrfTokenInput = document.querySelector('#producto-form input[name="csrfmiddlewaretoken"]');
+    const csrfToken = csrfTokenInput ? csrfTokenInput.value : '';
+
+    const imageInput = document.getElementById('imagenes-input');
+    const imageTrigger = document.getElementById('imagenes-trigger');
+    const previewGrid = document.getElementById('imagenes-preview');
+    const removeBgEndpoint = '{% url "inventario:remove_background_api" %}';
+    const maxImages = previewGrid ? parseInt(previewGrid.dataset.max || '5', 10) : 5;
+    let pendingImages = [];
+
+    function syncImageInput() {
+        if (!imageInput) return;
+        const dataTransfer = new DataTransfer();
+        pendingImages.forEach((item) => dataTransfer.items.add(item.file));
+        imageInput.files = dataTransfer.files;
+    }
+
+    function createPreviewCard(item, index) {
+        const card = document.createElement('div');
+        card.className = 'relative overflow-hidden rounded-xl border border-white/10 bg-white/5 shadow-lg';
+        card.innerHTML = `
+            <img src="${item.previewUrl}" alt="Imagen pendiente" class="h-28 w-full object-cover">
+            <div class="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-slate-900/70 px-2 py-1 text-[10px] uppercase tracking-wide">
+                <span class="font-semibold text-slate-100 truncate">${item.file.name}</span>
+                <div class="flex items-center gap-1">
+                    <button type="button" class="rounded-full bg-rose-500/80 px-2 py-0.5 font-semibold text-white remove-image" data-index="${index}">Quitar</button>
+                    <button type="button" class="rounded-full bg-blue-500/80 px-2 py-0.5 font-semibold text-white remove-bg" data-index="${index}">${item.backgroundRemoved ? 'Listo' : 'Quitar fondo'}</button>
+                </div>
+            </div>
+        `;
+        return card;
+    }
+
+    function renderPreviews() {
+        if (!previewGrid) return;
+        previewGrid.innerHTML = '';
+        pendingImages.forEach((item, index) => {
+            const card = createPreviewCard(item, index);
+            previewGrid.appendChild(card);
+        });
+
+        previewGrid.querySelectorAll('.remove-image').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const idx = Number(btn.dataset.index);
+                const removed = pendingImages.splice(idx, 1)[0];
+                if (removed && removed.previewUrl) {
+                    URL.revokeObjectURL(removed.previewUrl);
+                }
+                syncImageInput();
+                renderPreviews();
             });
         });
-    });
 
-    // --- LÓGICA DE CÁLCULO DE DESCUENTO (%) ---
-    function setupDiscountCalculator(context) {
-        context.querySelectorAll('[data-discount-pc-for]').forEach(pcInput => {
-            const priceFieldName = pcInput.dataset.discountPcFor;
-            const priceInput = context.querySelector(`[name$="${priceFieldName}"]`);
-            const finalPriceDisplay = context.querySelector(`[data-final-price-for="${priceFieldName}"]`);
-            
-            function calculate() {
-                if (!priceInput || !finalPriceDisplay) return; // Si no existen los elementos
-                
-                const price = parseFloat(priceInput.value) || 0;
-                const percent = parseFloat(pcInput.value) || 0;
-                let finalPrice = price;
-                
-                if (price > 0 && percent > 0) {
-                    finalPrice = price * (1 - (percent / 100));
+        previewGrid.querySelectorAll('.remove-bg').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                const idx = Number(btn.dataset.index);
+                const item = pendingImages[idx];
+                if (!item || btn.dataset.loading === 'true') return;
+                try {
+                    btn.dataset.loading = 'true';
+                    btn.textContent = 'Procesando…';
+                    const formData = new FormData();
+                    formData.append('imagen', item.file, item.file.name);
+                    const response = await fetch(removeBgEndpoint, {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': csrfToken },
+                        body: formData,
+                    });
+                    const data = await response.json();
+                    if (!response.ok || !data.image) {
+                        throw new Error(data.error || 'No se pudo quitar el fondo.');
+                    }
+                    const byteCharacters = atob(data.image);
+                    const byteNumbers = new Array(byteCharacters.length);
+                    for (let i = 0; i < byteCharacters.length; i += 1) {
+                        byteNumbers[i] = byteCharacters.charCodeAt(i);
+                    }
+                    const byteArray = new Uint8Array(byteNumbers);
+                    const blob = new Blob([byteArray], { type: data.content_type || 'image/png' });
+                    const filename = (item.file.name.split('.')[0] || 'imagen') + '-nobg.png';
+                    const newFile = new File([blob], filename, { type: data.content_type || 'image/png' });
+                    if (item.previewUrl) {
+                        URL.revokeObjectURL(item.previewUrl);
+                    }
+                    item.file = newFile;
+                    item.previewUrl = URL.createObjectURL(newFile);
+                    item.backgroundRemoved = true;
+                    syncImageInput();
+                    renderPreviews();
+                } catch (error) {
+                    console.error(error);
+                    alert(error.message || 'No pudimos quitar el fondo. Intentá nuevamente.');
+                    btn.textContent = 'Quitar fondo';
+                } finally {
+                    btn.dataset.loading = 'false';
                 }
-                
-                const currency = priceFieldName.includes('usd') ? 'USD' : '$';
-                finalPriceDisplay.textContent = `${currency} ${finalPrice.toFixed(2)}`;
-            }
-            
-            if (priceInput) {
-                priceInput.addEventListener('input', calculate);
-                pcInput.addEventListener('input', calculate);
-                calculate(); // Calcular al inicio
-            }
+            });
         });
     }
-    
-    // Aplicar la lógica de descuento a la sección simple
-    setupDiscountCalculator(seccionSimple);
 
-    // --- LÓGICA DEL FORMSET DE VARIANTES ---
-    const container = document.getElementById('variante-forms-container');
-    const templateNode = document.getElementById('variante-template'); // Get the template *node*
-    const addButton = document.getElementById('add-variante-btn');
-    const totalFormsInput = document.querySelector('input[name="variantes-TOTAL_FORMS"]');
+    if (imageTrigger && imageInput) {
+        imageTrigger.addEventListener('click', () => imageInput.click());
+    }
 
-    addButton.addEventListener('click', () => {
-        let formIdx = parseInt(totalFormsInput.value);
-        
-        // 1. Clonar el NODO de la plantilla (esto clona también los campos de precio)
-        let newForm = templateNode.firstElementChild.cloneNode(true);
-        newForm.classList.remove('hidden');
-
-        // 2. Obtener el HTML del clon para reemplazar prefijos
-        let newFormHTML = newForm.innerHTML;
-
-        // 3. Reemplazar el prefijo de la variante
-        newFormHTML = newFormHTML.replace(/__prefix__/g, formIdx);
-        
-        // 4. Asignar el HTML modificado de vuelta al clon
-        newForm.innerHTML = newFormHTML;
-
-        // 5. Añadir al contenedor
-        container.appendChild(newForm);
-        
-        // Habilitamos los inputs (por si el toggle los deshabilitó)
-        newForm.querySelectorAll('input, select').forEach(input => input.disabled = false);
-
-        // Incrementar el contador
-        totalFormsInput.value = formIdx + 1;
-        
-        // Vincular el botón de eliminar
-        addRemoveButtonListener(newForm);
-        
-        // (Aún no se aplica el descuento % a variantes, lo vemos después si es necesario)
-    });
-    
-    // --- LÓGICA PARA BOTÓN DE SACAR VARIANTE ---
-    function addRemoveButtonListener(formElement) {
-        formElement.querySelector('.remove-variante-btn').addEventListener('click', (e) => {
-            e.preventDefault();
-            // Marcamos el checkbox DELETE
-            const deleteInput = formElement.querySelector('input[id$="-DELETE"]');
-            if (deleteInput) {
-                deleteInput.checked = true;
+    if (imageInput) {
+        imageInput.addEventListener('change', (event) => {
+            const nuevos = Array.from(event.target.files || []);
+            let agregado = false;
+            nuevos.forEach((file) => {
+                if (pendingImages.length >= maxImages) {
+                    alert(`Solo podés cargar ${maxImages} imágenes.`);
+                    return;
+                }
+                const previewUrl = URL.createObjectURL(file);
+                pendingImages.push({ file, previewUrl, backgroundRemoved: false });
+                agregado = true;
+            });
+            if (agregado) {
+                syncImageInput();
+                renderPreviews();
             }
-            // Ocultamos el formulario
-            formElement.classList.add('hidden');
+            imageInput.value = '';
         });
     }
-    
-    // Vinculamos el listener a los formularios que ya existen (en caso de error de form)
-    document.querySelectorAll('#variante-forms-container .variante-form').forEach(form => {
-        addRemoveButtonListener(form);
-    });
-
-});
+})();
 </script>
-
 {% endblock %}
