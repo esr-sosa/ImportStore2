@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}Gestionar Respuestas Rápidas{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-6 flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-white">Gestionar Respuestas Rápidas</h1>
+        <a href="{% url 'asistente_ia:chat' %}" class="rounded-lg bg-gray-700 px-4 py-2 text-white hover:bg-gray-600">
+            Volver al Chat
+        </a>
+    </div>
+
+    <div class="mb-6">
+        <button onclick="document.getElementById('create-form').classList.toggle('hidden')" class="rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">
+            + Nueva Respuesta Rápida
+        </button>
+    </div>
+
+    <!-- Formulario de creación -->
+    <div id="create-form" class="mb-6 hidden rounded-lg border border-gray-700 bg-[#1f1f1f] p-6">
+        <h2 class="mb-4 text-xl font-semibold text-white">Nueva Respuesta Rápida</h2>
+        <form method="post" action="{% url 'asistente_ia:quick_reply_create' %}">
+            {% csrf_token %}
+            <div class="mb-4">
+                <label class="mb-2 block text-sm font-medium text-gray-300">Título</label>
+                <input type="text" name="titulo" required class="w-full rounded-lg border border-gray-600 bg-[#2d2d2d] px-4 py-2 text-white">
+            </div>
+            <div class="mb-4">
+                <label class="mb-2 block text-sm font-medium text-gray-300">Prompt</label>
+                <textarea name="prompt" required rows="3" class="w-full rounded-lg border border-gray-600 bg-[#2d2d2d] px-4 py-2 text-white"></textarea>
+            </div>
+            <div class="mb-4 grid grid-cols-2 gap-4">
+                <div>
+                    <label class="mb-2 block text-sm font-medium text-gray-300">Categoría</label>
+                    <select name="categoria" class="w-full rounded-lg border border-gray-600 bg-[#2d2d2d] px-4 py-2 text-white">
+                        <option value="inventario">Inventario</option>
+                        <option value="ventas">Ventas</option>
+                        <option value="soporte">Soporte</option>
+                        <option value="finanzas">Finanzas</option>
+                        <option value="general">General</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="mb-2 block text-sm font-medium text-gray-300">Orden</label>
+                    <input type="number" name="orden" value="0" class="w-full rounded-lg border border-gray-600 bg-[#2d2d2d] px-4 py-2 text-white">
+                </div>
+            </div>
+            <div class="mb-4">
+                <label class="flex items-center gap-2 text-sm text-gray-300">
+                    <input type="checkbox" name="activo" checked>
+                    Activo
+                </label>
+            </div>
+            <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">
+                Crear
+            </button>
+        </form>
+    </div>
+
+    <!-- Lista de respuestas rápidas -->
+    <div class="space-y-4">
+        {% for reply in replies %}
+        <div class="rounded-lg border border-gray-700 bg-[#1f1f1f] p-6">
+            <div class="mb-4 flex items-start justify-between">
+                <div>
+                    <h3 class="text-lg font-semibold text-white">{{ reply.titulo }}</h3>
+                    <p class="text-sm text-gray-400">{{ reply.get_categoria_display }} • Orden: {{ reply.orden }}</p>
+                </div>
+                <div class="flex gap-2">
+                    <form method="post" action="{% url 'asistente_ia:quick_reply_update' reply.pk %}" class="inline">
+                        {% csrf_token %}
+                        <button type="button" onclick="editReply({{ reply.id }}, '{{ reply.titulo|escapejs }}', '{{ reply.prompt|escapejs }}', '{{ reply.categoria }}', {{ reply.orden }}, {{ reply.activo|yesno:"true,false" }})" class="rounded-lg bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700">
+                            Editar
+                        </button>
+                    </form>
+                    <form method="post" action="{% url 'asistente_ia:quick_reply_delete' reply.pk %}" class="inline" onsubmit="return confirm('¿Estás seguro de eliminar esta respuesta rápida?')">
+                        {% csrf_token %}
+                        <button type="submit" class="rounded-lg bg-red-600 px-3 py-1 text-sm text-white hover:bg-red-700">
+                            Eliminar
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <p class="text-sm text-gray-300">{{ reply.prompt }}</p>
+            <span class="mt-2 inline-block rounded-full px-2 py-1 text-xs {% if reply.activo %}bg-green-900/30 text-green-400{% else %}bg-gray-700 text-gray-400{% endif %}">
+                {{ reply.activo|yesno:"Activo,Inactivo" }}
+            </span>
+        </div>
+        {% empty %}
+        <p class="text-center text-gray-400">No hay respuestas rápidas configuradas.</p>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Modal de edición -->
+<div id="edit-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 backdrop-blur-sm">
+    <div class="w-full max-w-2xl rounded-lg border border-gray-700 bg-[#1f1f1f] p-6">
+        <h2 class="mb-4 text-xl font-semibold text-white">Editar Respuesta Rápida</h2>
+        <form id="edit-form" method="post">
+            {% csrf_token %}
+            <div class="mb-4">
+                <label class="mb-2 block text-sm font-medium text-gray-300">Título</label>
+                <input type="text" name="titulo" id="edit-titulo" required class="w-full rounded-lg border border-gray-600 bg-[#2d2d2d] px-4 py-2 text-white">
+            </div>
+            <div class="mb-4">
+                <label class="mb-2 block text-sm font-medium text-gray-300">Prompt</label>
+                <textarea name="prompt" id="edit-prompt" required rows="3" class="w-full rounded-lg border border-gray-600 bg-[#2d2d2d] px-4 py-2 text-white"></textarea>
+            </div>
+            <div class="mb-4 grid grid-cols-2 gap-4">
+                <div>
+                    <label class="mb-2 block text-sm font-medium text-gray-300">Categoría</label>
+                    <select name="categoria" id="edit-categoria" class="w-full rounded-lg border border-gray-600 bg-[#2d2d2d] px-4 py-2 text-white">
+                        <option value="inventario">Inventario</option>
+                        <option value="ventas">Ventas</option>
+                        <option value="soporte">Soporte</option>
+                        <option value="finanzas">Finanzas</option>
+                        <option value="general">General</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="mb-2 block text-sm font-medium text-gray-300">Orden</label>
+                    <input type="number" name="orden" id="edit-orden" class="w-full rounded-lg border border-gray-600 bg-[#2d2d2d] px-4 py-2 text-white">
+                </div>
+            </div>
+            <div class="mb-4">
+                <label class="flex items-center gap-2 text-sm text-gray-300">
+                    <input type="checkbox" name="activo" id="edit-activo">
+                    Activo
+                </label>
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">
+                    Guardar
+                </button>
+                <button type="button" onclick="document.getElementById('edit-modal').classList.add('hidden')" class="rounded-lg bg-gray-700 px-4 py-2 text-white hover:bg-gray-600">
+                    Cancelar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function editReply(id, titulo, prompt, categoria, orden, activo) {
+    document.getElementById('edit-titulo').value = titulo;
+    document.getElementById('edit-prompt').value = prompt;
+    document.getElementById('edit-categoria').value = categoria;
+    document.getElementById('edit-orden').value = orden;
+    document.getElementById('edit-activo').checked = activo;
+    document.getElementById('edit-form').action = '{% url "asistente_ia:quick_reply_update" 0 %}'.replace('/0/', '/' + id + '/');
+    document.getElementById('edit-modal').classList.remove('hidden');
+}
+</script>
+{% endblock %}
+

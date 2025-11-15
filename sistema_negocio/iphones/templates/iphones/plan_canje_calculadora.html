@@ -1,0 +1,661 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}Plan Canje - Calculadora{% endblock %}
+
+{% block extra_head %}
+<style>
+  body { background: linear-gradient(135deg, #0f172a 0%, #111827 50%, #020617 100%); }
+  .glass { backdrop-filter: blur(20px); background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(148, 163, 184, 0.2); }
+  .glass-light { backdrop-filter: blur(18px); background: rgba(255, 255, 255, 0.88); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-transparent pb-16">
+  <div class="mx-auto max-w-7xl px-4 pt-10 sm:px-6 lg:px-10">
+    <!-- Header -->
+    <div class="mb-10 flex flex-col gap-6 text-slate-100 lg:flex-row lg:items-center lg:justify-between">
+      <div>
+        <p class="text-xs uppercase tracking-[0.35em] text-slate-400">Sistema de Canje</p>
+        <h1 class="text-4xl font-semibold tracking-tight">Plan Canje</h1>
+        <p class="mt-2 max-w-2xl text-sm text-slate-300">Calculá el valor de canje de iPhones usados y gestioná las transacciones de forma profesional.</p>
+      </div>
+      <div class="flex flex-col gap-3 sm:flex-row">
+        <a href="{% url 'iphones:plan_canje_historial' %}" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-slate-600/40 bg-slate-800/90 px-5 py-3 text-sm font-semibold text-slate-100 shadow-lg transition hover:bg-slate-700 sm:w-auto">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          Historial
+        </a>
+        <a href="{% url 'iphones:plan_canje_config' %}" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-indigo-600/40 bg-indigo-600/20 px-5 py-3 text-sm font-semibold text-indigo-300 shadow-lg transition hover:bg-indigo-600/30 sm:w-auto">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+          Configuración
+        </a>
+      </div>
+    </div>
+
+    <div class="grid gap-6 lg:grid-cols-2">
+      <!-- Columna Izquierda: iPhone en Stock -->
+      <div class="glass rounded-3xl p-6 shadow-xl">
+        <h2 class="mb-4 text-xl font-semibold text-slate-100">iPhone a Entregar</h2>
+        <p class="mb-4 text-sm text-slate-400">Seleccioná el iPhone que vas a entregar al cliente</p>
+        
+        <!-- Buscador -->
+        <div class="mb-4">
+          <input type="text" id="buscador-iphone" placeholder="Buscar por modelo, SKU, capacidad o color..." 
+                 class="w-full rounded-xl border-2 border-slate-600/40 bg-slate-800/90 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+        </div>
+        
+        <div id="iphones-container" class="space-y-3 max-h-[500px] overflow-y-auto pr-2">
+          {% for iphone in iphones_stock %}
+            <div class="iphone-stock-item rounded-2xl border-2 border-slate-600/40 bg-slate-800/50 p-4 cursor-pointer transition-all hover:border-indigo-500/50 hover:bg-slate-800" 
+                 data-variante-id="{{ iphone.id }}"
+                 data-nombre="{{ iphone.producto.nombre|lower }}"
+                 data-sku="{{ iphone.sku|lower }}"
+                 data-atributos="{{ iphone.atributos_display|lower }}"
+                 data-precio-ars="{{ iphone.precio_ars_calculado|default:0 }}"
+                 data-precio-usd="{{ iphone.precio_usd_calculado|default:0 }}">
+              <div class="flex items-start justify-between">
+                <div class="flex-1">
+                  <h3 class="font-semibold text-slate-100">{{ iphone.producto.nombre }}</h3>
+                  <p class="mt-1 text-sm text-slate-400">{{ iphone.atributos_display }}</p>
+                  <p class="mt-1 text-xs text-slate-500">SKU: {{ iphone.sku }}</p>
+                </div>
+                <div class="text-right">
+                  <p class="text-lg font-semibold text-indigo-400">
+                    {% if iphone.precio_usd_calculado > 0 %}
+                      US$ {{ iphone.precio_usd_calculado|floatformat:2|intcomma }}
+                    {% elif iphone.precio_ars_calculado > 0 %}
+                      ${{ iphone.precio_ars_calculado|floatformat:0|intcomma }}
+                    {% else %}
+                      Sin precio
+                    {% endif %}
+                  </p>
+                  <p class="text-xs text-slate-500">Stock: {{ iphone.stock_actual }}</p>
+                </div>
+              </div>
+            </div>
+          {% empty %}
+            <p class="text-center text-sm text-slate-400 py-8">No hay iPhones en stock</p>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Columna Derecha: iPhone Recibido -->
+      <div class="glass rounded-3xl p-6 shadow-xl">
+        <h2 class="mb-4 text-xl font-semibold text-slate-100">iPhone Recibido</h2>
+        <p class="mb-4 text-sm text-slate-400">Ingresá los datos del iPhone que el cliente quiere canjear</p>
+        
+        <form id="plan-canje-form" class="space-y-4">
+          <!-- Modelo -->
+          <div>
+            <label class="block text-sm font-semibold text-slate-300 mb-2">Modelo *</label>
+            <select id="modelo-recibido" name="modelo_recibido" required class="w-full rounded-xl border-2 border-slate-600/40 bg-slate-800/90 px-4 py-3 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+              <option value="">Seleccionar modelo...</option>
+              {% for modelo in modelos_unicos %}
+                <option value="{{ modelo }}">{{ modelo }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Capacidad -->
+          <div>
+            <label class="block text-sm font-semibold text-slate-300 mb-2">Capacidad *</label>
+            <select id="capacidad-recibida" name="capacidad_recibida" required class="w-full rounded-xl border-2 border-slate-600/40 bg-slate-800/90 px-4 py-3 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+              <option value="">Seleccionar capacidad...</option>
+            </select>
+          </div>
+
+          <!-- Color -->
+          <div>
+            <label class="block text-sm font-semibold text-slate-300 mb-2">Color</label>
+            <input type="text" id="color-recibido" name="color_recibido" placeholder="Ej: Negro, Blanco, Azul..." class="w-full rounded-xl border-2 border-slate-600/40 bg-slate-800/90 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+          </div>
+
+          <!-- Salud de Batería -->
+          <div>
+            <label class="block text-sm font-semibold text-slate-300 mb-2">Salud de Batería *</label>
+            <div class="flex items-center gap-4">
+              <input type="range" id="bateria-recibida" name="bateria_recibida" min="0" max="100" value="100" class="flex-1" oninput="document.getElementById('bateria-value').textContent = this.value + '%'">
+              <span id="bateria-value" class="text-lg font-semibold text-indigo-400 w-16 text-right">100%</span>
+            </div>
+          </div>
+
+          <!-- Estado Físico -->
+          <div>
+            <label class="block text-sm font-semibold text-slate-300 mb-2">Estado Físico *</label>
+            <div class="grid grid-cols-3 gap-3">
+              <label class="estado-option rounded-xl border-2 border-slate-600/40 bg-slate-800/50 p-3 cursor-pointer transition-all hover:border-emerald-500/50" data-estado="excelente">
+                <input type="radio" name="estado_recibido" value="excelente" required class="hidden">
+                <div class="text-center">
+                  <div class="text-2xl mb-1">✨</div>
+                  <div class="text-sm font-semibold text-slate-200">Excelente</div>
+                </div>
+              </label>
+              <label class="estado-option rounded-xl border-2 border-slate-600/40 bg-slate-800/50 p-3 cursor-pointer transition-all hover:border-yellow-500/50" data-estado="bueno">
+                <input type="radio" name="estado_recibido" value="bueno" required class="hidden">
+                <div class="text-center">
+                  <div class="text-2xl mb-1">👍</div>
+                  <div class="text-sm font-semibold text-slate-200">Bueno</div>
+                </div>
+              </label>
+              <label class="estado-option rounded-xl border-2 border-slate-600/40 bg-slate-800/50 p-3 cursor-pointer transition-all hover:border-orange-500/50" data-estado="regular">
+                <input type="radio" name="estado_recibido" value="regular" required class="hidden">
+                <div class="text-center">
+                  <div class="text-2xl mb-1">⚠️</div>
+                  <div class="text-sm font-semibold text-slate-200">Regular</div>
+                </div>
+              </label>
+            </div>
+            
+            <!-- Guías de Ayuda para Estado -->
+            <div id="guia-estado" class="mt-3 rounded-xl border border-slate-600/30 bg-slate-800/30 p-3 text-xs text-slate-400 hidden">
+              <p class="font-semibold text-slate-300 mb-1">💡 Guía de ayuda:</p>
+              <p id="guia-texto"></p>
+            </div>
+          </div>
+
+          <!-- Estado de Componentes -->
+          <div class="space-y-4">
+            <h3 class="text-sm font-semibold text-slate-300 mb-3">Estado de Componentes</h3>
+            
+            <!-- Pantalla -->
+            <div>
+              <label class="block text-sm font-semibold text-slate-300 mb-2">Pantalla</label>
+              <select id="pantalla-recibida" name="pantalla_recibida" class="w-full rounded-xl border-2 border-slate-600/40 bg-slate-800/90 px-4 py-3 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                <option value="">Seleccionar...</option>
+                <option value="perfecta">Perfecta</option>
+                <option value="rayas_menores">Rayas menores</option>
+                <option value="rayas_visibles">Rayas visibles</option>
+                <option value="grieta">Grieta</option>
+                <option value="desconocido">Desconocido</option>
+              </select>
+            </div>
+            
+            <!-- Marco -->
+            <div>
+              <label class="block text-sm font-semibold text-slate-300 mb-2">Marco</label>
+              <select id="marco-recibido" name="marco_recibido" class="w-full rounded-xl border-2 border-slate-600/40 bg-slate-800/90 px-4 py-3 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                <option value="">Seleccionar...</option>
+                <option value="perfecto">Perfecto</option>
+                <option value="arañazos">Arañazos</option>
+                <option value="golpes">Golpes</option>
+                <option value="deformado">Deformado</option>
+                <option value="desconocido">Desconocido</option>
+              </select>
+            </div>
+            
+            <!-- Botones -->
+            <div>
+              <label class="block text-sm font-semibold text-slate-300 mb-2">Botones</label>
+              <select id="botones-recibido" name="botones_recibido" class="w-full rounded-xl border-2 border-slate-600/40 bg-slate-800/90 px-4 py-3 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                <option value="">Seleccionar...</option>
+                <option value="todos_funcionan">Todos funcionan</option>
+                <option value="alguno_no_funciona">Alguno no funciona</option>
+                <option value="varios_no_funcionan">Varios no funcionan</option>
+                <option value="desconocido">Desconocido</option>
+              </select>
+            </div>
+            
+            <!-- Cámara -->
+            <div>
+              <label class="block text-sm font-semibold text-slate-300 mb-2">Cámara</label>
+              <select id="camara-recibida" name="camara_recibida" class="w-full rounded-xl border-2 border-slate-600/40 bg-slate-800/90 px-4 py-3 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                <option value="">Seleccionar...</option>
+                <option value="perfecta">Perfecta</option>
+                <option value="rayas_menores">Rayas menores</option>
+                <option value="rayas_visibles">Rayas visibles</option>
+                <option value="rota">Rota</option>
+                <option value="desconocido">Desconocido</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Accesorios -->
+          <div>
+            <label class="block text-sm font-semibold text-slate-300 mb-2">Accesorios Incluidos</label>
+            <div class="space-y-2">
+              <label class="flex items-center gap-3 rounded-xl border-2 border-slate-600/40 bg-slate-800/50 p-3 cursor-pointer hover:bg-slate-800 transition">
+                <input type="checkbox" name="accesorios" value="caja" class="accesorio-checkbox rounded border-slate-600 bg-slate-700 text-indigo-600 focus:ring-indigo-500">
+                <span class="text-sm text-slate-200">Caja original</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Observaciones -->
+          <div>
+            <label class="block text-sm font-semibold text-slate-300 mb-2">Observaciones</label>
+            <textarea id="observaciones-recibido" name="observaciones_recibido" rows="3" placeholder="Notas adicionales sobre el estado del equipo..." class="w-full rounded-xl border-2 border-slate-600/40 bg-slate-800/90 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"></textarea>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Sección de Cálculo -->
+    <div class="glass mt-6 rounded-3xl p-6 shadow-xl">
+      <h2 class="mb-4 text-xl font-semibold text-slate-100">Cálculo del Canje</h2>
+      
+      <div id="calculo-container" class="hidden">
+        <div class="grid gap-6 md:grid-cols-2">
+          <!-- Valor del iPhone Usado -->
+          <div class="rounded-2xl border-2 border-slate-600/40 bg-slate-800/50 p-5">
+            <h3 class="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">Valor del iPhone Usado</h3>
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between text-slate-300">
+                <span>Valor base:</span>
+                <span id="valor-base-usd" class="font-semibold">—</span>
+              </div>
+              <div class="flex justify-between text-rose-400">
+                <span>Descuento batería:</span>
+                <span id="descuento-bateria">—</span>
+              </div>
+              <div class="flex justify-between text-rose-400">
+                <span>Descuento estado:</span>
+                <span id="descuento-estado">—</span>
+              </div>
+              <div class="flex justify-between text-rose-400">
+                <span>Descuento accesorios:</span>
+                <span id="descuento-accesorios">—</span>
+              </div>
+              <div class="flex justify-between text-rose-400">
+                <span>Descuento pantalla:</span>
+                <span id="descuento-pantalla">—</span>
+              </div>
+              <div class="flex justify-between text-rose-400">
+                <span>Descuento marco:</span>
+                <span id="descuento-marco">—</span>
+              </div>
+              <div class="flex justify-between text-rose-400">
+                <span>Descuento botones:</span>
+                <span id="descuento-botones">—</span>
+              </div>
+              <div class="flex justify-between text-rose-400">
+                <span>Descuento cámara:</span>
+                <span id="descuento-camara">—</span>
+              </div>
+              <div class="mt-4 flex justify-between border-t border-slate-600/40 pt-3">
+                <span class="text-base font-semibold text-slate-200">Valor final:</span>
+                <span id="valor-final-usd" class="text-lg font-bold text-indigo-400">—</span>
+              </div>
+              <div class="flex justify-between text-slate-400">
+                <span>En ARS:</span>
+                <span id="valor-final-ars" class="font-semibold text-slate-300">—</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Diferencia -->
+          <div class="rounded-2xl border-2 border-indigo-600/40 bg-indigo-600/10 p-5">
+            <h3 class="mb-3 text-sm font-semibold uppercase tracking-wider text-indigo-300">Diferencia a Pagar</h3>
+            <div class="space-y-4">
+              <div class="flex justify-between text-slate-300">
+                <span>Precio iPhone nuevo (USD):</span>
+                <span id="precio-iphone-nuevo-usd" class="font-semibold">—</span>
+              </div>
+              <div class="flex justify-between text-slate-300">
+                <span>Valor iPhone usado (USD):</span>
+                <span id="valor-iphone-usado-usd" class="font-semibold">—</span>
+              </div>
+              <div class="flex justify-between text-slate-400 text-xs">
+                <span>Diferencia (USD):</span>
+                <span id="diferencia-usd" class="font-semibold">—</span>
+              </div>
+              <div class="mt-2">
+                <label class="block text-xs font-semibold text-slate-400 mb-1">Ajuste manual en ARS (opcional)</label>
+                <input type="number" id="ajuste-manual" step="0.01" value="0" class="w-full rounded-lg border border-slate-600/40 bg-slate-800/90 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+              </div>
+              <div class="mt-4 flex justify-between border-t border-indigo-600/40 pt-3">
+                <span class="text-base font-semibold text-indigo-200">Diferencia final (ARS):</span>
+                <span id="diferencia-final" class="text-2xl font-bold text-indigo-300">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-6 flex gap-3">
+          <button id="btn-calcular" class="flex-1 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/30 transition hover:bg-indigo-500">
+            Recalcular
+          </button>
+          <button id="btn-aplicar-canje" class="flex-1 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-600/30 transition hover:bg-emerald-500">
+            Aplicar Canje
+          </button>
+        </div>
+      </div>
+
+      <div id="calculo-empty" class="text-center py-8 text-slate-400">
+        <p>Completá los datos del iPhone recibido y seleccioná un iPhone en stock para ver el cálculo</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para IMEI -->
+<div id="modal-imei" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm">
+  <div class="glass rounded-3xl p-6 shadow-2xl max-w-md w-full mx-4">
+    <h3 class="mb-4 text-xl font-semibold text-slate-100">Confirmar Plan Canje</h3>
+    <p class="mb-4 text-sm text-slate-400">Ingresá el IMEI del iPhone recibido (opcional)</p>
+    <div class="mb-4">
+      <label class="block text-sm font-semibold text-slate-300 mb-2">IMEI</label>
+      <input type="text" id="imei-modal" name="imei_modal" placeholder="15 dígitos" maxlength="15" class="w-full rounded-xl border-2 border-slate-600/40 bg-slate-800/90 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+    </div>
+    <div class="flex gap-3">
+      <button id="btn-cancelar-imei" class="flex-1 rounded-xl bg-slate-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-500">
+        Cancelar
+      </button>
+      <button id="btn-confirmar-imei" class="flex-1 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-600/30 transition hover:bg-emerald-500">
+        Confirmar
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+const csrfToken = '{{ csrf_token }}';
+const dolarBlue = {{ dolar_blue|default:0 }};
+let varianteSeleccionada = null;
+let precioIphoneNuevoUsd = 0;
+let precioIphoneNuevoArs = 0;
+
+// Función para convertir capacidad a GB para ordenar
+function capacidadAGB(capacidad) {
+  if (!capacidad) return 0;
+  const str = capacidad.toUpperCase();
+  if (str.includes('TB')) {
+    const num = parseFloat(str.replace('TB', '').trim());
+    return num * 1024; // 1TB = 1024GB
+  } else if (str.includes('GB')) {
+    return parseFloat(str.replace('GB', '').trim());
+  }
+  return 0;
+}
+
+// Cargar capacidades según modelo
+document.getElementById('modelo-recibido').addEventListener('change', function() {
+  const modelo = this.value;
+  const capacidadSelect = document.getElementById('capacidad-recibida');
+  capacidadSelect.innerHTML = '<option value="">Seleccionar capacidad...</option>';
+  
+  const capacidades = [];
+  
+  {% for config in configs_activas %}
+    if ('{{ config.modelo_iphone }}' === modelo) {
+      capacidades.push('{{ config.capacidad }}');
+    }
+  {% endfor %}
+  
+  // Ordenar capacidades de menor a mayor
+  capacidades.sort((a, b) => capacidadAGB(a) - capacidadAGB(b));
+  
+  // Agregar opciones ordenadas
+  capacidades.forEach(capacidad => {
+    const option = document.createElement('option');
+    option.value = capacidad;
+    option.textContent = capacidad;
+    capacidadSelect.appendChild(option);
+  });
+});
+
+// Buscador de iPhones
+document.getElementById('buscador-iphone').addEventListener('input', function() {
+  const busqueda = this.value.toLowerCase();
+  document.querySelectorAll('.iphone-stock-item').forEach(item => {
+    const nombre = item.dataset.nombre || '';
+    const sku = item.dataset.sku || '';
+    const atributos = item.dataset.atributos || '';
+    const texto = `${nombre} ${sku} ${atributos}`.toLowerCase();
+    if (texto.includes(busqueda)) {
+      item.style.display = '';
+    } else {
+      item.style.display = 'none';
+    }
+  });
+});
+
+// Seleccionar iPhone en stock
+document.querySelectorAll('.iphone-stock-item').forEach(item => {
+  item.addEventListener('click', function() {
+    document.querySelectorAll('.iphone-stock-item').forEach(i => i.classList.remove('border-indigo-500', 'bg-indigo-600/20'));
+    this.classList.add('border-indigo-500', 'bg-indigo-600/20');
+    varianteSeleccionada = this.dataset.varianteId;
+    precioIphoneNuevoUsd = parseFloat(this.dataset.precioUsd) || 0;
+    precioIphoneNuevoArs = parseFloat(this.dataset.precioArs) || 0;
+    
+    // Si no hay precio USD pero hay ARS, convertir
+    if (precioIphoneNuevoUsd === 0 && precioIphoneNuevoArs > 0 && dolarBlue > 0) {
+      precioIphoneNuevoUsd = precioIphoneNuevoArs / dolarBlue;
+    }
+    // Si no hay precio ARS pero hay USD, convertir
+    if (precioIphoneNuevoArs === 0 && precioIphoneNuevoUsd > 0 && dolarBlue > 0) {
+      precioIphoneNuevoArs = precioIphoneNuevoUsd * dolarBlue;
+    }
+    
+    calcularCanje();
+  });
+});
+
+// Estado físico con guías
+document.querySelectorAll('.estado-option').forEach(option => {
+  option.addEventListener('click', function() {
+    document.querySelectorAll('.estado-option').forEach(o => o.classList.remove('border-emerald-500', 'border-yellow-500', 'border-orange-500', 'bg-emerald-600/20', 'bg-yellow-600/20', 'bg-orange-600/20'));
+    const estado = this.dataset.estado;
+    const radio = this.querySelector('input[type="radio"]');
+    radio.checked = true;
+    
+    if (estado === 'excelente') {
+      this.classList.add('border-emerald-500', 'bg-emerald-600/20');
+    } else if (estado === 'bueno') {
+      this.classList.add('border-yellow-500', 'bg-yellow-600/20');
+    } else {
+      this.classList.add('border-orange-500', 'bg-orange-600/20');
+    }
+    
+    mostrarGuiaEstado(estado);
+    calcularCanje();
+  });
+});
+
+function mostrarGuiaEstado(estado) {
+  const guiaDiv = document.getElementById('guia-estado');
+  const guiaTexto = document.getElementById('guia-texto');
+  guiaDiv.classList.remove('hidden');
+  
+  // Las guías se cargarán desde la API cuando se calcule
+  calcularCanje();
+}
+
+// Calcular canje
+function calcularCanje() {
+  const modelo = document.getElementById('modelo-recibido').value;
+  const capacidad = document.getElementById('capacidad-recibida').value;
+  const bateria = parseInt(document.getElementById('bateria-recibida').value);
+  const estado = document.querySelector('input[name="estado_recibido"]:checked')?.value;
+  
+  if (!modelo || !capacidad || !estado || !varianteSeleccionada) {
+    document.getElementById('calculo-container').classList.add('hidden');
+    document.getElementById('calculo-empty').classList.remove('hidden');
+    return;
+  }
+  
+  const accesorios = {
+    caja: document.querySelector('input[name="accesorios"][value="caja"]')?.checked || false,
+  };
+  
+  const pantalla = document.getElementById('pantalla-recibida').value;
+  const marco = document.getElementById('marco-recibido').value;
+  const botones = document.getElementById('botones-recibido').value;
+  const camara = document.getElementById('camara-recibida').value;
+  
+  fetch('{% url "iphones:plan_canje_calcular_api" %}', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': csrfToken,
+    },
+    body: JSON.stringify({
+      modelo: modelo,
+      capacidad: capacidad,
+      bateria: bateria,
+      estado: estado,
+      accesorios: accesorios,
+      pantalla: pantalla,
+      marco: marco,
+      botones: botones,
+      camara: camara,
+    }),
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.error) {
+      alert('Error: ' + data.error);
+      return;
+    }
+    
+    // Mostrar guías
+    const guiaTexto = document.getElementById('guia-texto');
+    if (estado === 'excelente' && data.guia_estado_excelente) {
+      guiaTexto.textContent = data.guia_estado_excelente;
+    } else if (estado === 'bueno' && data.guia_estado_bueno) {
+      guiaTexto.textContent = data.guia_estado_bueno;
+    } else if (estado === 'regular' && data.guia_estado_regular) {
+      guiaTexto.textContent = data.guia_estado_regular;
+    }
+    
+    // Actualizar valores del iPhone usado
+    document.getElementById('valor-base-usd').textContent = `US$ ${data.valor_base_usd.toFixed(2)}`;
+    document.getElementById('descuento-bateria').textContent = `-${(data.descuento_bateria * 100).toFixed(1)}%`;
+    document.getElementById('descuento-estado').textContent = `-${(data.descuento_estado * 100).toFixed(1)}%`;
+    document.getElementById('descuento-accesorios').textContent = `-${(data.descuento_accesorios * 100).toFixed(1)}%`;
+    document.getElementById('descuento-pantalla').textContent = data.descuento_pantalla > 0 ? `-${(data.descuento_pantalla * 100).toFixed(1)}%` : '0%';
+    document.getElementById('descuento-marco').textContent = data.descuento_marco > 0 ? `-${(data.descuento_marco * 100).toFixed(1)}%` : '0%';
+    document.getElementById('descuento-botones').textContent = data.descuento_botones > 0 ? `-${(data.descuento_botones * 100).toFixed(1)}%` : '0%';
+    document.getElementById('descuento-camara').textContent = data.descuento_camara > 0 ? `-${(data.descuento_camara * 100).toFixed(1)}%` : '0%';
+    document.getElementById('valor-final-usd').textContent = `US$ ${data.valor_final_usd.toFixed(2)}`;
+    document.getElementById('valor-final-ars').textContent = `$${data.valor_final_ars.toFixed(2)}`;
+    
+    // Actualizar diferencia
+    actualizarDiferencia(data.valor_final_usd, data.valor_final_ars);
+    
+    document.getElementById('calculo-container').classList.remove('hidden');
+    document.getElementById('calculo-empty').classList.add('hidden');
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('Error al calcular el canje');
+  });
+}
+
+function actualizarDiferencia(valorUsadoUsd, valorUsadoArs) {
+  const ajusteArs = parseFloat(document.getElementById('ajuste-manual').value) || 0;
+  const ajusteUsd = dolarBlue > 0 ? ajusteArs / dolarBlue : 0;
+  
+  // Calcular diferencia en USD
+  const diferenciaUsd = precioIphoneNuevoUsd - valorUsadoUsd - ajusteUsd;
+  
+  // Calcular diferencia en ARS
+  const valorUsadoArsConAjuste = valorUsadoArs + ajusteArs;
+  const diferenciaArs = precioIphoneNuevoArs - valorUsadoArsConAjuste;
+  
+  // Mostrar valores en USD
+  document.getElementById('precio-iphone-nuevo-usd').textContent = precioIphoneNuevoUsd > 0 ? `US$ ${precioIphoneNuevoUsd.toFixed(2)}` : '—';
+  document.getElementById('valor-iphone-usado-usd').textContent = `US$ ${valorUsadoUsd.toFixed(2)}`;
+  document.getElementById('diferencia-usd').textContent = `US$ ${diferenciaUsd.toFixed(2)}`;
+  
+  // Mostrar diferencia final en ARS
+  document.getElementById('diferencia-final').textContent = diferenciaArs !== 0 ? `$${diferenciaArs.toFixed(2)}` : '—';
+}
+
+// Event listeners
+document.getElementById('bateria-recibida').addEventListener('input', calcularCanje);
+document.getElementById('pantalla-recibida').addEventListener('change', calcularCanje);
+document.getElementById('marco-recibido').addEventListener('change', calcularCanje);
+document.getElementById('botones-recibido').addEventListener('change', calcularCanje);
+document.getElementById('camara-recibida').addEventListener('change', calcularCanje);
+document.getElementById('ajuste-manual').addEventListener('input', function() {
+  const valorUsadoUsd = parseFloat(document.getElementById('valor-final-usd').textContent.replace('US$', '').replace(',', '').trim()) || 0;
+  const valorUsadoArs = parseFloat(document.getElementById('valor-final-ars').textContent.replace('$', '').replace(',', '').trim()) || 0;
+  if (valorUsadoUsd > 0) {
+    actualizarDiferencia(valorUsadoUsd, valorUsadoArs);
+  }
+});
+document.querySelectorAll('.accesorio-checkbox').forEach(cb => {
+  cb.addEventListener('change', calcularCanje);
+});
+document.getElementById('btn-calcular').addEventListener('click', calcularCanje);
+
+// Aplicar canje - abrir modal de IMEI
+document.getElementById('btn-aplicar-canje').addEventListener('click', function() {
+  if (!varianteSeleccionada) {
+    alert('Seleccioná un iPhone en stock');
+    return;
+  }
+  
+  const modelo = document.getElementById('modelo-recibido').value;
+  const capacidad = document.getElementById('capacidad-recibida').value;
+  const estado = document.querySelector('input[name="estado_recibido"]:checked')?.value;
+  
+  if (!modelo || !capacidad || !estado) {
+    alert('Completá todos los campos obligatorios del iPhone recibido');
+    return;
+  }
+  
+  // Limpiar campo IMEI del modal
+  document.getElementById('imei-modal').value = '';
+  
+  // Mostrar modal
+  document.getElementById('modal-imei').classList.remove('hidden');
+  document.getElementById('modal-imei').classList.add('flex');
+});
+
+// Cancelar modal IMEI
+document.getElementById('btn-cancelar-imei').addEventListener('click', function() {
+  document.getElementById('modal-imei').classList.add('hidden');
+  document.getElementById('modal-imei').classList.remove('flex');
+});
+
+// Confirmar y aplicar canje
+document.getElementById('btn-confirmar-imei').addEventListener('click', function() {
+  const imei = document.getElementById('imei-modal').value.trim();
+  
+  const formData = {
+    modelo_recibido: document.getElementById('modelo-recibido').value,
+    capacidad_recibida: document.getElementById('capacidad-recibida').value,
+    color_recibido: document.getElementById('color-recibido').value,
+    imei_recibido: imei,
+    bateria_recibida: parseInt(document.getElementById('bateria-recibida').value),
+    estado_recibido: document.querySelector('input[name="estado_recibido"]:checked')?.value,
+    pantalla_recibida: document.getElementById('pantalla-recibida').value,
+    marco_recibido: document.getElementById('marco-recibido').value,
+    botones_recibido: document.getElementById('botones-recibido').value,
+    camara_recibida: document.getElementById('camara-recibida').value,
+    accesorios_recibidos: {
+      caja: document.querySelector('input[name="accesorios"][value="caja"]')?.checked || false,
+    },
+    observaciones_recibido: document.getElementById('observaciones-recibido').value,
+    variante_entregada_id: varianteSeleccionada,
+    ajuste_manual_ars: parseFloat(document.getElementById('ajuste-manual').value) || 0,
+  };
+  
+  fetch('{% url "iphones:plan_canje_aplicar_api" %}', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': csrfToken,
+    },
+    body: JSON.stringify(formData),
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.error) {
+      alert('Error: ' + data.error);
+      return;
+    }
+    alert('Canje aplicado exitosamente! Venta: ' + data.venta_id);
+    window.location.href = '{% url "iphones:plan_canje_historial" %}';
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('Error al aplicar el canje');
+  });
+});
+</script>
+{% endblock %}
+

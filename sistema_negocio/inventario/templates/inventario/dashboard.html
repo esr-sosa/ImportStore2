@@ -198,8 +198,8 @@
                           {% endwith %}
                         {% endif %}
                         <div class="sm:hidden mt-1">
-                          <div class="text-xs text-slate-400">Minorista: USD {{ v.precio_min_usd_cast|default:"—" }} / ARS {{ v.precio_min_ars_cast|default:"—" }}</div>
-                          <div class="text-xs text-slate-400">Mayorista: USD {{ v.precio_may_usd_cast|default:"—" }} / ARS {{ v.precio_may_ars_cast|default:"—" }}</div>
+                          <div class="text-xs text-slate-400">Minorista: ARS {{ v.precio_min_ars_cast|default:"—" }}</div>
+                          <div class="text-xs text-slate-400">Mayorista: ARS {{ v.precio_may_ars_cast|default:"—" }}</div>
                         </div>
                         <div class="sm:hidden">
                           {% if v.activo %}
@@ -213,19 +213,37 @@
                     <td class="px-2 sm:px-5 py-3 sm:py-4 font-mono text-xs text-slate-400 hidden sm:table-cell">{{ v.sku }}</td>
                     <td class="px-2 sm:px-5 py-3 sm:py-4">
                       <div class="text-right">
-                        <span class="text-sm sm:text-base font-semibold {{ v.bajo_stock|yesno:'text-rose-400,text-slate-100' }}">{{ v.stock_actual }}</span>
+                        <span 
+                          class="editable-stock inline-block cursor-pointer rounded px-2 py-1 text-sm sm:text-base font-semibold {{ v.bajo_stock|yesno:'text-rose-400,text-slate-100' }} hover:bg-slate-700/50 transition"
+                          data-variante-id="{{ v.id }}"
+                          data-current-value="{{ v.stock_actual|default:0 }}"
+                          {% if v.stock_minimo %}data-stock-minimo="{{ v.stock_minimo }}"{% endif %}
+                          title="Clic para editar stock"
+                        >{{ v.stock_actual|default:0 }}</span>
                         {% if v.stock_minimo %}
-                          <span class="ml-1 sm:ml-2 text-[10px] sm:text-xs text-slate-500">mín. {{ v.stock_minimo }}</span>
+                          <span class="ml-1 sm:ml-2 text-[10px] sm:text-xs text-slate-500" data-stock-minimo="{{ v.stock_minimo }}">mín. {{ v.stock_minimo }}</span>
                         {% endif %}
                       </div>
                     </td>
                     <td class="px-2 sm:px-5 py-3 sm:py-4 text-right hidden md:table-cell">
-                      <div class="text-xs text-slate-400">USD {{ v.precio_min_usd_cast|default:"—" }}</div>
-                      <div class="text-xs text-slate-300">ARS {{ v.precio_min_ars_cast|default:"—" }}</div>
+                      <div 
+                        class="editable-precio inline-block cursor-pointer rounded px-2 py-0.5 text-sm font-semibold text-slate-100 hover:bg-slate-700/50 transition"
+                        data-variante-id="{{ v.id }}"
+                        data-tipo="MINORISTA"
+                        data-moneda="ARS"
+                        data-current-value="{{ v.precio_min_ars_cast|default:'0' }}"
+                        title="Clic para editar precio ARS Minorista"
+                      >ARS {{ v.precio_min_ars_cast|default:"—" }}</div>
                     </td>
                     <td class="px-2 sm:px-5 py-3 sm:py-4 text-right hidden lg:table-cell">
-                      <div class="text-xs text-slate-400">USD {{ v.precio_may_usd_cast|default:"—" }}</div>
-                      <div class="text-xs text-slate-300">ARS {{ v.precio_may_ars_cast|default:"—" }}</div>
+                      <div 
+                        class="editable-precio inline-block cursor-pointer rounded px-2 py-0.5 text-sm font-semibold text-slate-100 hover:bg-slate-700/50 transition"
+                        data-variante-id="{{ v.id }}"
+                        data-tipo="MAYORISTA"
+                        data-moneda="ARS"
+                        data-current-value="{{ v.precio_may_ars_cast|default:'0' }}"
+                        title="Clic para editar precio ARS Mayorista"
+                      >ARS {{ v.precio_may_ars_cast|default:"—" }}</div>
                     </td>
                     <td class="px-2 sm:px-5 py-3 sm:py-4 text-center hidden sm:table-cell">
                       {% if v.activo %}
@@ -320,6 +338,242 @@ document.addEventListener('DOMContentLoaded', function() {
             descargarBtn.disabled = selected.length === 0;
         }
     }
+    
+    // ========== EDICIÓN RÁPIDA DE STOCK Y PRECIOS ==========
+    
+    // Función para obtener el token CSRF
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    const csrftoken = getCookie('csrftoken');
+    
+    // Edición rápida de stock
+    document.querySelectorAll('.editable-stock').forEach(element => {
+        element.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const varianteId = this.dataset.varianteId;
+            const currentValue = this.dataset.currentValue || '0';
+            const originalText = this.textContent.trim();
+            
+            // Crear input
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.min = '0';
+            input.value = currentValue;
+            input.className = 'w-20 rounded border-2 border-blue-500 bg-slate-800 px-2 py-1 text-sm font-semibold text-slate-100 focus:border-blue-400 focus:outline-none';
+            input.style.minWidth = '60px';
+            
+            // Reemplazar el span con el input
+            const parent = this.parentElement;
+            const originalDisplay = this.style.display;
+            this.style.display = 'none';
+            parent.insertBefore(input, this);
+            input.focus();
+            input.select();
+            
+            const saveStock = () => {
+                const newValue = parseInt(input.value) || 0;
+                if (newValue < 0) {
+                    alert('El stock no puede ser negativo');
+                    input.focus();
+                    return;
+                }
+                
+                // Mostrar loading
+                input.disabled = true;
+                input.value = 'Guardando...';
+                
+                fetch('{% url "inventario:actualizar_stock_rapido_api" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrftoken
+                    },
+                    body: JSON.stringify({
+                        variante_id: varianteId,
+                        stock: newValue
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        this.dataset.currentValue = newValue;
+                        this.textContent = newValue;
+                        // Actualizar clase de color si es necesario
+                        const stockMinimo = this.closest('tr').querySelector('[data-stock-minimo]')?.dataset.stockMinimo;
+                        if (newValue === 0 || (stockMinimo && newValue <= parseInt(stockMinimo))) {
+                            this.classList.remove('text-slate-100');
+                            this.classList.add('text-rose-400');
+                        } else {
+                            this.classList.remove('text-rose-400');
+                            this.classList.add('text-slate-100');
+                        }
+                        // Mostrar toast
+                        if (window.dispatchEvent) {
+                            window.dispatchEvent(new CustomEvent('showToast', {
+                                detail: { message: data.message, level: 'success' }
+                            }));
+                        }
+                    } else {
+                        alert('Error: ' + (data.error || 'No se pudo actualizar el stock'));
+                        input.value = currentValue;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error al actualizar el stock');
+                    input.value = currentValue;
+                })
+                .finally(() => {
+                    input.remove();
+                    this.style.display = originalDisplay;
+                });
+            };
+            
+            const cancelEdit = () => {
+                input.remove();
+                this.style.display = originalDisplay;
+            };
+            
+            input.addEventListener('blur', saveStock);
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveStock();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    cancelEdit();
+                }
+            });
+        });
+    });
+    
+    // Edición rápida de precios
+    document.querySelectorAll('.editable-precio').forEach(element => {
+        element.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const varianteId = this.dataset.varianteId;
+            const tipo = this.dataset.tipo;
+            const moneda = this.dataset.moneda;
+            const currentValue = this.dataset.currentValue || '0';
+            const originalText = this.textContent.trim();
+            
+            // Extraer el valor numérico del texto (puede tener formato)
+            let numericValue = currentValue;
+            if (currentValue === '—' || currentValue === '0' || !currentValue) {
+                numericValue = '0';
+            }
+            
+            // Crear input
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.min = '0';
+            input.step = '0.01';
+            input.value = numericValue;
+            input.className = 'w-24 rounded border-2 border-blue-500 bg-slate-800 px-2 py-0.5 text-xs text-slate-100 focus:border-blue-400 focus:outline-none';
+            input.style.minWidth = '80px';
+            
+            // Reemplazar el div con el input
+            const parent = this.parentElement;
+            const originalDisplay = this.style.display;
+            this.style.display = 'none';
+            parent.insertBefore(input, this);
+            input.focus();
+            input.select();
+            
+            const savePrecio = () => {
+                const newValue = parseFloat(input.value) || 0;
+                if (newValue < 0) {
+                    alert('El precio no puede ser negativo');
+                    input.focus();
+                    return;
+                }
+                
+                // Mostrar loading
+                input.disabled = true;
+                input.value = 'Guardando...';
+                
+                fetch('{% url "inventario:actualizar_precio_rapido_api" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrftoken
+                    },
+                    body: JSON.stringify({
+                        variante_id: varianteId,
+                        tipo: tipo,
+                        moneda: moneda,
+                        precio: newValue
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        this.dataset.currentValue = newValue;
+                        // Formatear el precio
+                        let formattedValue;
+                        if (newValue > 0) {
+                            // Si es entero, mostrar sin decimales, si no, con 2 decimales
+                            if (newValue === Math.floor(newValue)) {
+                                formattedValue = newValue.toLocaleString('es-AR', { maximumFractionDigits: 0 });
+                            } else {
+                                formattedValue = newValue.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                            }
+                        } else {
+                            formattedValue = '—';
+                        }
+                        this.textContent = `${moneda} ${formattedValue}`;
+                        // Mostrar toast
+                        if (window.dispatchEvent) {
+                            window.dispatchEvent(new CustomEvent('showToast', {
+                                detail: { message: data.message, level: 'success' }
+                            }));
+                        }
+                    } else {
+                        alert('Error: ' + (data.error || 'No se pudo actualizar el precio'));
+                        input.value = numericValue;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error al actualizar el precio');
+                    input.value = numericValue;
+                })
+                .finally(() => {
+                    input.remove();
+                    this.style.display = originalDisplay;
+                });
+            };
+            
+            const cancelEdit = () => {
+                input.remove();
+                this.style.display = originalDisplay;
+            };
+            
+            input.addEventListener('blur', savePrecio);
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    savePrecio();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    cancelEdit();
+                }
+            });
+        });
+    });
     
     // Descargar etiquetas seleccionadas
     if (descargarBtn) {

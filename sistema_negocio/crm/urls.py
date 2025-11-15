@@ -16,4 +16,11 @@ urlpatterns = [
     # --- ¡RUTAS DE IA CORREGIDAS Y FUNCIONALES! ---
     path('api/sugerir-respuesta/', views.sugerir_respuesta_ia, name='sugerir_respuesta_ia'),
     path('api/resumir-chat/', views.resumir_chat_ia, name='resumir_chat_ia'),
+    
+    # --- Acciones rápidas ---
+    path('api/buscar-productos/', views.buscar_productos_api, name='buscar_productos_api'),
+    path('api/enviar-producto/', views.enviar_producto_chat, name='enviar_producto_chat'),
+    path('api/crear-cotizacion/', views.crear_cotizacion_api, name='crear_cotizacion_api'),
+    path('api/conversacion/<int:conv_id>/contexto/', views.obtener_contexto_cliente_api, name='obtener_contexto_cliente_api'),
+    path('api/conversacion/<int:conv_id>/reiniciar/', views.reiniciar_conversacion_api, name='reiniciar_conversacion_api'),
 ]

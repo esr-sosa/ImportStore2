@@ -271,14 +271,24 @@ ASGI_APPLICATION = 'core.asgi.application'
 # Channels: Redis si REDIS_URL está disponible; caso contrario, memoria (dev)
 REDIS_URL = os.getenv("REDIS_URL", "").strip()
 if REDIS_URL:
-    CHANNEL_LAYERS = {
-        'default': {
-            'BACKEND': 'channels_redis.core.RedisChannelLayer',
-            'CONFIG': {
-                'hosts': [REDIS_URL],
+    # Intentar usar Redis, pero si falla, usar memoria
+    try:
+        import channels_redis
+        CHANNEL_LAYERS = {
+            'default': {
+                'BACKEND': 'channels_redis.core.RedisChannelLayer',
+                'CONFIG': {
+                    'hosts': [REDIS_URL],
+                },
             },
-        },
-    }
+        }
+    except ImportError:
+        print("[WARNING] channels-redis no está instalado. Usando backend en memoria.")
+        CHANNEL_LAYERS = {
+            'default': {
+                'BACKEND': 'channels.layers.InMemoryChannelLayer',
+            },
+        }
 else:
     CHANNEL_LAYERS = {
         'default': {

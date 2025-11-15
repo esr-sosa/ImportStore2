@@ -80,9 +80,26 @@
                                 </div>
                             </div>
                             <div>
-                                <label class="mb-1 block font-semibold text-slate-100">{{ producto_form.descripcion.label }}</label>
-                                {{ producto_form.descripcion }}
+                                <div class="flex items-center justify-between mb-1">
+                                    <label class="block font-semibold text-slate-100">{{ producto_form.descripcion.label }}</label>
+                                    <button type="button" id="generar-descripcion-ia-btn" class="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-500/20 to-blue-500/20 border border-purple-500/30 px-3 py-1.5 text-xs font-semibold text-purple-200 hover:from-purple-500/30 hover:to-blue-500/30 transition-all shadow-lg" title="Generar descripción profesional con IA basada en imágenes, nombre y atributos">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                                        </svg>
+                                        <span>Generar con IA</span>
+                                    </button>
+                                </div>
+                                <div class="relative">
+                                    {{ producto_form.descripcion }}
+                                    <div id="descripcion-loading" class="absolute inset-0 hidden items-center justify-center bg-slate-900/80 backdrop-blur-sm rounded-2xl">
+                                        <div class="flex flex-col items-center gap-2">
+                                            <div class="h-8 w-8 animate-spin rounded-full border-4 border-purple-500 border-t-transparent"></div>
+                                            <span class="text-xs font-semibold text-purple-200">Generando descripción...</span>
+                                        </div>
+                                    </div>
+                                </div>
                                 {{ producto_form.descripcion.errors }}
+                                <p class="mt-1 text-xs text-slate-400">La IA analizará las imágenes cargadas junto con el nombre y atributos para crear una descripción profesional.</p>
                             </div>
                             <div>
                                 <label class="mb-1 block font-semibold text-slate-100">{{ producto_form.codigo_barras.label }}</label>
@@ -496,7 +513,13 @@
                     });
                     const data = await response.json();
                     if (!response.ok || !data.image) {
-                        throw new Error(data.error || 'No se pudo quitar el fondo.');
+                        const errorMsg = data.error || 'No se pudo quitar el fondo.';
+                        if (window.showAlert) {
+                            window.showAlert(errorMsg, 'error');
+                        } else {
+                            throw new Error(errorMsg);
+                        }
+                        throw new Error(errorMsg);
                     }
                     const byteCharacters = atob(data.image);
                     const byteNumbers = new Array(byteCharacters.length);
@@ -517,7 +540,11 @@
                     renderPreviews();
                 } catch (error) {
                     console.error(error);
-                    alert(error.message || 'No pudimos quitar el fondo. Intentá nuevamente.');
+                    if (window.showAlert) {
+                        window.showAlert(error.message || 'No pudimos quitar el fondo. Intentá nuevamente.', 'error');
+                    } else {
+                        alert(error.message || 'No pudimos quitar el fondo. Intentá nuevamente.');
+                    }
                     btn.textContent = 'Quitar fondo';
                 } finally {
                     btn.dataset.loading = 'false';
@@ -536,7 +563,11 @@
             let agregado = false;
             nuevos.forEach((file) => {
                 if (pendingImages.length >= maxImages) {
-                    alert(`Solo podés cargar ${maxImages} imágenes.`);
+                    if (window.showAlert) {
+                        window.showAlert(`Solo podés cargar ${maxImages} imágenes.`, 'warning');
+                    } else {
+                        alert(`Solo podés cargar ${maxImages} imágenes.`);
+                    }
                     return;
                 }
                 const previewUrl = URL.createObjectURL(file);
@@ -548,6 +579,131 @@
                 renderPreviews();
             }
             imageInput.value = '';
+        });
+    }
+
+    // Generar descripción con IA
+    const generarDescripcionBtn = document.getElementById('generar-descripcion-ia-btn');
+    const descripcionTextarea = document.querySelector('[name="descripcion"]');
+    const descripcionLoading = document.getElementById('descripcion-loading');
+    const generarDescripcionUrl = '{% url "inventario:generar_descripcion_ia_api" %}';
+    {% if modo == "editar" %}
+    const productoId = {{ producto.id }};
+    {% else %}
+    const productoId = null;
+    {% endif %}
+
+    if (generarDescripcionBtn && descripcionTextarea) {
+        generarDescripcionBtn.addEventListener('click', async function() {
+            // Validar que haya nombre del producto
+            const nombreProducto = nombreInput?.value?.trim();
+            if (!nombreProducto) {
+                if (window.showAlert) {
+                    window.showAlert('Por favor, ingresá primero el nombre del producto.', 'warning');
+                } else {
+                    alert('Por favor, ingresá primero el nombre del producto.');
+                }
+                nombreInput?.focus();
+                return;
+            }
+
+            // Si estamos creando un producto nuevo, necesitamos guardarlo primero o usar las imágenes del formulario
+            if (!productoId && pendingImages.length === 0) {
+                if (window.showAlert) {
+                    window.showAlert('Para generar una descripción con IA, necesitás cargar al menos una imagen del producto o guardar el producto primero.', 'warning');
+                } else {
+                    alert('Para generar una descripción con IA, necesitás cargar al menos una imagen del producto o guardar el producto primero.');
+                }
+                return;
+            }
+
+            try {
+                // Mostrar loading
+                generarDescripcionBtn.disabled = true;
+                if (descripcionLoading) {
+                    descripcionLoading.classList.remove('hidden');
+                    descripcionLoading.classList.add('flex');
+                }
+
+                // Preparar imágenes en base64 (solo las nuevas del formulario)
+                const imagenesBase64 = [];
+                for (const item of pendingImages.slice(0, 3)) { // Máximo 3 imágenes
+                    try {
+                        const reader = new FileReader();
+                        const base64Promise = new Promise((resolve, reject) => {
+                            reader.onload = () => {
+                                const base64 = reader.result;
+                                resolve(base64);
+                            };
+                            reader.onerror = reject;
+                            reader.readAsDataURL(item.file);
+                        });
+                        const base64 = await base64Promise;
+                        imagenesBase64.push(base64);
+                    } catch (e) {
+                        console.warn('Error convirtiendo imagen a base64:', e);
+                    }
+                }
+
+                // Preparar payload
+                const payload = {
+                    producto_id: productoId,
+                    imagenes: imagenesBase64
+                };
+
+                // Si no hay producto_id, enviar datos del formulario
+                if (!productoId) {
+                    payload.nombre = nombreProducto;
+                    payload.categoria = categoriaSelect?.options[categoriaSelect.selectedIndex]?.text || '';
+                    payload.atributo_1 = atributo1?.value || '';
+                    payload.atributo_2 = atributo2?.value || '';
+                }
+
+                const response = await fetch(generarDescripcionUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Error al generar la descripción');
+                }
+
+                if (data.success && data.descripcion) {
+                    // Insertar la descripción generada
+                    descripcionTextarea.value = data.descripcion;
+                    
+                    // Mostrar mensaje de éxito
+                    const successMsg = document.createElement('div');
+                    successMsg.className = 'fixed top-4 right-4 z-50 rounded-lg bg-green-500/90 px-4 py-3 text-sm font-semibold text-white shadow-lg animate-fade-in';
+                    successMsg.textContent = `✓ Descripción generada${data.imagenes_usadas ? ` usando ${data.imagenes_usadas} imagen${data.imagenes_usadas > 1 ? 'es' : ''}` : ''}`;
+                    document.body.appendChild(successMsg);
+                    setTimeout(() => {
+                        successMsg.remove();
+                    }, 3000);
+                } else {
+                    throw new Error('No se recibió una descripción válida');
+                }
+            } catch (error) {
+                console.error('Error generando descripción:', error);
+                if (window.showAlert) {
+                    window.showAlert('Error al generar la descripción: ' + error.message, 'error');
+                } else {
+                    alert('Error al generar la descripción: ' + error.message);
+                }
+            } finally {
+                // Ocultar loading
+                generarDescripcionBtn.disabled = false;
+                if (descripcionLoading) {
+                    descripcionLoading.classList.add('hidden');
+                    descripcionLoading.classList.remove('flex');
+                }
+            }
         });
     }
 })();

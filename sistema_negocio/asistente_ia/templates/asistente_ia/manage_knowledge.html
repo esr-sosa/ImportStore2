@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}Gestionar Conocimiento{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-6 flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-white">Gestionar Artículos de Conocimiento</h1>
+        <a href="{% url 'asistente_ia:chat' %}" class="rounded-lg bg-gray-700 px-4 py-2 text-white hover:bg-gray-600">
+            Volver al Chat
+        </a>
+    </div>
+
+    <div class="mb-6">
+        <button onclick="document.getElementById('create-form').classList.toggle('hidden')" class="rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">
+            + Nuevo Artículo
+        </button>
+    </div>
+
+    <!-- Formulario de creación -->
+    <div id="create-form" class="mb-6 hidden rounded-lg border border-gray-700 bg-[#1f1f1f] p-6">
+        <h2 class="mb-4 text-xl font-semibold text-white">Nuevo Artículo de Conocimiento</h2>
+        <form method="post" action="{% url 'asistente_ia:knowledge_create' %}">
+            {% csrf_token %}
+            <div class="mb-4">
+                <label class="mb-2 block text-sm font-medium text-gray-300">Título</label>
+                <input type="text" name="titulo" required class="w-full rounded-lg border border-gray-600 bg-[#2d2d2d] px-4 py-2 text-white">
+            </div>
+            <div class="mb-4">
+                <label class="mb-2 block text-sm font-medium text-gray-300">Resumen</label>
+                <textarea name="resumen" required rows="2" class="w-full rounded-lg border border-gray-600 bg-[#2d2d2d] px-4 py-2 text-white"></textarea>
+            </div>
+            <div class="mb-4">
+                <label class="mb-2 block text-sm font-medium text-gray-300">Contenido</label>
+                <textarea name="contenido" required rows="8" class="w-full rounded-lg border border-gray-600 bg-[#2d2d2d] px-4 py-2 text-white"></textarea>
+            </div>
+            <div class="mb-4">
+                <label class="mb-2 block text-sm font-medium text-gray-300">Tags (separados por coma)</label>
+                <input type="text" name="tags" class="w-full rounded-lg border border-gray-600 bg-[#2d2d2d] px-4 py-2 text-white">
+            </div>
+            <div class="mb-4">
+                <label class="flex items-center gap-2 text-sm text-gray-300">
+                    <input type="checkbox" name="destacado">
+                    Destacado
+                </label>
+            </div>
+            <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">
+                Crear
+            </button>
+        </form>
+    </div>
+
+    <!-- Lista de artículos -->
+    <div class="space-y-4">
+        {% for article in articles %}
+        <div class="rounded-lg border border-gray-700 bg-[#1f1f1f] p-6">
+            <div class="mb-4 flex items-start justify-between">
+                <div>
+                    <h3 class="text-lg font-semibold text-white">{{ article.titulo }}</h3>
+                    <p class="text-sm text-gray-400">{{ article.resumen|truncatechars:100 }}</p>
+                    {% if article.tags %}
+                    <p class="mt-1 text-xs text-gray-500">Tags: {{ article.tags }}</p>
+                    {% endif %}
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="editArticle({{ article.id }}, '{{ article.titulo|escapejs }}', '{{ article.resumen|escapejs }}', '{{ article.contenido|escapejs }}', '{{ article.tags|escapejs }}', {{ article.destacado|yesno:"true,false" }})" class="rounded-lg bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700">
+                        Editar
+                    </button>
+                    <form method="post" action="{% url 'asistente_ia:knowledge_delete' article.pk %}" class="inline" onsubmit="return confirm('¿Estás seguro de eliminar este artículo?')">
+                        {% csrf_token %}
+                        <button type="submit" class="rounded-lg bg-red-600 px-3 py-1 text-sm text-white hover:bg-red-700">
+                            Eliminar
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <span class="mt-2 inline-block rounded-full px-2 py-1 text-xs {% if article.destacado %}bg-yellow-900/30 text-yellow-400{% else %}bg-gray-700 text-gray-400{% endif %}">
+                {{ article.destacado|yesno:"Destacado,No destacado" }}
+            </span>
+        </div>
+        {% empty %}
+        <p class="text-center text-gray-400">No hay artículos de conocimiento configurados.</p>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Modal de edición -->
+<div id="edit-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 backdrop-blur-sm">
+    <div class="w-full max-w-2xl rounded-lg border border-gray-700 bg-[#1f1f1f] p-6">
+        <h2 class="mb-4 text-xl font-semibold text-white">Editar Artículo</h2>
+        <form id="edit-form" method="post">
+            {% csrf_token %}
+            <div class="mb-4">
+                <label class="mb-2 block text-sm font-medium text-gray-300">Título</label>
+                <input type="text" name="titulo" id="edit-titulo" required class="w-full rounded-lg border border-gray-600 bg-[#2d2d2d] px-4 py-2 text-white">
+            </div>
+            <div class="mb-4">
+                <label class="mb-2 block text-sm font-medium text-gray-300">Resumen</label>
+                <textarea name="resumen" id="edit-resumen" required rows="2" class="w-full rounded-lg border border-gray-600 bg-[#2d2d2d] px-4 py-2 text-white"></textarea>
+            </div>
+            <div class="mb-4">
+                <label class="mb-2 block text-sm font-medium text-gray-300">Contenido</label>
+                <textarea name="contenido" id="edit-contenido" required rows="8" class="w-full rounded-lg border border-gray-600 bg-[#2d2d2d] px-4 py-2 text-white"></textarea>
+            </div>
+            <div class="mb-4">
+                <label class="mb-2 block text-sm font-medium text-gray-300">Tags</label>
+                <input type="text" name="tags" id="edit-tags" class="w-full rounded-lg border border-gray-600 bg-[#2d2d2d] px-4 py-2 text-white">
+            </div>
+            <div class="mb-4">
+                <label class="flex items-center gap-2 text-sm text-gray-300">
+                    <input type="checkbox" name="destacado" id="edit-destacado">
+                    Destacado
+                </label>
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">
+                    Guardar
+                </button>
+                <button type="button" onclick="document.getElementById('edit-modal').classList.add('hidden')" class="rounded-lg bg-gray-700 px-4 py-2 text-white hover:bg-gray-600">
+                    Cancelar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function editArticle(id, titulo, resumen, contenido, tags, destacado) {
+    document.getElementById('edit-titulo').value = titulo;
+    document.getElementById('edit-resumen').value = resumen;
+    document.getElementById('edit-contenido').value = contenido;
+    document.getElementById('edit-tags').value = tags;
+    document.getElementById('edit-destacado').checked = destacado;
+    document.getElementById('edit-form').action = '{% url "asistente_ia:knowledge_update" 0 %}'.replace('/0/', '/' + id + '/');
+    document.getElementById('edit-modal').classList.remove('hidden');
+}
+</script>
+{% endblock %}
+

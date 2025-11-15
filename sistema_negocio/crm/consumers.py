@@ -24,4 +24,21 @@ class ChatConsumer(AsyncWebsocketConsumer):
     # Esta función se llama cuando el servidor recibe un mensaje desde el WebSocket
     async def chat_message(self, event):
         # Envía el mensaje de vuelta al cliente (JavaScript)
-        await self.send(text_data=json.dumps(event['message']))
+        await self.send(text_data=json.dumps({
+            'type': 'message',
+            'data': event['message']
+        }))
+    
+    # Manejar estado de "escribiendo"
+    async def chat_typing(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'typing',
+            'data': event.get('typing', False)
+        }))
+    
+    # Manejar recarga de conversación
+    async def chat_reload(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'reload',
+            'data': event.get('message', '')
+        }))

@@ -14,6 +14,8 @@ from .views import (
     descargar_etiquetas_multiples,
     descargar_etiquetas_categoria,
     generar_descripcion_ia_api,
+    actualizar_stock_rapido_api,
+    actualizar_precio_rapido_api,
 )
 
 app_name = "inventario"
@@ -33,4 +35,6 @@ urlpatterns = [
     path("etiquetas/categoria/<int:categoria_id>/", descargar_etiquetas_categoria, name="descargar_etiquetas_categoria"),
     path("api/remove-background/", remove_background_api, name="remove_background_api"),
     path("api/generar-descripcion-ia/", generar_descripcion_ia_api, name="generar_descripcion_ia_api"),
+    path("api/actualizar-stock/", actualizar_stock_rapido_api, name="actualizar_stock_rapido_api"),
+    path("api/actualizar-precio/", actualizar_precio_rapido_api, name="actualizar_precio_rapido_api"),
 ]

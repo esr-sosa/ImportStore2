@@ -88,6 +88,163 @@ class ConfiguracionSistema(models.Model):
         null=True,
         help_text="Valor de dólar blue manual cuando no se pueda consultar online.",
     )
+    
+    # --- NUEVOS CAMPOS PARA IA CRM ---
+    # Datos del local extendidos
+    nombre_local = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Nombre del local físico (puede diferir del nombre comercial).",
+    )
+    ubicacion_mapa = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Descripción breve de la ubicación para mostrar en mapas.",
+    )
+    google_maps_url = models.URLField(
+        blank=True,
+        help_text="URL completa de Google Maps al local.",
+    )
+    telefono_local = models.CharField(
+        max_length=40,
+        blank=True,
+        help_text="Teléfono fijo del local.",
+    )
+    telefono_whatsapp = models.CharField(
+        max_length=40,
+        blank=True,
+        help_text="Número de WhatsApp alternativo (si difiere del principal).",
+    )
+    correo_contacto = models.EmailField(
+        blank=True,
+        help_text="Correo de contacto principal.",
+    )
+    
+    # Horarios
+    horario_lunes_a_viernes = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Ej: 9:00 - 18:00",
+    )
+    horario_sabados = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Ej: 9:00 - 13:00",
+    )
+    horario_domingos = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Ej: Cerrado o 10:00 - 14:00",
+    )
+    
+    # Redes sociales
+    instagram_principal = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Usuario de Instagram principal (sin @).",
+    )
+    instagram_secundario = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Usuario de Instagram secundario (sin @).",
+    )
+    instagram_empresa = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Usuario de Instagram de la empresa (sin @).",
+    )
+    tiktok = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Usuario de TikTok (sin @).",
+    )
+    facebook = models.URLField(
+        blank=True,
+        help_text="URL de la página de Facebook.",
+    )
+    whatsapp_alternativo = models.CharField(
+        max_length=40,
+        blank=True,
+        help_text="Número de WhatsApp alternativo para mostrar.",
+    )
+    
+    # Métodos de pago
+    pago_efectivo_local = models.BooleanField(
+        default=True,
+        help_text="Acepta pago en efectivo en el local.",
+    )
+    pago_efectivo_retiro = models.BooleanField(
+        default=True,
+        help_text="Acepta pago en efectivo al retirar.",
+    )
+    pago_transferencia = models.BooleanField(
+        default=True,
+        help_text="Acepta transferencia bancaria.",
+    )
+    transferencia_alias = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Alias de transferencia bancaria.",
+    )
+    transferencia_cbu = models.CharField(
+        max_length=22,
+        blank=True,
+        help_text="CBU para transferencias.",
+    )
+    pago_tarjeta = models.BooleanField(
+        default=True,
+        help_text="Acepta tarjetas de crédito y débito.",
+    )
+    pago_online = models.BooleanField(
+        default=False,
+        help_text="Acepta pago online.",
+    )
+    pago_online_link = models.URLField(
+        blank=True,
+        help_text="Link o QR para pago online.",
+    )
+    descuento_efectivo_porcentaje = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        blank=True,
+        help_text="Porcentaje de descuento por pago en efectivo o transferencia.",
+    )
+    
+    # Envíos
+    envios_disponibles = models.BooleanField(
+        default=True,
+        help_text="Realiza envíos.",
+    )
+    envios_locales = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Ej: moto, cadetería, mensajería",
+    )
+    envios_nacionales = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Ej: correo, expreso",
+    )
+    costo_envio_local = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Costo de envío local.",
+    )
+    costo_envio_nacional = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Costo de envío nacional base.",
+    )
+    politica_envio = models.TextField(
+        blank=True,
+        help_text="Política de envíos (texto breve).",
+    )
+    
     ultima_actualizacion = models.DateTimeField(auto_now=True)
 
     class Meta:

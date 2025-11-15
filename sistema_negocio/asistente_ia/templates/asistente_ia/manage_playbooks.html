@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Gestionar Playbooks{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-6 flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-white">Gestionar Playbooks</h1>
+        <a href="{% url 'asistente_ia:chat' %}" class="rounded-lg bg-gray-700 px-4 py-2 text-white hover:bg-gray-600">
+            Volver al Chat
+        </a>
+    </div>
+
+    <div class="mb-6">
+        <button onclick="document.getElementById('create-form').classList.toggle('hidden')" class="rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">
+            + Nuevo Playbook
+        </button>
+    </div>
+
+    <!-- Formulario de creación -->
+    <div id="create-form" class="mb-6 hidden rounded-lg border border-gray-700 bg-[#1f1f1f] p-6">
+        <h2 class="mb-4 text-xl font-semibold text-white">Nuevo Playbook</h2>
+        <form method="post" action="{% url 'asistente_ia:playbook_create' %}">
+            {% csrf_token %}
+            <div class="mb-4">
+                <label class="mb-2 block text-sm font-medium text-gray-300">Título</label>
+                <input type="text" name="titulo" required class="w-full rounded-lg border border-gray-600 bg-[#2d2d2d] px-4 py-2 text-white">
+            </div>
+            <div class="mb-4">
+                <label class="mb-2 block text-sm font-medium text-gray-300">Descripción</label>
+                <textarea name="descripcion" required rows="3" class="w-full rounded-lg border border-gray-600 bg-[#2d2d2d] px-4 py-2 text-white"></textarea>
+            </div>
+            <div class="mb-4">
+                <label class="mb-2 block text-sm font-medium text-gray-300">Pasos (JSON)</label>
+                <textarea name="pasos" rows="10" class="w-full rounded-lg border border-gray-600 bg-[#2d2d2d] px-4 py-2 font-mono text-sm text-white">[]</textarea>
+                <p class="mt-1 text-xs text-gray-400">Formato: [{"titulo": "Paso 1", "descripcion": "Descripción del paso"}]</p>
+            </div>
+            <div class="mb-4">
+                <label class="flex items-center gap-2 text-sm text-gray-300">
+                    <input type="checkbox" name="es_template" checked>
+                    Es template (aparece en recomendados)
+                </label>
+            </div>
+            <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">
+                Crear
+            </button>
+        </form>
+    </div>
+
+    <!-- Lista de playbooks -->
+    <div class="space-y-4">
+        {% for playbook in playbooks %}
+        <div class="rounded-lg border border-gray-700 bg-[#1f1f1f] p-6">
+            <div class="mb-4 flex items-start justify-between">
+                <div>
+                    <h3 class="text-lg font-semibold text-white">{{ playbook.titulo }}</h3>
+                    <p class="text-sm text-gray-400">{{ playbook.descripcion|truncatechars:100 }}</p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="editPlaybook({{ playbook.id }}, '{{ playbook.titulo|escapejs }}', '{{ playbook.descripcion|escapejs }}', {{ playbook.pasos|safe }}, {{ playbook.es_template|yesno:"true,false" }})" class="rounded-lg bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700">
+                        Editar
+                    </button>
+                    <form method="post" action="{% url 'asistente_ia:playbook_delete' playbook.pk %}" class="inline" onsubmit="return confirm('¿Estás seguro de eliminar este playbook?')">
+                        {% csrf_token %}
+                        <button type="submit" class="rounded-lg bg-red-600 px-3 py-1 text-sm text-white hover:bg-red-700">
+                            Eliminar
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <p class="text-xs text-gray-500">Pasos: {{ playbook.pasos|length }}</p>
+            <span class="mt-2 inline-block rounded-full px-2 py-1 text-xs {% if playbook.es_template %}bg-green-900/30 text-green-400{% else %}bg-gray-700 text-gray-400{% endif %}">
+                {{ playbook.es_template|yesno:"Template,No template" }}
+            </span>
+        </div>
+        {% empty %}
+        <p class="text-center text-gray-400">No hay playbooks configurados.</p>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Modal de edición -->
+<div id="edit-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 backdrop-blur-sm">
+    <div class="w-full max-w-2xl rounded-lg border border-gray-700 bg-[#1f1f1f] p-6">
+        <h2 class="mb-4 text-xl font-semibold text-white">Editar Playbook</h2>
+        <form id="edit-form" method="post">
+            {% csrf_token %}
+            <div class="mb-4">
+                <label class="mb-2 block text-sm font-medium text-gray-300">Título</label>
+                <input type="text" name="titulo" id="edit-titulo" required class="w-full rounded-lg border border-gray-600 bg-[#2d2d2d] px-4 py-2 text-white">
+            </div>
+            <div class="mb-4">
+                <label class="mb-2 block text-sm font-medium text-gray-300">Descripción</label>
+                <textarea name="descripcion" id="edit-descripcion" required rows="3" class="w-full rounded-lg border border-gray-600 bg-[#2d2d2d] px-4 py-2 text-white"></textarea>
+            </div>
+            <div class="mb-4">
+                <label class="mb-2 block text-sm font-medium text-gray-300">Pasos (JSON)</label>
+                <textarea name="pasos" id="edit-pasos" rows="10" class="w-full rounded-lg border border-gray-600 bg-[#2d2d2d] px-4 py-2 font-mono text-sm text-white"></textarea>
+            </div>
+            <div class="mb-4">
+                <label class="flex items-center gap-2 text-sm text-gray-300">
+                    <input type="checkbox" name="es_template" id="edit-template">
+                    Es template
+                </label>
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">
+                    Guardar
+                </button>
+                <button type="button" onclick="document.getElementById('edit-modal').classList.add('hidden')" class="rounded-lg bg-gray-700 px-4 py-2 text-white hover:bg-gray-600">
+                    Cancelar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function editPlaybook(id, titulo, descripcion, pasos, esTemplate) {
+    document.getElementById('edit-titulo').value = titulo;
+    document.getElementById('edit-descripcion').value = descripcion;
+    document.getElementById('edit-pasos').value = JSON.stringify(pasos, null, 2);
+    document.getElementById('edit-template').checked = esTemplate;
+    document.getElementById('edit-form').action = '{% url "asistente_ia:playbook_update" 0 %}'.replace('/0/', '/' + id + '/');
+    document.getElementById('edit-modal').classList.remove('hidden');
+}
+</script>
+{% endblock %}
+

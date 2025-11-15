@@ -13,6 +13,256 @@
         #pos-layout { gap: 1rem; }
         .glass-panel { padding: 1rem !important; }
     }
+    :root {
+        --pos-slate-900: #0f172a;
+        --pos-slate-800: #1e293b;
+        --pos-slate-700: #334155;
+        --pos-slate-600: #475569;
+        --pos-slate-500: #64748b;
+        --pos-slate-400: #94a3b8;
+        --pos-slate-300: #cbd5f5;
+        --pos-slate-200: #e2e8f0;
+        --pos-surface-border: rgba(148, 163, 184, 0.35);
+        --pos-surface-shadow: 0 28px 60px -38px rgba(15, 23, 42, 0.28);
+    }
+    html.glass-theme #pos-shell {
+        color-scheme: light;
+    }
+    #pos-shell {
+        color: var(--pos-slate-900);
+    }
+    #pos-shell .text-slate-900 { color: var(--pos-slate-900) !important; }
+    #pos-shell .text-slate-800 { color: var(--pos-slate-800) !important; }
+    #pos-shell .text-slate-700 { color: var(--pos-slate-700) !important; }
+    #pos-shell .text-slate-600 { color: var(--pos-slate-600) !important; }
+    #pos-shell .text-slate-500 { color: var(--pos-slate-500) !important; }
+    #pos-shell .text-slate-400 { color: var(--pos-slate-400) !important; }
+    #pos-shell .text-slate-300 { color: var(--pos-slate-300) !important; }
+    #pos-shell .text-slate-200 { color: var(--pos-slate-200) !important; }
+    #pos-shell .glass-panel {
+        background: rgba(255, 255, 255, 0.96);
+        border: 1px solid var(--pos-surface-border);
+        color: var(--pos-slate-800);
+        box-shadow: var(--pos-surface-shadow);
+    }
+    #pos-shell .bg-white,
+    #pos-shell .bg-white\/95,
+    #pos-shell .bg-white\/90,
+    #pos-shell .bg-white\/80,
+    #pos-shell .bg-white\/70 {
+        background: rgba(255, 255, 255, 0.96) !important;
+        color: var(--pos-slate-900) !important;
+    }
+    #pos-shell .bg-slate-100,
+    #pos-shell .bg-slate-100\/80,
+    #pos-shell .bg-slate-100\/70 {
+        background-color: #f1f5f9 !important;
+        color: var(--pos-slate-800) !important;
+    }
+    #pos-shell [class*="border-white"] {
+        border-color: var(--pos-surface-border) !important;
+    }
+    #pos-shell input,
+    #pos-shell textarea,
+    #pos-shell select {
+        color: var(--pos-slate-800);
+    }
+    #pos-shell input::placeholder,
+    #pos-shell textarea::placeholder {
+        color: var(--pos-slate-400);
+    }
+    #pos-shell .shadow-inner {
+        box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.18);
+    }
+    #pos-shell .cart-scroll::-webkit-scrollbar {
+        width: 8px;
+    }
+    #pos-shell .cart-scroll::-webkit-scrollbar-track {
+        background: rgba(148, 163, 184, 0.12);
+        border-radius: 999px;
+    }
+    #pos-shell .cart-scroll::-webkit-scrollbar-thumb {
+        background: rgba(100, 116, 139, 0.35);
+        border-radius: 999px;
+    }
+    #pos-shell .cart-product-name,
+    #pos-shell .cart-description {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    #pos-shell .cart-product-name {
+        -webkit-line-clamp: 2;
+    }
+    #pos-shell .cart-description {
+        -webkit-line-clamp: 1;
+    }
+    #pos-shell tbody tr.item-row {
+        border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+        position: relative;
+        transition: background 0.2s ease, transform 0.2s ease;
+    }
+    #pos-shell tbody tr.item-row:last-child {
+        border-bottom: none;
+    }
+    #pos-shell tbody tr.item-row:hover {
+        background: rgba(241, 245, 249, 0.65);
+        transform: translateY(-1px);
+    }
+    #pos-shell .cart-feedback-container {
+        position: fixed;
+        top: 5.5rem;
+        right: 1rem;
+        z-index: 80;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        pointer-events: none;
+    }
+    @media (max-width: 640px) {
+        #pos-shell .cart-feedback-container {
+            top: auto;
+            bottom: 7rem;
+            right: 50%;
+            transform: translateX(50%);
+            width: min(90vw, 22rem);
+            align-items: center;
+        }
+    }
+    #pos-shell .cart-feedback {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.65rem;
+        padding: 0.75rem 1.1rem;
+        border-radius: 0.9rem;
+        font-size: 0.82rem;
+        font-weight: 600;
+        box-shadow: 0 18px 40px -24px rgba(15, 23, 42, 0.65);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        opacity: 0;
+        transform: translateY(8px);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        pointer-events: auto;
+    }
+    #pos-shell .cart-feedback.show {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    #pos-shell .cart-feedback svg {
+        width: 1rem;
+        height: 1rem;
+    }
+    #pos-shell .cart-feedback--success {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.22), rgba(5, 150, 105, 0.26));
+        color: #d1fae5;
+        border-color: rgba(16, 185, 129, 0.38);
+    }
+    #pos-shell .cart-feedback--warning {
+        background: linear-gradient(135deg, rgba(251, 191, 36, 0.22), rgba(245, 158, 11, 0.24));
+        color: #fef3c7;
+        border-color: rgba(217, 119, 6, 0.45);
+    }
+    #pos-shell .cart-feedback--info {
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.22), rgba(37, 99, 235, 0.24));
+        color: #dbeafe;
+        border-color: rgba(59, 130, 246, 0.45);
+    }
+    #pos-shell .pos-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        border-radius: 9999px;
+        padding: 0.55rem 1.15rem;
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        transition: all 0.2s ease;
+        box-shadow: 0 14px 32px -18px rgba(15, 23, 42, 0.4);
+        border: 1px solid transparent;
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.82), rgba(30, 41, 59, 0.86));
+        color: #f8fafc;
+    }
+    #pos-shell .pos-pill svg {
+        width: 0.9rem;
+        height: 0.9rem;
+    }
+    #pos-shell .pos-pill:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 16px 36px -16px rgba(15, 23, 42, 0.52);
+    }
+    #pos-shell .pos-pill:focus-visible {
+        outline: 2px solid rgba(99, 102, 241, 0.6);
+        outline-offset: 2px;
+    }
+    #pos-shell .pos-pill--outline {
+        background: linear-gradient(135deg, rgba(14, 165, 233, 0.18), rgba(59, 130, 246, 0.2));
+        border-color: rgba(59, 130, 246, 0.35);
+        color: #dbeafe;
+    }
+    #pos-shell .pos-pill--outline:hover {
+        background: linear-gradient(135deg, rgba(14, 165, 233, 0.26), rgba(59, 130, 246, 0.28));
+    }
+    #pos-shell .pos-pill--ghost {
+        background: rgba(15, 23, 42, 0.35);
+        border-color: rgba(148, 163, 184, 0.35);
+        color: #e2e8f0;
+    }
+    #pos-shell .pos-pill--ghost:hover {
+        background: rgba(15, 23, 42, 0.5);
+    }
+    #pos-shell .pos-pill--primary {
+        background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%);
+        border-color: rgba(99, 102, 241, 0.6);
+        color: #f8fafc;
+    }
+    #pos-shell .pos-pill--primary:hover {
+        background: linear-gradient(135deg, #5349f4 0%, #3b37d2 100%);
+    }
+    #pos-shell .pos-pill[disabled],
+    #pos-shell .pos-pill[disabled]:hover {
+        background: rgba(100, 116, 139, 0.38);
+        border-color: rgba(100, 116, 139, 0.4);
+        color: rgba(226, 232, 240, 0.7);
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+    #pos-shell .pos-status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        border-radius: 9999px;
+        padding: 0.5rem 1rem;
+        font-size: 0.78rem;
+        font-weight: 600;
+        background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(29, 200, 138, 0.25));
+        border: 1px solid rgba(34, 197, 94, 0.35);
+        color: #bbf7d0;
+        box-shadow: 0 14px 28px -20px rgba(16, 185, 129, 0.55);
+    }
+    #pos-shell .pos-status-pill .value {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #34d399;
+    }
+    @media (min-width: 1024px) {
+        #pos-shell aside.glass-panel {
+            position: sticky;
+            top: 1.5rem;
+            max-height: calc(100vh - 5rem);
+            overflow-y: auto;
+        }
+        #pos-shell aside.glass-panel::-webkit-scrollbar {
+            width: 8px;
+        }
+        #pos-shell aside.glass-panel::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.4);
+            border-radius: 999px;
+        }
+    }
     /* Modal de confirmación */
     #sale-success-modal {
         display: none;
@@ -170,40 +420,43 @@
 {% endblock %}
 
 {% block content %}
-<div class="min-h-screen w-full px-2 sm:px-4 py-4 sm:py-8 lg:px-10">
+<div id="pos-shell" class="min-h-screen w-full max-w-6xl lg:max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-8 lg:px-10">
     <header class="mb-4 sm:mb-8 flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-            <p class="text-xs font-semibold uppercase tracking-wider text-indigo-500">POS · ImportStore</p>
-            <h1 class="text-xl sm:text-3xl font-bold text-slate-900 lg:text-4xl">Terminal de ventas inteligente</h1>
-            <p class="mt-1 sm:mt-2 max-w-3xl text-xs sm:text-sm text-slate-600">Construí carritos con variantes, aplicá descuentos en tiempo real, registrá pagos mixtos y emití comprobantes profesionales en un flujo táctil optimizado.</p>
+            <p class="text-xs font-semibold uppercase tracking-wider text-indigo-400">POS · ImportStore</p>
+            <h1 class="text-xl sm:text-3xl font-bold text-white lg:text-4xl">Terminal de ventas inteligente</h1>
+            <p class="mt-1 sm:mt-2 max-w-3xl text-xs sm:text-sm text-slate-200">Construí carritos con variantes, aplicá descuentos en tiempo real, registrá pagos mixtos y emití comprobantes profesionales en un flujo táctil optimizado.</p>
         </div>
         <div class="flex flex-col sm:flex-row sm:items-end gap-2 sm:gap-3">
-            <div id="pos-remoto-status" class="flex items-center gap-2 rounded-full border-2 border-rose-500/40 bg-rose-500/20 px-3 py-1.5 text-xs font-semibold text-rose-300 shadow-sm">
+            <div id="pos-remoto-status" class="flex items-center gap-2 rounded-full border-2 border-rose-500/40 bg-rose-500/20 px-3 py-1.5 text-xs font-semibold text-rose-600 shadow-sm">
                 <span class="h-2 w-2 rounded-full bg-rose-400 animate-pulse"></span>
                 <span class="hidden sm:inline">POS remoto desconectado</span>
                 <span class="sm:hidden">Remoto desconectado</span>
             </div>
-            <div id="dolar-indicator" class="hidden rounded-full border-2 border-green-500 bg-green-50 px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-semibold text-green-700 shadow-sm">
-                <span class="font-bold">Dólar Blue:</span> <span id="dolar-value" data-value="{{ dolar_blue|default:"0" }}">${{ dolar_blue|default:"0"|floatformat:2 }}</span>
+            <div id="dolar-indicator" class="hidden pos-status-pill">
+                <span class="uppercase tracking-wide text-xs">Dólar Blue</span>
+                <span id="dolar-value" class="value" data-value="{{ dolar_blue|default:"0" }}">${{ dolar_blue|default:"0"|floatformat:2 }}</span>
             </div>
             <div class="flex flex-wrap gap-2 sm:gap-3 text-xs font-semibold">
-                <a href="{% url 'ventas:pos_remoto' %}" target="_blank" class="rounded-full border-2 border-blue-600/40 bg-blue-600/20 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-blue-600 hover:bg-blue-600/30 transition shadow-sm flex items-center gap-1.5 sm:gap-2">
-                    <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <a href="{% url 'ventas:pos_remoto' %}" target="_blank" class="pos-pill pos-pill--outline">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
                     </svg>
                     <span class="hidden sm:inline">POS Remoto</span>
                     <span class="sm:hidden">Remoto</span>
                 </a>
-                <button id="load-last" class="rounded-full border border-slate-200 bg-white/70 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-slate-600 hover:text-slate-900">Última venta</button>
-                <button id="export-cart" class="rounded-full bg-slate-900 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-white shadow-lg shadow-slate-900/20 hover:bg-slate-800 disabled:bg-slate-400" disabled>Comprobante</button>
+                <button id="load-last" class="pos-pill pos-pill--ghost">Última venta</button>
+                <button id="export-cart" class="pos-pill pos-pill--primary" disabled>Comprobante</button>
             </div>
         </div>
     </header>
 
+    <div id="cart-feedback-container" class="cart-feedback-container" aria-live="polite"></div>
+
     <div id="pos-layout" class="grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <!-- Lado izquierdo: buscador y carrito -->
         <section class="glass-panel rounded-2xl sm:rounded-3xl border border-white/60 p-3 sm:p-6 shadow-xl">
-            <div class="rounded-2xl sm:rounded-3xl border border-slate-200/70 bg-white/90 p-3 sm:p-5 shadow-sm">
+            <div class="rounded-2xl sm:rounded-3xl border border-slate-200/70 bg-white/90 p-3 sm:p-5 shadow-sm relative z-20 search-card">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                     <label for="product-search" class="text-xs font-semibold uppercase tracking-wide text-slate-500">Buscar producto</label>
                     <button id="add-custom-product" class="text-xs font-semibold text-white px-3 sm:px-4 py-1.5 rounded-xl bg-gradient-to-r from-indigo-500 via-blue-500 to-sky-500 shadow-md shadow-indigo-500/20 hover:from-indigo-600 hover:via-blue-600 hover:to-sky-600 transition focus:outline-none focus:ring-2 focus:ring-indigo-400/50">
@@ -224,16 +477,16 @@
                         <input id="product-search" type="search" placeholder="Buscá por nombre, SKU o atributo" class="flex-1 bg-transparent px-2 sm:px-3 py-2 sm:py-3 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none">
                         <button type="button" id="clear-search" class="hidden text-[11px] font-semibold text-indigo-500 hover:text-indigo-600">Limpiar</button>
                     </div>
-                    <div id="search-dropdown" class="absolute left-0 top-14 z-30 hidden max-h-60 w-full overflow-y-auto rounded-2xl border border-slate-200 bg-white/98 shadow-2xl ring-1 ring-indigo-100">
-                        <div class="p-3 text-xs text-slate-400">Comienza a escribir para buscar productos…</div>
+                    <div id="search-dropdown" class="absolute left-0 top-[calc(100%+12px)] z-50 hidden max-h-72 w-full overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl ring-1 ring-indigo-100">
+                        <div class="p-4 text-xs text-slate-400">Comienza a escribir para buscar productos…</div>
                     </div>
                 </div>
             </div>
 
             <div class="mt-4 sm:mt-6 overflow-hidden rounded-2xl sm:rounded-3xl border border-white/60 shadow-inner">
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto lg:max-h-[calc(100vh-22rem)] lg:overflow-y-auto cart-scroll">
                 <table class="min-w-full divide-y divide-slate-200/70 text-xs sm:text-sm">
-                    <thead class="bg-slate-100 text-xs font-semibold uppercase tracking-wide text-slate-800">
+                    <thead class="bg-slate-900/95 text-xs font-semibold uppercase tracking-wide text-white">
                         <tr>
                             <th class="px-2 sm:px-4 py-2 sm:py-3 text-left">Producto</th>
                             <th class="px-2 sm:px-4 py-2 sm:py-3 text-center">Cant.</th>
@@ -255,7 +508,7 @@
         </section>
 
         <!-- Lado derecho: resumen -->
-        <aside class="glass-panel flex h-full flex-col gap-4 sm:gap-6 rounded-2xl sm:rounded-3xl border border-white/60 p-3 sm:p-6 shadow-xl">
+        <aside class="glass-panel flex flex-col gap-4 sm:gap-6 rounded-2xl sm:rounded-3xl border border-white/60 p-3 sm:p-6 shadow-xl lg:sticky lg:top-6 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto">
             <section class="rounded-2xl sm:rounded-3xl border border-slate-200/60 bg-white/90 p-3 sm:p-5 shadow-sm">
                 <h2 class="text-sm sm:text-base font-semibold text-slate-900">Resumen</h2>
                 <dl class="mt-3 sm:mt-4 space-y-2 sm:space-y-3 text-xs sm:text-sm text-slate-700 font-medium">
@@ -287,45 +540,6 @@
                     </div>
                     <p id="summary-total" class="mt-2 text-2xl sm:text-3xl font-bold">$0.00</p>
                 </div>
-            </section>
-
-            <section class="rounded-2xl sm:rounded-3xl border border-slate-200/60 bg-white/95 p-3 sm:p-5 shadow-sm">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-[11px] font-semibold uppercase tracking-[0.35em] text-indigo-400 mb-1">Productos personalizados</p>
-                        <h3 class="text-sm sm:text-base font-semibold text-slate-900">Agregar productos varios</h3>
-                        <p class="mt-1 text-xs text-slate-500 max-w-md">Cargá múltiples ítems personalizados de forma rápida. Definí el nombre, precio y cantidad de cada uno. Todos se agregarán al carrito automáticamente.</p>
-                    </div>
-                    <button type="button" id="toggle-custom-products" class="rounded-full border border-slate-200/70 bg-white px-3 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-100">Ocultar</button>
-                </div>
-                <div id="custom-products-container" class="mt-4 space-y-3">
-                    <div class="grid grid-cols-12 gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-sm">
-                        <div class="col-span-12 sm:col-span-6">
-                            <label class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Nombre del producto</label>
-                            <input type="text" name="custom-name" placeholder="Ej: Servicio técnico premium" class="mt-1 w-full rounded-xl border border-slate-200/80 bg-slate-50 px-3 py-2 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-300/40">
-                        </div>
-                        <div class="col-span-6 sm:col-span-3">
-                            <label class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Precio</label>
-                            <div class="mt-1 flex items-center rounded-xl border border-slate-200/80 bg-slate-50 focus-within:border-indigo-300 focus-within:ring-2 focus-within:ring-indigo-300/40">
-                                <span class="px-2 text-xs text-slate-500">$</span>
-                                <input type="number" name="custom-price" placeholder="0.00" class="w-full rounded-r-xl bg-transparent px-2 py-2 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none" step="0.01" min="0">
-                            </div>
-                        </div>
-                        <div class="col-span-6 sm:col-span-2">
-                            <label class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Cantidad</label>
-                            <input type="number" name="custom-quantity" placeholder="1" class="mt-1 w-full rounded-xl border border-slate-200/80 bg-slate-50 px-3 py-2 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-300/40" min="1">
-                        </div>
-                        <div class="col-span-12 sm:col-span-1 flex items-end">
-                            <button type="button" class="w-full rounded-xl bg-indigo-500 px-3 py-2 text-xs sm:text-sm font-semibold text-white shadow hover:bg-indigo-600">Agregar</button>
-                        </div>
-                    </div>
-                </div>
-                <button type="button" id="add-custom-row" class="mt-4 inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-100">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    Agregar otro producto personalizado
-                </button>
             </section>
 
             <section class="rounded-2xl sm:rounded-3xl border border-slate-200/60 bg-white/90 p-3 sm:p-5 shadow-sm">
@@ -457,19 +671,19 @@
 
     <template id="cart-row-template">
         <tr class="item-row">
-            <td class="px-2 sm:px-4 py-3 sm:py-4">
-                <p class="font-semibold text-slate-900 text-xs sm:text-sm"></p>
-                <p class="text-[10px] sm:text-xs text-slate-500"></p>
-                <p class="text-[10px] text-slate-400 sm:hidden mt-1"><span class="unit-price-mobile">$0.00</span></p>
+            <td class="px-2 sm:px-4 py-2 sm:py-3">
+                <p class="font-semibold text-slate-900 text-sm leading-snug cart-product-name"></p>
+                <p class="text-[11px] sm:text-xs text-slate-500 cart-description leading-snug"></p>
+                <p class="text-[10px] text-slate-400 sm:hidden mt-0.5"><span class="unit-price-mobile">$0.00</span></p>
             </td>
-            <td class="px-2 sm:px-4 py-3 sm:py-4 text-center">
+            <td class="px-2 sm:px-4 py-2 sm:py-3 text-center">
                 <input type="number" min="1" class="quantity-input w-16 sm:w-20 rounded-lg sm:rounded-xl border border-slate-300 px-1 sm:px-2 py-1 text-xs sm:text-sm text-center font-semibold text-slate-900" value="1">
             </td>
-            <td class="cart-stock px-2 sm:px-4 py-3 sm:py-4 text-center font-semibold text-slate-800 hidden lg:table-cell text-xs sm:text-sm">0</td>
-            <td class="px-2 sm:px-4 py-3 sm:py-4 text-right font-semibold text-slate-900 hidden sm:table-cell"><span class="unit-price">$0.00</span></td>
-            <td class="px-2 sm:px-4 py-3 sm:py-4 text-right hidden md:table-cell"><button class="discount-btn text-[10px] sm:text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-full border border-slate-300 px-2 sm:px-3 py-1 transition">Configurar</button></td>
-            <td class="px-2 sm:px-4 py-3 sm:py-4 text-right font-semibold text-slate-900"><span class="line-total text-xs sm:text-sm">$0.00</span></td>
-            <td class="px-2 sm:px-4 py-3 sm:py-4 text-right"><button class="remove-btn text-rose-700 font-semibold hover:text-rose-600 text-[10px] sm:text-xs rounded-full border border-rose-300 bg-rose-50 px-2 sm:px-3 py-1 hover:bg-rose-100 transition">Eliminar</button></td>
+            <td class="cart-stock px-2 sm:px-4 py-2 sm:py-3 text-center font-semibold text-slate-800 hidden lg:table-cell text-xs sm:text-sm">0</td>
+            <td class="px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold text-slate-900 hidden sm:table-cell"><span class="unit-price">$0.00</span></td>
+            <td class="px-2 sm:px-4 py-2 sm:py-3 text-right hidden md:table-cell"><button class="discount-btn text-[10px] sm:text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-full border border-slate-300 px-2 sm:px-3 py-1 transition">Configurar</button></td>
+            <td class="px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold text-slate-900"><span class="line-total text-xs sm:text-sm">$0.00</span></td>
+            <td class="px-2 sm:px-4 py-2 sm:py-3 text-right"><button class="remove-btn text-rose-700 font-semibold hover:text-rose-600 text-[10px] sm:text-xs rounded-full border border-rose-300 bg-rose-50 px-2 sm:px-3 py-1 hover:bg-rose-100 transition">Eliminar</button></td>
         </tr>
     </template>
 
@@ -562,6 +776,7 @@
 
 <script>
     const searchInput = document.getElementById('product-search');
+    const clearSearchBtn = document.getElementById('clear-search');
     const searchDropdown = document.getElementById('search-dropdown');
     const cartBody = document.getElementById('cart-body');
     const emptyCart = document.getElementById('empty-cart');
@@ -613,6 +828,7 @@
     const quickScanStatus = document.getElementById('quick-scan-status');
     const toggleQuickScanBtn = document.getElementById('toggle-quick-scan');
     const closeQuickScanBtn = document.getElementById('close-quick-scan');
+    const cartFeedbackContainer = document.getElementById('cart-feedback-container');
 
     let lastPdfUrl = null;
 
@@ -625,12 +841,23 @@
     
     function createCustomProductRow(name = '', price = '', quantity = 1) {
         const row = document.createElement('div');
-        row.className = 'custom-row grid gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3 sm:grid-cols-[1.2fr_auto_auto_auto] sm:items-center';
+        row.className = 'custom-row grid grid-cols-12 gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-sm';
         row.innerHTML = `
-            <input type="text" data-field="name" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" placeholder="Nombre del producto" value="${name}">
-            <input type="number" data-field="price" min="0" step="0.01" class="rounded-xl border border-slate-300 px-3 py-2 text-sm text-right" placeholder="0.00" value="${price}">
-            <input type="number" data-field="quantity" min="1" step="1" class="rounded-xl border border-slate-300 px-3 py-2 text-sm text-right" value="${quantity}">
-            <button type="button" class="remove-custom-row inline-flex items-center justify-center rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-rose-500 hover:bg-rose-100 transition">Quitar</button>
+            <div class="col-span-12 sm:col-span-6">
+                <input type="text" data-field="name" class="w-full rounded-xl border border-slate-200/80 bg-slate-50 px-3 py-2 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-300/40" placeholder="Nombre del producto" value="${name}">
+            </div>
+            <div class="col-span-6 sm:col-span-3">
+                <div class="flex items-center rounded-xl border border-slate-200/80 bg-slate-50 focus-within:border-indigo-300 focus-within:ring-2 focus-within:ring-indigo-300/40">
+                    <span class="px-2 text-xs text-slate-500">$</span>
+                    <input type="number" data-field="price" min="0" step="0.01" class="w-full rounded-r-xl bg-transparent px-2 py-2 text-xs sm:text-sm text-right text-slate-900 placeholder-slate-400 focus:outline-none" placeholder="0.00" value="${price}">
+                </div>
+            </div>
+            <div class="col-span-6 sm:col-span-2">
+                <input type="number" data-field="quantity" min="1" step="1" class="w-full rounded-xl border border-slate-200/80 bg-slate-50 px-3 py-2 text-xs sm:text-sm text-right text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-300/40" value="${quantity}">
+            </div>
+            <div class="col-span-12 sm:col-span-1 flex items-center justify-end">
+                <button type="button" class="remove-custom-row inline-flex items-center justify-center rounded-xl border border-rose-200/60 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-500 hover:bg-rose-100 transition">Quitar</button>
+            </div>
         `;
         return row;
     }
@@ -800,7 +1027,28 @@
             updateQuickScanStatus('Listo para seguir escaneando.', 'info');
         }, 2000);
     }
-
+    
+    function showCartFeedback(message, tone = 'success') {
+        if (!cartFeedbackContainer || !message) return;
+        const toneClass = tone === 'warning' ? 'cart-feedback--warning' :
+                          tone === 'info' ? 'cart-feedback--info' :
+                          'cart-feedback--success';
+        const icons = {
+            success: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>',
+            warning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a1 1 0 00.86 1.5h18.64a1 1 0 00.86-1.5L13.71 3.86a1 1 0 00-1.72 0z"></path></svg>',
+            info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 18a9 9 0 110-18 9 9 0 010 18z"></path></svg>'
+        };
+        const feedback = document.createElement('div');
+        feedback.className = `cart-feedback ${toneClass}`;
+        feedback.innerHTML = `${icons[tone] || icons.info}<span>${message}</span>`;
+        cartFeedbackContainer.appendChild(feedback);
+        requestAnimationFrame(() => feedback.classList.add('show'));
+        setTimeout(() => {
+            feedback.classList.remove('show');
+            setTimeout(() => feedback.remove(), 220);
+        }, 2200);
+    }
+    
     async function handleQuickScanDecode(rawCode) {
         const code = (rawCode || '').trim();
         if (!code) return;
@@ -953,7 +1201,23 @@
         }
     });
 
+    function updateSearchClearButton() {
+        if (!clearSearchBtn) return;
+        const hasText = searchInput.value.trim().length > 0;
+        clearSearchBtn.classList.toggle('hidden', !hasText);
+    }
+
+    if (clearSearchBtn) {
+        clearSearchBtn.addEventListener('click', () => {
+            searchInput.value = '';
+            updateSearchClearButton();
+            searchDropdown.classList.add('hidden');
+            searchInput.focus();
+        });
+    }
+
     searchInput.addEventListener('input', async () => {
+        updateSearchClearButton();
         const query = searchInput.value.trim();
         if (query.length < 2) {
             searchDropdown.classList.add('hidden');
@@ -988,7 +1252,7 @@
 
         results.forEach(item => {
             const option = document.createElement('button');
-            option.className = 'flex w-full flex-col items-start gap-1.5 border-b border-slate-100 px-5 py-3 text-left transition hover:bg-slate-50';
+            option.className = 'flex w-full flex-col items-start gap-2 border-b border-slate-200 px-4 py-3 text-left transition hover:bg-indigo-50/60';
 
             const stockText = item.stock_status === 'sin stock'
                 ? '<span class="text-[11px] font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">Sin stock</span>'
@@ -1006,14 +1270,20 @@
                 : (item.atributos || '').trim();
 
             option.innerHTML = `
-                <span class="font-semibold text-slate-900 text-sm">${item.nombre || item.producto || 'Producto'}</span>
+                <div class="flex w-full items-center justify-between gap-3">
+                    <div class="flex flex-col">
+                        <span class="font-semibold text-slate-900 text-sm leading-tight">${item.nombre || item.producto || 'Producto'}</span>
+                        ${atributos ? `<span class="text-[11px] text-slate-400 leading-snug">${atributos}</span>` : ''}
+                    </div>
+                    <div class="text-right space-y-1">
+                        ${precioPrincipal ? `<div class="inline-flex items-center gap-1 rounded-full bg-slate-900/90 px-2.5 py-0.5 text-[11px] font-semibold text-white shadow-sm">${precioPrincipal}</div>` : ''}
+                        ${precioSecundario ? `<div class="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-600">USD ${Number(precioMinoristaUsd).toFixed(2)}</div>` : ''}
+                    </div>
+                </div>
                 <div class="flex flex-wrap items-center gap-2">
-                    ${precioPrincipal ? `<span class="inline-flex items-center gap-1 rounded-full bg-slate-900/90 px-2.5 py-0.5 text-[11px] font-semibold text-white shadow-sm">${precioPrincipal}</span>` : ''}
-                    ${precioSecundario ? `<span class="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-600">USD ${Number(precioMinoristaUsd).toFixed(2)}</span>` : ''}
+                    <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-500">SKU: ${item.sku || '—'}</span>
                     ${stockText}
                 </div>
-                <span class="text-[11px] text-slate-500">SKU: ${item.sku || '—'}</span>
-                ${atributos ? `<span class="text-[11px] text-slate-400">${atributos}</span>` : ''}
             `;
             option.addEventListener('click', () => {
                 if (item.stock_status === 'sin stock') {
@@ -1046,26 +1316,33 @@
             return line.variante_id === itemId;
         });
         
+        // Obtener la cantidad del item (si viene especificada, usar esa; si no, usar 1)
+        const cantidadAAgregar = item.cantidad && item.cantidad > 0 ? item.cantidad : 1;
+        
         // Verificar stock antes de agregar (solo para productos del catálogo)
         if (!item.es_custom && itemId) {
-            const cantidad_a_agregar = existing ? existing.cantidad + 1 : 1;
+            const cantidad_total_despues = existing ? existing.cantidad + cantidadAAgregar : cantidadAAgregar;
             const stock_actual = item.stock_actual ?? item.stock ?? 0;
             
-            if (stock_actual < cantidad_a_agregar) {
+            if (stock_actual < cantidad_total_despues) {
                 // Mostrar modal de stock insuficiente
                 mostrarModalStockInsuficiente({
                     variante_id: itemId,
                     nombre: item.nombre || item.producto || 'Producto',
                     sku: item.sku || 'N/A',
                     stock_actual: stock_actual,
-                    cantidad_solicitada: cantidad_a_agregar
+                    cantidad_solicitada: cantidad_total_despues
                 });
                 return;
             }
         }
         
+        let feedbackName = item.nombre || item.producto || 'Producto';
+        
         if (existing) {
-            existing.cantidad += 1;
+            // Si el producto ya existe, sumar la cantidad especificada (o 1 si no se especificó)
+            existing.cantidad += cantidadAAgregar;
+            feedbackName = existing.nombre || feedbackName;
         } else {
             let precioSeleccionado;
             let nombre, descripcion, sku;
@@ -1119,7 +1396,7 @@
                 nombre: nombre,
                 descripcion: descripcion,
                 sku: sku,
-                cantidad: 1,
+                cantidad: cantidadAAgregar, // Usar la cantidad especificada en lugar de siempre 1
                 precios: item.precios || {},
                 precio_unitario_ars: precioSeleccionado,
                 precio_usd_original: precioUsdOriginal, // Guardar precio USD si existe
@@ -1128,8 +1405,11 @@
                 descuento: null,
                 es_custom: item.es_custom || false,
             });
+            feedbackName = nombre || feedbackName;
         }
         renderCart();
+        const mensajeCantidad = cantidadAAgregar > 1 ? ` (${cantidadAAgregar} unidades)` : '';
+        showCartFeedback(`Sumaste "${feedbackName}"${mensajeCantidad} al carrito`, 'success');
     }
 
     function renderCart() {
@@ -1186,8 +1466,10 @@
             const removeBtn = row.querySelector('.remove-btn');
             if (removeBtn) {
                 removeBtn.addEventListener('click', () => {
+                    const removedName = item.nombre || 'Producto';
                     cart.splice(index, 1);
                     renderCart();
+                    showCartFeedback(`Quitaste "${removedName}" del carrito`, 'warning');
                 });
             }
 

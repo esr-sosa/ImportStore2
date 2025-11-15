@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Cliente, Conversacion, Etiqueta, Mensaje
+from .models import Cliente, Conversacion, Etiqueta, Mensaje, ClienteContexto, Cotizacion
 
 # Primero le decimos a este archivo que "importe" o "traiga" los modelos que creamos.
 
@@ -39,9 +39,50 @@ class EtiquetaAdmin(admin.ModelAdmin):
     search_fields = ("nombre",)
 
 
+class ClienteContextoInline(admin.StackedInline):
+    model = ClienteContexto
+    can_delete = False
+    verbose_name_plural = "Contexto del Cliente"
+    readonly_fields = ('total_interacciones', 'ultima_interaccion', 'creado', 'actualizado')
+    fieldsets = (
+        ('Preferencias', {
+            'fields': ('productos_interes', 'categorias_preferidas', 'tipo_consulta_comun')
+        }),
+        ('Comportamiento', {
+            'fields': ('total_interacciones', 'ultima_interaccion', 'tags_comportamiento')
+        }),
+        ('Notas', {
+            'fields': ('notas_internas',)
+        }),
+    )
+
+
+class ClienteContextoAdmin(admin.ModelAdmin):
+    list_display = ('cliente', 'total_interacciones', 'tipo_consulta_comun', 'ultima_interaccion')
+    list_filter = ('tipo_consulta_comun', 'tags_comportamiento')
+    search_fields = ('cliente__nombre', 'cliente__telefono')
+    readonly_fields = ('creado', 'actualizado')
+
+
+# Actualizar ClienteAdmin para incluir el inline
+ClienteAdmin.inlines = [ClienteContextoInline]
+
+
 # Finalmente, con estas líneas, le damos la orden final a Django:
 # "¡Registra el modelo Cliente en el panel de admin, usando la vista ClienteAdmin que diseñé!"
 admin.site.register(Cliente, ClienteAdmin)
 # "¡Y registra el modelo Conversacion, usando la vista ConversacionAdmin!"
 admin.site.register(Conversacion, ConversacionAdmin)
 admin.site.register(Etiqueta, EtiquetaAdmin)
+admin.site.register(ClienteContexto, ClienteContextoAdmin)
+
+
+class CotizacionAdmin(admin.ModelAdmin):
+    list_display = ('id', 'cliente', 'total', 'estado', 'valido_hasta', 'creado')
+    list_filter = ('estado', 'creado', 'valido_hasta')
+    search_fields = ('cliente__nombre', 'cliente__telefono', 'id')
+    readonly_fields = ('creado', 'actualizado')
+    date_hierarchy = 'creado'
+
+
+admin.site.register(Cotizacion, CotizacionAdmin)

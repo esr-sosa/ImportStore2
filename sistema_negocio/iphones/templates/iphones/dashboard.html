@@ -22,6 +22,10 @@
         <p class="mt-2 max-w-2xl text-sm text-slate-300">Panel de administración completo para gestionar tu inventario de dispositivos Apple. Controla stock, precios, condición técnica e historial de ventas.</p>
       </div>
       <div class="flex flex-col gap-3 sm:flex-row">
+        <a href="{% url 'iphones:plan_canje_calculadora' %}" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/30 transition hover:from-indigo-500 hover:to-purple-500 sm:w-auto">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+          Plan Canje
+        </a>
         <a href="{% url 'iphones:historial' %}" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-slate-600/40 bg-slate-800/90 px-5 py-3 text-sm font-semibold text-slate-100 shadow-lg transition hover:bg-slate-700 sm:w-auto">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           Historial de ventas

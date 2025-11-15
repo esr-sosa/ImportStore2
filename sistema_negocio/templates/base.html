@@ -49,11 +49,11 @@
         }
         .app-sidebar {
             width: 5.5rem;
-            background: linear-gradient(180deg, rgba(9, 14, 24, 0.92), rgba(7, 10, 18, 0.86));
-            border-right: 1px solid var(--glass-border);
-            box-shadow: 0 20px 60px -40px rgba(7, 10, 18, 0.9);
-            backdrop-filter: blur(24px) saturate(140%);
-            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: linear-gradient(180deg, rgba(9, 14, 24, 0.95), rgba(7, 10, 18, 0.9));
+            border-right: 1px solid rgba(148, 163, 184, 0.15);
+            box-shadow: 4px 0 24px -8px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(28px) saturate(160%);
+            transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
             z-index: 40;
             padding-left: 0.75rem;
@@ -63,34 +63,49 @@
             overflow-x: hidden;
             -webkit-overflow-scrolling: touch;
         }
-        .app-sidebar:hover {
-            width: 14rem;
+        @media (min-width: 1024px) {
+            .app-sidebar:hover {
+                width: 16rem;
+            }
         }
-        .app-sidebar:hover ~ #app-content {
-            filter: blur(8px);
+        @media (max-width: 1023px) {
+            .app-sidebar[data-open="true"] {
+                width: 16rem;
+            }
+        }
+        .app-sidebar:hover ~ #app-content,
+        .app-sidebar[data-open="true"] ~ #app-content {
+            filter: blur(6px);
             transition: filter 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
         }
-        .app-sidebar:hover ~ #app-content::after {
+        .app-sidebar:hover ~ #app-content::after,
+        .app-sidebar[data-open="true"] ~ #app-content::after {
             content: '';
             position: fixed;
             inset: 0;
-            background: rgba(4, 7, 17, 0.5);
-            backdrop-filter: blur(12px);
+            background: rgba(4, 7, 17, 0.4);
+            backdrop-filter: blur(8px);
             z-index: 35;
             pointer-events: none;
         }
         .app-sidebar .sidebar-icon {
-            background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
-            border: 1px solid rgba(255,255,255,0.04);
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 12px 25px -18px rgba(15, 23, 42, 0.9);
-            transition: all 0.2s ease;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.04));
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 4px 12px -4px rgba(0, 0, 0, 0.3);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .app-sidebar a:hover .sidebar-icon {
-            background: linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.08));
-            border-color: rgba(255,255,255,0.12);
-            transform: scale(1.05) translateZ(10px);
+        .app-sidebar a:hover .sidebar-icon,
+        .app-sidebar a.active .sidebar-icon {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(139, 92, 246, 0.2));
+            border-color: rgba(139, 92, 246, 0.3);
+            transform: scale(1.08);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 8px 20px -6px rgba(99, 102, 241, 0.4);
             transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .app-sidebar a:hover svg,
+        .app-sidebar a.active svg {
+            stroke: rgba(196, 181, 253, 1);
         }
         .app-sidebar svg {
             stroke: rgba(226, 232, 255, 0.92);
@@ -210,6 +225,24 @@
         .toast-warning { background: rgba(251, 191, 36, 0.18); color: #fcd34d; }
         .toast-error { background: rgba(248, 113, 113, 0.22); color: #fca5a5; }
         .opacity-0 { opacity: 0 !important; }
+        
+        /* Estilos para el modal de alerta personalizado */
+        #custom-alert-modal {
+            transition: opacity 0.2s ease;
+        }
+        #alert-backdrop {
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        #alert-content {
+            opacity: 0;
+            transform: scale(0.95) translateY(-10px);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #alert-content.scale-100 {
+            transform: scale(1) translateY(0);
+            opacity: 1;
+        }
         .switch-container {
             position: relative;
             display: inline-block;
@@ -289,44 +322,49 @@
             color: rgba(226, 232, 255, 0.92);
             margin-left: 0;
         }
-        .app-sidebar:hover .sidebar-label {
+        .app-sidebar:hover .sidebar-label,
+        .app-sidebar[data-open="true"] .sidebar-label {
             max-width: 200px;
             opacity: 1;
             margin-left: 0.75rem;
         }
         .app-sidebar-backdrop {
             display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            z-index: 50;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
         }
-        @media (max-width: 1024px) {
+        .app-sidebar-backdrop[data-open="true"] {
+            display: block;
+            opacity: 1;
+            pointer-events: all;
+        }
+        @media (max-width: 1023px) {
             .app-sidebar {
                 position: fixed;
                 inset: 0 auto 0 0;
                 transform: translateX(-100%);
                 width: 16rem;
-                transition: transform .25s ease;
+                transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 z-index: 60;
                 height: 100vh;
                 overflow-y: auto;
                 overflow-x: hidden;
                 -webkit-overflow-scrolling: touch;
+                box-shadow: 4px 0 32px -8px rgba(0, 0, 0, 0.6);
                 padding-top: 1rem;
                 padding-bottom: 1rem;
             }
             .app-sidebar[data-open="true"] {
                 transform: translateX(0);
             }
-            .app-sidebar-backdrop {
-                position: fixed;
-                inset: 0;
-                background: rgba(6, 10, 20, 0.55);
-                backdrop-filter: blur(6px);
-                z-index: 50;
-                display: none;
-            }
-            .app-sidebar-backdrop[data-open="true"] {
-                display: block;
-            }
             #app-content {
+                margin-left: 0;
                 padding-top: 5rem;
                 padding-left: 1rem;
                 padding-right: 1rem;
@@ -392,26 +430,61 @@
 
     <div class="toast-container" id="app-toast-container" aria-live="polite"></div>
 
-    <div class="app-sidebar-backdrop" id="app-sidebar-backdrop"></div>
-    <aside class="app-sidebar flex flex-col items-center py-6 space-y-7" id="app-sidebar" data-open="false">
-        <a href="{% url 'dashboard:dashboard' %}" class="group relative flex items-center w-full px-3 mb-6">
-            {% with tiene_logo=configuracion_tienda.logo %}
-                <img
-                    id="sidebar-logo"
-                    class="h-11 w-11 rounded-2xl object-cover shadow-lg ring-2 ring-white/15 flex-shrink-0 {% if not tiene_logo %}hidden{% endif %}"
-                    {% if tiene_logo %}src="{{ configuracion_tienda.logo.url }}"{% else %}src=""{% endif %}
-                    alt="Logo"
-                />
-                <div
-                    class="h-11 w-11 rounded-2xl flex items-center justify-center font-semibold text-lg shadow-inner sidebar-icon flex-shrink-0 {% if tiene_logo %}hidden{% endif %}"
-                    id="sidebar-initials"
-                    style="background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)); color: {{ configuracion_sistema.color_principal|default:'#b4c3ff' }};"
-                >
-                    {{ configuracion_tienda.nombre_tienda|default:configuracion_sistema.nombre_comercial|default:'IS'|slice:':2'|upper }}
+    <!-- Modal de alerta personalizado -->
+    <div id="custom-alert-modal" class="fixed inset-0 z-[9999] hidden items-center justify-center p-4" aria-hidden="true" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-md transition-opacity" id="alert-backdrop"></div>
+        <div class="relative z-10 w-full max-w-md transform rounded-2xl bg-gradient-to-br from-slate-900/95 to-slate-800/95 border border-slate-700/50 shadow-2xl backdrop-blur-xl transition-all" id="alert-content">
+            <div class="p-6">
+                <div class="flex items-start gap-4">
+                    <div id="alert-icon" class="flex-shrink-0 mt-0.5">
+                        <!-- Icono se llena dinámicamente -->
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h3 id="alert-title" class="text-lg font-bold text-slate-100 mb-2"></h3>
+                        <p id="alert-message" class="text-sm text-slate-300 leading-relaxed"></p>
+                    </div>
                 </div>
+                <div class="mt-6 flex justify-end">
+                    <button id="alert-ok-btn" class="rounded-xl bg-gradient-to-r from-blue-500/90 to-purple-500/90 hover:from-blue-500 hover:to-purple-500 px-6 py-2.5 text-sm font-semibold text-white shadow-lg transition-all hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                        Entendido
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-sidebar-backdrop" id="app-sidebar-backdrop"></div>
+    <aside class="app-sidebar flex flex-col items-center py-5 space-y-6" id="app-sidebar" data-open="false">
+        <!-- Botón toggle para móvil -->
+        <button id="sidebar-toggle" class="lg:hidden fixed top-4 left-4 z-50 p-2.5 rounded-xl bg-slate-800/90 border border-slate-600/40 shadow-lg backdrop-blur-sm">
+            <svg class="w-5 h-5 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+            </svg>
+        </button>
+        
+        <a href="{% url 'dashboard:dashboard' %}" class="group relative flex items-center w-full px-3 mb-4">
+            {% with tiene_logo=configuracion_tienda.logo %}
+                {% if tiene_logo %}
+                    <div class="h-12 w-12 rounded-2xl border-2 border-white/90 bg-white p-2 shadow-xl ring-2 ring-white/20 flex-shrink-0">
+                        <img
+                            id="sidebar-logo"
+                            class="h-full w-full object-contain"
+                            src="{{ configuracion_tienda.logo.url }}"
+                            alt="Logo"
+                        />
+                    </div>
+                {% else %}
+                    <div
+                        class="h-12 w-12 rounded-2xl flex items-center justify-center font-bold text-xl shadow-lg sidebar-icon flex-shrink-0 border-2 border-white/30 bg-gradient-to-br from-indigo-600/30 to-purple-600/30"
+                        id="sidebar-initials"
+                        style="color: {{ configuracion_sistema.color_principal|default:'#a5b4fc' }};"
+                    >
+                        {{ configuracion_tienda.nombre_tienda|default:configuracion_sistema.nombre_comercial|default:'IS'|slice:':2'|upper }}
+                    </div>
+                {% endif %}
             {% endwith %}
-            <span class="sidebar-label">Dashboard</span>
-            <span class="sidebar-tooltip absolute left-full ml-4 min-w-max rounded-xl bg-slate-900/95 px-3 py-1.5 text-xs font-semibold text-slate-100 shadow-2xl">Dashboard</span>
+            <span class="sidebar-label ml-3 font-semibold">Dashboard</span>
+            <span class="sidebar-tooltip absolute left-full ml-4 min-w-max rounded-xl bg-slate-900/95 px-3 py-1.5 text-xs font-semibold text-slate-100 shadow-2xl border border-slate-700/50">Dashboard</span>
         </a>
         <nav class="space-y-6 w-full">
             <!-- CRM -->
@@ -467,32 +540,37 @@
     </aside>
 
     <div class="flex flex-1 flex-col" id="app-content">
-        <header class="glass-bar border-b px-4 lg:px-6 py-5">
+        <header class="glass-bar border-b border-slate-600/30 px-4 lg:px-6 py-4 lg:py-5">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div class="flex items-center gap-4">
+                <div class="flex items-center gap-5">
+                    <!-- Logo con fondo blanco -->
                     {% if configuracion_tienda.logo %}
-                        <div class="flex h-24 w-24 items-center justify-center rounded-3xl bg-white p-3 shadow-2xl shadow-indigo-900/20 ring-1 ring-white/70 sm:h-28 sm:w-28">
-                            <img src="{{ configuracion_tienda.logo.url }}" alt="Logo {{ configuracion_tienda.nombre_tienda|default:configuracion_sistema.nombre_comercial }}" class="h-20 w-auto max-w-[180px] object-contain">
+                        <div class="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-2xl border-2 border-white/90 bg-white p-2.5 shadow-xl ring-2 ring-white/20 sm:h-24 sm:w-24">
+                            <img src="{{ configuracion_tienda.logo.url }}" alt="Logo {{ configuracion_tienda.nombre_tienda|default:configuracion_sistema.nombre_comercial }}" class="h-full w-full object-contain">
                         </div>
                     {% elif configuracion_sistema.logo %}
-                        <div class="flex h-24 w-24 items-center justify-center rounded-3xl bg-white p-3 shadow-2xl shadow-indigo-900/20 ring-1 ring-white/70 sm:h-28 sm:w-28">
-                            <img src="{{ configuracion_sistema.logo.url }}" alt="Logo {{ configuracion_sistema.nombre_comercial|default:configuracion_tienda.nombre_tienda }}" class="h-20 w-auto max-w-[180px] object-contain">
+                        <div class="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-2xl border-2 border-white/90 bg-white p-2.5 shadow-xl ring-2 ring-white/20 sm:h-24 sm:w-24">
+                            <img src="{{ configuracion_sistema.logo.url }}" alt="Logo {{ configuracion_sistema.nombre_comercial|default:configuracion_tienda.nombre_tienda }}" class="h-full w-full object-contain">
                         </div>
                     {% else %}
-                        <div class="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-lg font-semibold text-slate-100 shadow-inner shadow-black/40">
+                        <div class="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-2xl border-2 border-white/30 bg-gradient-to-br from-indigo-600/30 to-purple-600/30 text-2xl font-bold text-indigo-300 shadow-lg ring-2 ring-white/10 sm:h-24 sm:w-24">
                             {{ configuracion_tienda.nombre_tienda|default:configuracion_sistema.nombre_comercial|default:'IS'|slice:':2'|upper }}
                         </div>
                     {% endif %}
-                    <div>
-                        <p class="text-xs font-semibold uppercase tracking-[0.35em] text-muted" id="header-tagline">{{ configuracion_sistema.lema|default:"Centro de mando" }}</p>
-                        <h1 class="text-3xl font-semibold accent-text" id="header-brand">
+                    
+                    <!-- Información de la empresa -->
+                    <div class="flex-1 min-w-0">
+                        <p class="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400 mb-1" id="header-tagline">
+                            {{ configuracion_sistema.lema|default:"DISTRIBUIDORA DE TECNOLOGÍA" }}
+                        </p>
+                        <h1 class="text-2xl sm:text-3xl font-bold text-white mb-1.5 tracking-tight" id="header-brand">
                             {{ configuracion_tienda.nombre_tienda|default:configuracion_sistema.nombre_comercial|default:'ImportStore' }}
                         </h1>
                         {% if configuracion_tienda.cuit or configuracion_tienda.direccion %}
-                            <p class="text-xs text-muted">
-                                {% if configuracion_tienda.cuit %}CUIT {{ configuracion_tienda.cuit }}{% endif %}
-                                {% if configuracion_tienda.cuit and configuracion_tienda.direccion %} · {% endif %}
-                                {% if configuracion_tienda.direccion %}{{ configuracion_tienda.direccion }}{% endif %}
+                            <p class="text-xs text-slate-400 font-medium">
+                                {% if configuracion_tienda.cuit %}<span class="text-slate-300">CUIT {{ configuracion_tienda.cuit }}</span>{% endif %}
+                                {% if configuracion_tienda.cuit and configuracion_tienda.direccion %}<span class="mx-1.5 text-slate-500">·</span>{% endif %}
+                                {% if configuracion_tienda.direccion %}<span class="text-slate-300">{{ configuracion_tienda.direccion }}</span>{% endif %}
                             </p>
                         {% endif %}
                     </div>
@@ -572,23 +650,39 @@
         (function () {
             const sidebar = document.getElementById('app-sidebar');
             const backdrop = document.getElementById('app-sidebar-backdrop');
-            const toggleBtn = document.getElementById('sidebar-toggle');
+            const toggleBtns = document.querySelectorAll('#sidebar-toggle');
+            
             const setOpen = (open) => {
                 if (!sidebar) return;
-                sidebar.dataset.open = String(!!open);
-                if (backdrop) backdrop.dataset.open = String(!!open);
+                sidebar.setAttribute('data-open', String(!!open));
+                if (backdrop) backdrop.setAttribute('data-open', String(!!open));
                 document.body.style.overflow = open ? 'hidden' : '';
             };
+            
             const closeSidebar = () => setOpen(false);
-            if (toggleBtn) {
-                toggleBtn.addEventListener('click', () => setOpen(sidebar?.dataset.open !== 'true'));
-            }
+            const toggleSidebar = () => setOpen(sidebar?.getAttribute('data-open') !== 'true');
+            
+            toggleBtns.forEach(btn => {
+                if (btn) {
+                    btn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleSidebar();
+                    });
+                }
+            });
+            
             if (backdrop) {
                 backdrop.addEventListener('click', closeSidebar);
             }
-            document.querySelectorAll('#app-sidebar a').forEach((link) => {
-                link.addEventListener('click', closeSidebar);
-            });
+            
+            // Cerrar sidebar al hacer clic en un enlace en móvil
+            if (window.innerWidth <= 1023) {
+                const sidebarLinks = sidebar?.querySelectorAll('a');
+                sidebarLinks?.forEach(link => {
+                    link.addEventListener('click', closeSidebar);
+                });
+            }
 
             const toastContainer = document.getElementById('app-toast-container');
             const createToast = ({ message, level }) => {
@@ -610,6 +704,106 @@
             document.body.addEventListener('showToast', (event) => {
                 createToast(event.detail || {});
             });
+
+            // Sistema de alertas personalizado con backdrop blur
+            const alertModal = document.getElementById('custom-alert-modal');
+            const alertBackdrop = document.getElementById('alert-backdrop');
+            const alertContent = document.getElementById('alert-content');
+            const alertTitle = document.getElementById('alert-title');
+            const alertMessage = document.getElementById('alert-message');
+            const alertIcon = document.getElementById('alert-icon');
+            const alertOkBtn = document.getElementById('alert-ok-btn');
+
+            function showCustomAlert(message, type = 'info', title = null) {
+                if (!alertModal) return;
+
+                // Configurar título e icono según el tipo
+                const configs = {
+                    info: {
+                        title: title || 'Información',
+                        icon: `<svg class="h-6 w-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>`,
+                        btnClass: 'from-blue-500/90 to-purple-500/90 hover:from-blue-500 hover:to-purple-500 focus:ring-blue-500/50'
+                    },
+                    warning: {
+                        title: title || 'Atención',
+                        icon: `<svg class="h-6 w-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>`,
+                        btnClass: 'from-yellow-500/90 to-orange-500/90 hover:from-yellow-500 hover:to-orange-500 focus:ring-yellow-500/50'
+                    },
+                    error: {
+                        title: title || 'Error',
+                        icon: `<svg class="h-6 w-6 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>`,
+                        btnClass: 'from-rose-500/90 to-red-500/90 hover:from-rose-500 hover:to-red-500 focus:ring-rose-500/50'
+                    },
+                    success: {
+                        title: title || 'Éxito',
+                        icon: `<svg class="h-6 w-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>`,
+                        btnClass: 'from-green-500/90 to-emerald-500/90 hover:from-green-500 hover:to-emerald-500 focus:ring-green-500/50'
+                    }
+                };
+
+                const config = configs[type] || configs.info;
+                alertTitle.textContent = config.title;
+                alertMessage.textContent = message;
+                alertIcon.innerHTML = config.icon;
+                alertOkBtn.className = `rounded-xl bg-gradient-to-r ${config.btnClass} px-6 py-2.5 text-sm font-semibold text-white shadow-lg transition-all hover:shadow-xl focus:outline-none focus:ring-2`;
+
+                // Mostrar modal
+                alertModal.classList.remove('hidden');
+                alertModal.classList.add('flex');
+                alertModal.setAttribute('aria-hidden', 'false');
+                document.body.style.overflow = 'hidden';
+
+                // Animación de entrada
+                setTimeout(() => {
+                    alertBackdrop.classList.add('opacity-100');
+                    alertContent.classList.add('scale-100', 'opacity-100');
+                }, 10);
+
+                // Cerrar al hacer clic en el botón o backdrop
+                let escapeHandler = null;
+                const closeAlert = () => {
+                    alertBackdrop.classList.remove('opacity-100');
+                    alertContent.classList.remove('scale-100', 'opacity-100');
+                    setTimeout(() => {
+                        alertModal.classList.add('hidden');
+                        alertModal.classList.remove('flex');
+                        alertModal.setAttribute('aria-hidden', 'true');
+                        document.body.style.overflow = '';
+                        if (escapeHandler) {
+                            document.removeEventListener('keydown', escapeHandler);
+                            escapeHandler = null;
+                        }
+                    }, 200);
+                };
+
+                // Limpiar listeners anteriores y agregar nuevos
+                alertOkBtn.onclick = closeAlert;
+                alertBackdrop.onclick = closeAlert;
+
+                // Cerrar con Escape
+                escapeHandler = (e) => {
+                    if (e.key === 'Escape') {
+                        closeAlert();
+                    }
+                };
+                document.addEventListener('keydown', escapeHandler);
+            }
+
+            // Reemplazar alert() nativo del navegador
+            window.alert = function(message) {
+                showCustomAlert(message, 'info');
+            };
+
+            // Función global para usar en el código
+            window.showAlert = showCustomAlert;
 
             document.body.addEventListener('configuracionActualizada', (event) => {
                 const detail = event.detail || {};

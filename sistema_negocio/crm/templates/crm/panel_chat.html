@@ -1,240 +1,1030 @@
 {% extends "base.html" %}
 
-{% block title %}Inbox Omnicanal{% endblock %}
+{% block title %}Chat CRM - WhatsApp{% endblock %}
 
 {% block extra_head %}
 <style>
-    main { background: linear-gradient(135deg, #f5f3ff 0%, #eef2ff 100%); }
-    .glass-card { backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); background: rgba(255, 255, 255, 0.7); }
-    .filter-chip {
+    /* Modo oscuro estilo WhatsApp */
+    main { 
+        background: #0b141a;
+        min-height: 100vh;
+    }
+    
+    /* Fondo estilo WhatsApp oscuro */
+    .whatsapp-bg {
+        background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cpattern id='grid' width='100' height='100' patternUnits='userSpaceOnUse'%3E%3Cpath d='M 100 0 L 0 0 0 100' fill='none' stroke='%2311212a' stroke-width='1' opacity='0.3'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100' height='100' fill='url(%23grid)'/%3E%3C/svg%3E");
+        background-color: #0b141a;
+    }
+    
+    /* Burbujas de mensaje estilo WhatsApp oscuro */
+    .message-bubble {
+        max-width: 65%;
+        word-wrap: break-word;
+        position: relative;
+        padding: 6px 7px 8px 9px;
+        border-radius: 7.5px;
+        box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
+    }
+    
+    .message-bubble.sent {
+        background: #005c4b;
+        color: #e9edef;
+        margin-left: auto;
+        margin-right: 0;
+    }
+    
+    .message-bubble.received {
+        background: #202c33;
+        color: #e9edef;
+        margin-left: 0;
+        margin-right: auto;
+    }
+    
+    .message-bubble.sent::before {
+        content: '';
+        position: absolute;
+        right: -8px;
+        bottom: 0;
+        width: 0;
+        height: 0;
+        border-style: solid;
+        border-width: 0 0 13px 13px;
+        border-color: transparent transparent #005c4b transparent;
+    }
+    
+    .message-bubble.received::before {
+        content: '';
+        position: absolute;
+        left: -8px;
+        bottom: 0;
+        width: 0;
+        height: 0;
+        border-style: solid;
+        border-width: 0 13px 13px 0;
+        border-color: transparent #202c33 transparent transparent;
+    }
+    
+    /* Indicadores de estado */
+    .message-status {
         display: inline-flex;
         align-items: center;
-        border-radius: 9999px;
-        border: 1px solid rgba(148, 163, 184, 0.6);
-        background-color: rgba(255, 255, 255, 0.9);
-        padding: 0.35rem 0.9rem;
-        font-size: 0.75rem;
-        color: #64748b;
-        transition: all 0.2s ease;
+        gap: 2px;
+        margin-left: 4px;
+        font-size: 12px;
     }
-    .filter-chip:hover { border-color: #0f172a; color: #0f172a; }
-    .filter-chip.active {
-        border-color: #0f172a;
-        background-color: #0f172a;
-        color: #fff;
-        box-shadow: 0 10px 20px -15px rgba(15, 23, 42, 0.5);
+    
+    .message-status.sent { color: #8696a0; }
+    .message-status.delivered { color: #8696a0; }
+    .message-status.read { color: #53bdeb; }
+    
+    /* Lista de conversaciones estilo WhatsApp oscuro */
+    .conversation-item {
+        transition: background-color 0.2s;
+        cursor: pointer;
+        border-bottom: 1px solid #202c33;
+        background: #111b21;
     }
+    
+    .conversation-item:hover {
+        background-color: #202c33;
+    }
+    
+    .conversation-item.active {
+        background-color: #2a3942;
+    }
+    
+    /* Avatar circular */
+    .avatar-circle {
+        width: 49px;
+        height: 49px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 500;
+        font-size: 18px;
+        color: white;
+        flex-shrink: 0;
+    }
+    
+    /* Header del chat estilo WhatsApp oscuro */
+    .chat-header {
+        background: #202c33;
+        color: #e9edef;
+        padding: 10px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    }
+    
+    .chat-header-left {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex: 1;
+    }
+    
+    .chat-header-right {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .chat-header-icon {
+        cursor: pointer;
+        padding: 8px;
+        border-radius: 50%;
+        transition: background-color 0.2s;
+        color: #8696a0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .chat-header-icon:hover:not(:disabled) {
+        background-color: rgba(255, 255, 255, 0.1);
+        color: #e9edef;
+    }
+    
+    .chat-header-icon:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    
+    .chat-header-icon:not(:disabled) {
+        color: #8696a0;
+    }
+    
+    .chat-header-icon:not(:disabled):hover {
+        color: #00a884;
+        background-color: rgba(0, 168, 132, 0.1);
+    }
+    
+    /* Botón de análisis del cliente - más visible */
+    #btn-analisis-cliente {
+        color: #8696a0 !important;
+    }
+    
+    #btn-analisis-cliente:not(:disabled) {
+        color: #8696a0 !important;
+    }
+    
+    #btn-analisis-cliente:not(:disabled):hover {
+        color: #00a884 !important;
+        background-color: rgba(0, 168, 132, 0.15);
+    }
+    
+    /* Input de mensaje estilo WhatsApp oscuro */
+    .message-input-container {
+        background: #202c33;
+        padding: 5px 10px;
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+    }
+    
+    .message-input-wrapper {
+        flex: 1;
+        background: #2a3942;
+        border-radius: 21px;
+        padding: 9px 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .message-input {
+        flex: 1;
+        border: none;
+        outline: none;
+        font-size: 15px;
+        max-height: 100px;
+        resize: none;
+        font-family: inherit;
+        background: transparent;
+        color: #e9edef;
+    }
+    
+    .message-input::placeholder {
+        color: #8696a0;
+    }
+    
+    .input-icon {
+        cursor: pointer;
+        padding: 8px;
+        color: #8696a0;
+        transition: color 0.2s;
+    }
+    
+    .input-icon:hover:not(:disabled) {
+        color: #00a884;
+    }
+    
+    .input-icon:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    .send-button {
+        background: #00a884;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    
+    .send-button:hover:not(:disabled) {
+        background: #06cf9c;
+    }
+    
+    .send-button:disabled {
+        background: #2a3942;
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
+    
+    /* Panel lateral de conversaciones oscuro */
+    .conversations-panel {
+        background: #111b21;
+        border-right: 1px solid #202c33;
+    }
+    
+    .conversations-header {
+        background: #202c33;
+        padding: 10px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .conversations-search {
+        background: #202c33;
+        border: none;
+        border-radius: 8px;
+        padding: 9px 16px;
+        font-size: 14px;
+        width: 100%;
+        margin: 8px 16px;
+        color: #e9edef;
+    }
+    
+    .conversations-search::placeholder {
+        color: #8696a0;
+    }
+    
+    .conversations-search:focus {
+        outline: none;
+        box-shadow: 0 0 0 2px #00a884;
+    }
+    
+    /* Filtros mejorados oscuros */
+    .filter-tabs {
+        display: flex;
+        gap: 0;
+        padding: 0 16px;
+        border-bottom: 1px solid #202c33;
+        background: #111b21;
+    }
+    
+    .filter-tab {
+        padding: 12px 16px;
+        border: none;
+        background: none;
+        color: #8696a0;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s;
+    }
+    
+    .filter-tab:hover {
+        background-color: #202c33;
+    }
+    
+    .filter-tab.active {
+        color: #00a884;
+        border-bottom-color: #00a884;
+    }
+    
+    /* Modal flotante de análisis del cliente */
+    .client-analysis-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(4px);
+    }
+    
+    .client-analysis-modal.active {
+        display: flex;
+    }
+    
+    .modal-content {
+        background: #111b21;
+        border-radius: 16px;
+        width: 90%;
+        max-width: 800px;
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+        border: 1px solid #202c33;
+    }
+    
+    .modal-header {
+        background: #202c33;
+        padding: 20px 24px;
+        border-bottom: 1px solid #2a3942;
+        border-radius: 16px 16px 0 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .modal-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 24px;
+    }
+    
+    .modal-body.custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    .modal-body.custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    
+    .modal-body.custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 3px;
+    }
+    
+    .modal-body.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
+    
+    .modal-footer {
+        background: #202c33;
+        padding: 16px 24px;
+        border-top: 1px solid #2a3942;
+        border-radius: 0 0 16px 16px;
+    }
+    
+    /* Termómetro de intención */
+    .intent-thermometer {
+        background: #202c33;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 16px;
+    }
+    
+    .thermometer-bar {
+        height: 24px;
+        background: #2a3942;
+        border-radius: 12px;
+        overflow: hidden;
+        position: relative;
+        margin-top: 8px;
+    }
+    
+    .thermometer-fill {
+        height: 100%;
+        border-radius: 12px;
+        transition: width 0.5s ease;
+        position: relative;
+    }
+    
+    .thermometer-fill.low {
+        background: linear-gradient(90deg, #ef4444 0%, #f97316 100%);
+    }
+    
+    .thermometer-fill.medium {
+        background: linear-gradient(90deg, #f97316 0%, #eab308 100%);
+    }
+    
+    .thermometer-fill.high {
+        background: linear-gradient(90deg, #22c55e 0%, #10b981 100%);
+    }
+    
+    /* Cards de información */
+    .info-card {
+        background: #202c33;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 16px;
+    }
+    
+    .info-card-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #8696a0;
+        margin-bottom: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .info-card-content {
+        color: #e9edef;
+        font-size: 14px;
+        line-height: 1.6;
+    }
+    
+    /* Botones de acción mejorados */
+    .action-button {
+        width: 100%;
+        padding: 12px 16px;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+    
+    .action-button.primary {
+        background: #00a884;
+        color: white;
+    }
+    
+    .action-button.primary:hover:not(:disabled) {
+        background: #06cf9c;
+    }
+    
+    .action-button.secondary {
+        background: #2a3942;
+        color: #e9edef;
+        border: 1px solid #3d4a52;
+    }
+    
+    .action-button.secondary:hover:not(:disabled) {
+        background: #3d4a52;
+    }
+    
+    .action-button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    /* Lista de sugerencias */
+    .suggestion-item {
+        background: #202c33;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 8px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        border-left: 3px solid #00a884;
+    }
+    
+    .suggestion-item:hover {
+        background: #2a3942;
+    }
+    
+    /* Animaciones */
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @keyframes typing {
+        0%, 60%, 100% {
+            transform: translateY(0);
+            opacity: 0.7;
+        }
+        30% {
+            transform: translateY(-10px);
+            opacity: 1;
+        }
+    }
+    
+    .message-bubble {
+        animation: slideIn 0.2s ease-out;
+    }
+    
+    /* Scrollbar personalizado oscuro */
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 3px;
+    }
+    
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
+    
+    /* Header principal oscuro */
+    .main-header {
+        background: #111b21;
+        border-bottom: 1px solid #202c33;
+        padding: 16px 24px;
+    }
+    
+    /* Métricas mejoradas */
+    .metric-card {
+        background: #202c33;
+        border-radius: 12px;
+        padding: 16px;
+        border: 1px solid #2a3942;
+    }
+    
+    .metric-value {
+        font-size: 28px;
+        font-weight: 700;
+        color: #e9edef;
+        margin-top: 8px;
+    }
+    
+    .metric-label {
+        font-size: 12px;
+        color: #8696a0;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .metric-subtext {
+        font-size: 12px;
+        color: #8696a0;
+        margin-top: 4px;
+    }
+    
+    /* Responsive */
     @media (max-width: 1024px) {
-        #chat-grid { grid-template-columns: minmax(0, 1fr); }
-        #detail-panel { display: none; }
+        #chat-grid { grid-template-columns: minmax(0, 1fr) 1fr; }
     }
+    
     @media (max-width: 768px) {
+        #chat-grid { grid-template-columns: minmax(0, 1fr); }
         #conversation-panel { position: relative; }
-        #chat-panel { position: fixed; inset: 0; transform: translateX(100%); transition: transform 0.3s ease; z-index: 30; }
+        #chat-panel { 
+            position: fixed; 
+            inset: 0; 
+            transform: translateX(100%); 
+            transition: transform 0.3s ease; 
+            z-index: 30; 
+        }
         #chat-panel.active { transform: translateX(0); }
+        .modal-content {
+            width: 95%;
+            max-height: 95vh;
+        }
+    }
+    
+    /* Timestamp de mensaje */
+    .message-time {
+        font-size: 11px;
+        margin-top: 2px;
+        text-align: right;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 4px;
+    }
+    
+    .message-time.received {
+        color: #8696a0;
+    }
+    
+    .message-time.sent {
+        color: #8696a0;
+    }
+    
+    /* Badge de notificaciones */
+    .notification-badge {
+        position: absolute;
+        top: -2px;
+        right: -2px;
+        background: #00a884;
+        color: white;
+        border-radius: 10px;
+        padding: 2px 6px;
+        font-size: 11px;
+        font-weight: 600;
+        min-width: 18px;
+        text-align: center;
+    }
+    
+    /* Lista de puntos clave */
+    .key-points {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .key-points li {
+        padding: 8px 0;
+        padding-left: 20px;
+        position: relative;
+        color: #e9edef;
+        font-size: 13px;
+    }
+    
+    .key-points li::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 12px;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #00a884;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="min-h-screen w-full px-4 py-8 sm:px-6 lg:px-10">
-    <header class="mb-6 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-            <p class="text-xs font-semibold uppercase tracking-wide text-indigo-500">CRM · WhatsApp &amp; Instagram</p>
-            <h1 class="mt-2 text-3xl font-bold text-slate-900 sm:text-4xl">Bandeja de entrada omnicanal</h1>
-            <p class="mt-2 max-w-3xl text-sm text-slate-600">Gestioná conversaciones, etiquetá clientes, aplicá playbooks y pedí resúmenes con IA sin abandonar el panel.</p>
-        </div>
-        <div class="flex flex-wrap gap-3">
-            <button id="toggle-analytics" class="rounded-full border border-slate-200 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900">Ver métricas</button>
-            <a href="{% url 'asistente_ia:chat' %}" class="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 hover:bg-slate-800">Abrir ISAC</a>
+<div class="min-h-screen w-full" style="background: #0b141a;">
+    <!-- Header principal -->
+    <header class="main-header">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wide" style="color: #00a884;">CRM · WhatsApp & Instagram</p>
+                <h1 class="mt-1 text-2xl font-bold sm:text-3xl" style="color: #e9edef;">Chat Omnicanal</h1>
+                <p class="mt-1 text-sm" style="color: #8696a0;">Gestioná todas tus conversaciones en un solo lugar</p>
+            </div>
+            <div class="flex flex-wrap gap-3">
+                <button id="toggle-analytics" class="action-button secondary" style="width: auto; padding: 10px 20px;">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                    Métricas
+                </button>
+                <a href="{% url 'asistente_ia:chat' %}" class="action-button primary" style="width: auto; padding: 10px 20px; text-decoration: none;">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                    </svg>
+                    Abrir ISAC
+                </a>
+            </div>
         </div>
     </header>
 
-    <section id="analytics-bar" class="glass-card hidden rounded-3xl border border-white/60 p-6 shadow-xl">
+    <!-- Barra de métricas -->
+    <section id="analytics-bar" class="hidden" style="background: #111b21; border-bottom: 1px solid #202c33; padding: 24px;">
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <article class="rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-sm">
-                <p class="text-xs uppercase tracking-wide text-slate-500">Conversaciones activas</p>
-                <p class="mt-2 text-3xl font-semibold text-slate-900">{{ stats.total }}</p>
-                <p class="text-xs text-slate-500">{{ stats.abiertas }} abiertas · {{ stats.pendientes }} pendientes</p>
+            <article class="metric-card">
+                <p class="metric-label">Conversaciones activas</p>
+                <p class="metric-value">{{ stats.total }}</p>
+                <p class="metric-subtext">{{ stats.abiertas }} abiertas · {{ stats.pendientes }} pendientes</p>
             </article>
-            <article class="rounded-2xl border border-blue-200/70 bg-blue-50/70 p-4 shadow-sm">
-                <p class="text-xs uppercase tracking-wide text-blue-500">Seguimiento</p>
-                <p class="mt-2 text-3xl font-semibold text-blue-900">{{ stats.seguimiento }}</p>
-                <p class="text-xs text-blue-600">SLA vencidos: {{ stats.sla_vencidos }}</p>
+            <article class="metric-card">
+                <p class="metric-label" style="color: #53bdeb;">Seguimiento</p>
+                <p class="metric-value" style="color: #53bdeb;">{{ stats.seguimiento }}</p>
+                <p class="metric-subtext" style="color: #53bdeb;">SLA vencidos: {{ stats.sla_vencidos }}</p>
             </article>
-            <article class="rounded-2xl border border-emerald-200/70 bg-emerald-50/80 p-4 shadow-sm">
-                <p class="text-xs uppercase tracking-wide text-emerald-600">Tiempo real</p>
-                <p class="mt-2 text-3xl font-semibold text-emerald-900" id="real-time-metric">1m 52s</p>
-                <p class="text-xs text-emerald-600">Tiempo promedio de primera respuesta</p>
+            <article class="metric-card">
+                <p class="metric-label" style="color: #00a884;">Tiempo real</p>
+                <p class="metric-value" style="color: #00a884;" id="real-time-metric">1m 52s</p>
+                <p class="metric-subtext" style="color: #00a884;">Tiempo promedio de primera respuesta</p>
             </article>
-            <article class="rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-sm">
-                <p class="text-xs uppercase tracking-wide text-slate-500">Etiquetas destacadas</p>
+            <article class="metric-card">
+                <p class="metric-label">Etiquetas destacadas</p>
                 <div class="mt-2 flex flex-wrap gap-2 text-xs font-semibold">
                     {% for etiqueta in etiquetas %}
-                        <span class="inline-flex items-center gap-2 rounded-full px-3 py-1" style="background: {{ etiqueta.color }}1a; color: {{ etiqueta.color }};">
-                            <span class="h-2 w-2 rounded-full" style="background: {{ etiqueta.color }};"></span>
+                        <span class="inline-flex items-center gap-1 rounded-full px-2 py-1" style="background: {{ etiqueta.color }}20; color: {{ etiqueta.color }}; border: 1px solid {{ etiqueta.color }}40;">
+                            <span class="h-1.5 w-1.5 rounded-full" style="background: {{ etiqueta.color }};"></span>
                             {{ etiqueta.nombre }} · {{ etiqueta.total }}
                         </span>
                     {% empty %}
-                        <span class="text-slate-500">Sin etiquetas registradas todavía.</span>
+                        <span style="color: #8696a0;">Sin etiquetas</span>
                     {% endfor %}
                 </div>
             </article>
         </div>
     </section>
 
-    <div id="chat-grid" class="mt-8 grid gap-6 lg:grid-cols-[380px_minmax(0,1fr)_360px] xl:grid-cols-[420px_minmax(0,1fr)_380px]">
-        <!-- Conversaciones -->
-        <aside id="conversation-panel" class="glass-card flex h-[calc(100vh-14rem)] flex-col overflow-hidden rounded-3xl border border-white/60 shadow-xl">
-            <div class="border-b border-slate-200/70 p-6">
-                <div class="relative">
-                    <input id="conversation-search" type="search" placeholder="Buscar por cliente, teléfono o etiqueta" class="w-full rounded-2xl border border-transparent bg-white/80 px-4 py-3 text-sm text-slate-900 shadow-inner focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-500/20">
-                    <svg class="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 1116.65 6.65a7.5 7.5 0 010 10.6z"/></svg>
+    <!-- Grid principal -->
+    <div id="chat-grid" class="grid h-[calc(100vh-180px)] grid-cols-1 lg:grid-cols-[380px_1fr]">
+        <!-- Panel de conversaciones -->
+        <aside id="conversation-panel" class="conversations-panel flex flex-col overflow-hidden">
+            <div class="conversations-header">
+                <div class="flex items-center gap-3">
+                    <div class="avatar-circle" style="background: linear-gradient(135deg, #00a884 0%, #06cf9c 100%);">IS</div>
+                    <div>
+                        <h2 class="text-lg font-semibold" style="color: #e9edef;">Conversaciones</h2>
+                        <p class="text-xs" style="color: #8696a0;">{{ conversaciones|length }} activas</p>
+                    </div>
                 </div>
-                <div class="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
-                    <button class="filter-chip active" data-filter="todos">Todos</button>
-                    <button class="filter-chip" data-filter="Abierta">Abiertas</button>
-                    <button class="filter-chip" data-filter="Pendiente">Pendientes</button>
-                    <button class="filter-chip" data-filter="En seguimiento">Seguimiento</button>
-                    <button class="filter-chip" data-filter="urgent">Urgentes</button>
-                </div>
+                <button class="chat-header-icon" title="Nueva conversación">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                </button>
             </div>
-            <div id="conversation-list" class="flex-1 overflow-y-auto p-4">
+            
+            <input id="conversation-search" type="search" placeholder="Buscar o iniciar nueva conversación" class="conversations-search">
+            
+            <div class="filter-tabs">
+                <button class="filter-tab active" data-filter="todos">Todos</button>
+                <button class="filter-tab" data-filter="Abierta">Abiertas</button>
+                <button class="filter-tab" data-filter="Pendiente">Pendientes</button>
+                <button class="filter-tab" data-filter="En seguimiento">Seguimiento</button>
+            </div>
+            
+            <div id="conversation-list" class="flex-1 overflow-y-auto custom-scrollbar">
                 {% for conversacion in conversaciones %}
-                    <article class="conversation-card mb-3 rounded-2xl border border-transparent bg-white/80 p-4 shadow-sm transition hover:border-slate-200" data-conv-id="{{ conversacion.id }}" data-estado="{{ conversacion.estado }}" data-prioridad="{{ conversacion.prioridad }}" data-nombre="{{ conversacion.cliente.nombre }}" data-telefono="{{ conversacion.cliente.telefono }}">
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="flex items-center gap-3">
-                                <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-sm font-semibold text-white">{{ conversacion.cliente.nombre|first|upper }}</div>
-                                <div>
-                                    <p class="text-sm font-semibold text-slate-900">{{ conversacion.cliente.nombre }}</p>
-                                    <p class="text-xs text-slate-500">{{ conversacion.cliente.telefono }}</p>
-                                </div>
+                    <article class="conversation-item p-3 flex items-center gap-3" 
+                             data-conv-id="{{ conversacion.id }}" 
+                             data-estado="{{ conversacion.estado }}" 
+                             data-prioridad="{{ conversacion.prioridad }}" 
+                             data-nombre="{{ conversacion.cliente.nombre }}" 
+                             data-telefono="{{ conversacion.cliente.telefono }}">
+                        <div class="relative">
+                            <div class="avatar-circle" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                                {{ conversacion.cliente.nombre|first|upper }}
                             </div>
-                            <span class="rounded-full px-2 py-1 text-[11px] font-semibold" data-priority-pill>{{ conversacion.get_prioridad_display }}</span>
+                            {% if conversacion.estado == 'Abierta' %}
+                                <span class="absolute bottom-0 right-0 w-3 h-3 border-2 rounded-full" style="background: #00a884; border-color: #111b21;"></span>
+                            {% endif %}
                         </div>
-                        <div class="mt-3 flex items-center justify-between text-xs text-slate-500">
-                            <span>{{ conversacion.get_fuente_display }}</span>
-                            <span>{{ conversacion.ultima_actualizacion|date:"d/m H:i" }}</span>
-                        </div>
-                        <div class="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold">
-                            {% for tag in conversacion.etiquetas.all %}
-                                <span class="rounded-full px-2 py-1" style="background: {{ tag.color }}1a; color: {{ tag.color }};">#{{ tag.nombre }}</span>
-                            {% empty %}
-                                <span class="rounded-full bg-slate-100 px-2 py-1 text-slate-500">Sin etiquetas</span>
-                            {% endfor %}
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between gap-2">
+                                <h3 class="text-base font-medium truncate" style="color: #e9edef;">{{ conversacion.cliente.nombre }}</h3>
+                                <span class="text-xs whitespace-nowrap" style="color: #8696a0;">{{ conversacion.ultima_actualizacion|date:"H:i" }}</span>
+                            </div>
+                            <div class="flex items-center justify-between gap-2 mt-1">
+                                <p class="text-sm truncate" style="color: #8696a0;">
+                                    {% if conversacion.mensajes.last %}
+                                        {{ conversacion.mensajes.last.contenido|truncatewords:10 }}
+                                    {% else %}
+                                        Sin mensajes
+                                    {% endif %}
+                                </p>
+                                {% if conversacion.prioridad == 'urgent' %}
+                                    <span class="flex-shrink-0 w-2 h-2 rounded-full" style="background: #ef4444;"></span>
+                                {% endif %}
+                            </div>
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="text-xs" style="color: #8696a0;">{{ conversacion.get_fuente_display }}</span>
+                                {% for tag in conversacion.etiquetas.all|slice:":2" %}
+                                    <span class="text-xs px-1.5 py-0.5 rounded" style="background: {{ tag.color }}20; color: {{ tag.color }};">
+                                        #{{ tag.nombre }}
+                                    </span>
+                                {% endfor %}
+                            </div>
                         </div>
                     </article>
                 {% empty %}
-                    <p class="text-sm text-slate-500">No hay conversaciones todavía.</p>
+                    <div class="p-8 text-center">
+                        <p class="text-sm" style="color: #8696a0;">No hay conversaciones todavía.</p>
+                    </div>
                 {% endfor %}
             </div>
         </aside>
 
-        <!-- Chat -->
-        <section id="chat-panel" class="glass-card flex h-[calc(100vh-14rem)] flex-col overflow-hidden rounded-3xl border border-white/60 shadow-xl">
-            <div class="flex items-center justify-between border-b border-slate-200/70 p-5">
-                <div class="flex items-center gap-3">
-                    <button id="back-to-list" class="rounded-full border border-slate-200 bg-white/70 p-2 text-slate-500 hover:text-slate-900 lg:hidden">
-                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 18l-6-6 6-6"/></svg>
+        <!-- Panel de chat -->
+        <section id="chat-panel" class="flex flex-col overflow-hidden" style="background: #0b141a;">
+            <!-- Header del chat -->
+            <div class="chat-header">
+                <div class="chat-header-left">
+                    <button id="back-to-list" class="lg:hidden chat-header-icon">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                        </svg>
                     </button>
-                    <div>
-                        <p id="chat-customer-name" class="text-lg font-semibold text-slate-900">Seleccioná una conversación</p>
-                        <div class="flex flex-wrap gap-2 text-xs text-slate-500">
-                            <span id="chat-customer-phone"></span>
-                            <span id="chat-source"></span>
-                        </div>
+                    <div class="relative">
+                        <div class="avatar-circle" id="chat-avatar" style="background: #2a3942;">?</div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h3 id="chat-customer-name" class="text-base font-semibold" style="color: #e9edef;">Seleccioná una conversación</h3>
+                        <p id="chat-customer-status" class="text-xs opacity-90" style="color: #8696a0;">en línea</p>
                     </div>
                 </div>
-                <div class="flex flex-wrap items-center gap-2 text-xs font-semibold">
-                    <button id="sla-badge" class="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-amber-700 hidden"></button>
-                    <button id="summarize-chat" class="rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-slate-600 transition hover:text-slate-900" disabled>Resumir</button>
-                    <button id="quick-note" class="rounded-full bg-slate-900 px-3 py-1 text-white shadow hover:bg-slate-800" disabled>Guardar nota</button>
+                <div class="chat-header-right">
+                    <button id="btn-analisis-cliente" class="chat-header-icon" title="Ver análisis e información del cliente" disabled>
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                    </button>
+                    <button class="chat-header-icon" title="Llamar">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+                        </svg>
+                    </button>
+                    <button class="chat-header-icon" title="Videollamada">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                        </svg>
+                    </button>
+                    <button class="chat-header-icon" title="Más opciones">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
+                        </svg>
+                    </button>
                 </div>
             </div>
 
-            <div id="chat-window" class="flex-1 overflow-y-auto bg-gradient-to-b from-white/80 to-white/40 p-6">
-                <p class="text-sm text-slate-500">Elegí una conversación de la izquierda para ver el historial.</p>
+            <!-- Ventana de mensajes -->
+            <div id="chat-window" class="whatsapp-bg flex-1 overflow-y-auto custom-scrollbar p-4">
+                <div id="messages-container" class="space-y-2">
+                    <p class="text-center text-sm py-8" style="color: #8696a0;">Elegí una conversación para ver los mensajes</p>
+                </div>
             </div>
 
-            <div class="border-t border-slate-200/70 p-5">
-                <div class="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
-                    <textarea id="message-box" class="h-24 w-full resize-none rounded-xl border border-transparent bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-500/20" placeholder="Escribí un mensaje o pedile a la IA que proponga una respuesta" disabled></textarea>
-                    <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold">
-                        <div class="flex flex-wrap gap-2">
-                            <button id="ai-suggest" class="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-2 text-indigo-600 transition hover:border-indigo-300 hover:text-indigo-700" disabled>✨ Sugerir con IA</button>
-                            <button id="attach-file" class="rounded-full border border-slate-200 bg-white px-3 py-2 text-slate-600 hover:text-slate-900" disabled>Adjuntar archivo</button>
-                        </div>
-                        <button id="send-message" class="rounded-full bg-slate-900 px-4 py-2 text-white shadow hover:bg-slate-800" disabled>Enviar</button>
-                    </div>
+            <!-- Input de mensaje -->
+            <div class="message-input-container">
+                <div class="message-input-wrapper">
+                    <button class="input-icon" id="attach-file" title="Adjuntar" disabled>
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                        </svg>
+                    </button>
+                    <textarea id="message-box" 
+                              class="message-input" 
+                              placeholder="Escribí un mensaje"
+                              rows="1"
+                              disabled></textarea>
+                    <button class="input-icon" id="ai-suggest" title="Sugerir con IA" disabled>
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                        </svg>
+                    </button>
                 </div>
+                <button id="send-message" class="send-button" disabled>
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                    </svg>
+                </button>
             </div>
         </section>
-
-        <!-- Detalle -->
-        <aside id="detail-panel" class="glass-card hidden h-[calc(100vh-14rem)] flex-col overflow-hidden rounded-3xl border border-white/60 shadow-xl lg:flex">
-            <div class="border-b border-slate-200/70 p-6">
-                <h2 class="text-base font-semibold text-slate-900">Ficha del cliente</h2>
-                <p class="text-xs text-slate-500">Datos de contacto, etiquetas y notas internas</p>
-            </div>
-            <div id="client-summary" class="flex-1 overflow-y-auto p-6 text-sm text-slate-600">
-                <p>Seleccioná una conversación para ver los detalles.</p>
-            </div>
-            <div class="border-t border-slate-200/70 p-6">
-                <h3 class="text-sm font-semibold text-slate-900">Acciones rápidas</h3>
-                <div class="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
-                    <button class="quick-action" data-status="Abierta">Reabrir</button>
-                    <button class="quick-action" data-status="Pendiente">Marcar pendiente</button>
-                    <button class="quick-action" data-status="En seguimiento">Seguimiento</button>
-                    <button class="quick-action" data-status="Cerrada">Cerrar</button>
-                </div>
-            </div>
-        </aside>
     </div>
 
-    <template id="message-template">
-        <div class="flex items-start gap-3">
-            <div class="avatar h-10 w-10 rounded-2xl bg-slate-900 text-sm font-semibold text-white"></div>
-            <div class="bubble max-w-xl rounded-2xl bg-white/90 p-4 shadow-sm">
-                <p class="text-sm text-slate-700"></p>
-                <time class="mt-2 block text-[11px] font-semibold uppercase tracking-wide text-slate-400"></time>
+    <!-- Modal de Análisis del Cliente -->
+    <div id="modal-analisis-cliente" class="client-analysis-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h2 class="text-xl font-semibold" style="color: #e9edef;">Análisis del Cliente</h2>
+                    <p class="text-xs mt-1" style="color: #8696a0;">Resumen e insights de IA</p>
+                </div>
+                <button id="cerrar-modal-analisis" class="rounded-full p-2 hover:bg-opacity-20 transition" style="color: #8696a0; background: rgba(255,255,255,0.1);">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body custom-scrollbar">
+                <div id="client-summary">
+                    <p class="text-center py-8" style="color: #8696a0;">Seleccioná una conversación para ver el análisis</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <h3 class="text-sm font-semibold mb-3" style="color: #e9edef;">Acciones rápidas</h3>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button class="action-button secondary quick-action text-xs py-2" data-status="Abierta">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                </svg>
+                                Reabrir
+                            </button>
+                            <button class="action-button secondary quick-action text-xs py-2" data-status="Pendiente">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                Pendiente
+                            </button>
+                            <button class="action-button secondary quick-action text-xs py-2" data-status="En seguimiento">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                                </svg>
+                                Seguimiento
+                            </button>
+                            <button class="action-button secondary quick-action text-xs py-2" data-status="Cerrada">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                                Cerrar
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-semibold mb-3" style="color: #e9edef;">Productos</h3>
+                        <div class="space-y-2">
+                            <button id="btn-buscar-producto" class="action-button primary text-xs py-2" disabled>
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                </svg>
+                                Buscar producto
+                            </button>
+                            <button id="btn-crear-cotizacion" class="action-button secondary text-xs py-2" disabled>
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                                Crear cotización
+                            </button>
+                            <button id="btn-reiniciar-conversacion" class="action-button danger text-xs py-2" disabled style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border-color: rgba(239, 68, 68, 0.3);">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                </svg>
+                                Reiniciar chat
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-    </template>
+    </div>
+
+    <!-- Modales -->
+    <div id="modal-buscar-producto" class="fixed inset-0 z-50 hidden items-center justify-center" style="background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px);">
+        <div class="m-4 max-w-2xl rounded-2xl shadow-2xl p-6" style="background: #202c33;">
+            <div class="mb-4 flex items-center justify-between">
+                <h3 class="text-lg font-semibold" style="color: #e9edef;">Buscar producto</h3>
+                <button id="cerrar-modal-producto" class="rounded-full p-2 hover:bg-opacity-20" style="color: #8696a0; background: rgba(255,255,255,0.1);">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <input type="text" id="input-buscar-producto" placeholder="Buscar por nombre, SKU o categoría..." class="w-full rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2" style="background: #2a3942; border: 1px solid #3d4a52; color: #e9edef; focus:border-color: #00a884; focus:ring-color: #00a884;">
+            <div id="resultados-productos" class="mt-4 max-h-96 space-y-2 overflow-y-auto custom-scrollbar"></div>
+        </div>
+    </div>
+    
+    <div id="modal-crear-cotizacion" class="fixed inset-0 z-50 hidden items-center justify-center" style="background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px);">
+        <div class="m-4 max-w-3xl rounded-2xl shadow-2xl p-6" style="background: #202c33;">
+            <div class="mb-4 flex items-center justify-between">
+                <h3 class="text-lg font-semibold" style="color: #e9edef;">Crear cotización</h3>
+                <button id="cerrar-modal-cotizacion" class="rounded-full p-2 hover:bg-opacity-20" style="color: #8696a0; background: rgba(255,255,255,0.1);">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <input type="text" id="input-buscar-cotizacion" placeholder="Buscar productos para agregar..." class="w-full rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2" style="background: #2a3942; border: 1px solid #3d4a52; color: #e9edef; focus:border-color: #00a884;">
+                    <div id="resultados-cotizacion" class="mt-2 max-h-48 space-y-2 overflow-y-auto custom-scrollbar"></div>
+                </div>
+                <div id="productos-cotizacion" class="space-y-2"></div>
+                <div class="flex items-center justify-between border-t pt-4" style="border-color: #3d4a52;">
+                    <span class="text-sm font-semibold" style="color: #e9edef;">Total:</span>
+                    <span id="total-cotizacion" class="text-xl font-bold" style="color: #00a884;">$0.00</span>
+                </div>
+                <div class="flex gap-2">
+                    <button id="cancelar-cotizacion" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-medium hover:opacity-80" style="background: #2a3942; color: #e9edef; border: 1px solid #3d4a52;">Cancelar</button>
+                    <button id="enviar-cotizacion" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-medium text-white hover:opacity-90" style="background: #00a884;">Crear y enviar</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
-    const conversationCards = document.querySelectorAll('.conversation-card');
+    const conversationCards = document.querySelectorAll('.conversation-item');
     const chatPanel = document.getElementById('chat-panel');
     const chatWindow = document.getElementById('chat-window');
-    const messageTemplate = document.getElementById('message-template');
+    const messagesContainer = document.getElementById('messages-container');
     const messageBox = document.getElementById('message-box');
     const sendButton = document.getElementById('send-message');
     const aiSuggestButton = document.getElementById('ai-suggest');
-    const summarizeButton = document.getElementById('summarize-chat');
     const detailPanel = document.getElementById('client-summary');
-    const slaBadge = document.getElementById('sla-badge');
-    const quickActions = document.querySelectorAll('.quick-action');
-    const filterChips = document.querySelectorAll('.filter-chip');
+    const filterTabs = document.querySelectorAll('.filter-tab');
     const searchInput = document.getElementById('conversation-search');
+    const modalAnalisis = document.getElementById('modal-analisis-cliente');
+    const btnAnalisisCliente = document.getElementById('btn-analisis-cliente');
+    const cerrarModalAnalisis = document.getElementById('cerrar-modal-analisis');
     let currentConversation = null;
+    let chatSocket = null;
+    let typingIndicator = null;
 
-    function formatPriority(pill, priority) {
-        const map = {
-            low: ['bg-emerald-50 text-emerald-600 border border-emerald-200', 'Baja'],
-            medium: ['bg-blue-50 text-blue-600 border border-blue-200', 'Media'],
-            high: ['bg-amber-50 text-amber-600 border border-amber-200', 'Alta'],
-            urgent: ['bg-rose-50 text-rose-600 border border-rose-200', 'Urgente'],
-        };
-        const [cls, label] = map[priority] || map.medium;
-        pill.className = `rounded-full px-2 py-1 text-[11px] font-semibold ${cls}`;
-        pill.textContent = label;
-    }
+    // Auto-resize textarea
+    messageBox.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+    });
 
     conversationCards.forEach(card => {
-        formatPriority(card.querySelector('[data-priority-pill]'), card.dataset.prioridad);
         card.addEventListener('click', async () => {
-            conversationCards.forEach(c => c.classList.remove('ring-2', 'ring-slate-900/20'));
-            card.classList.add('ring-2', 'ring-slate-900/20');
+            conversationCards.forEach(c => c.classList.remove('active'));
+            card.classList.add('active');
             chatPanel.classList.add('active');
             await loadConversation(card.dataset.convId);
         });
@@ -245,72 +1035,431 @@
         messageBox.disabled = false;
         sendButton.disabled = false;
         aiSuggestButton.disabled = false;
-        summarizeButton.disabled = false;
+        document.getElementById('attach-file').disabled = false;
+        document.getElementById('btn-buscar-producto').disabled = false;
+        document.getElementById('btn-crear-cotizacion').disabled = false;
+        document.getElementById('btn-reiniciar-conversacion').disabled = false;
+        document.querySelectorAll('.quick-action').forEach(btn => btn.disabled = false);
+        
+        // Habilitar botón de análisis del cliente
+        if (btnAnalisisCliente) {
+            btnAnalisisCliente.disabled = false;
+            btnAnalisisCliente.style.opacity = '1';
+            btnAnalisisCliente.style.cursor = 'pointer';
+        }
+
+        // Cerrar conexión WebSocket anterior si existe
+        if (chatSocket) {
+            chatSocket.close();
+            chatSocket = null;
+        }
+
+        // Conectar WebSocket para esta conversación
+        connectWebSocket(id);
 
         const response = await fetch(`/chat/api/conversacion/${id}/`);
         if (!response.ok) {
-            chatWindow.innerHTML = '<p class="text-sm text-rose-500">No se pudo cargar la conversación.</p>';
+            messagesContainer.innerHTML = '<p class="text-sm text-center py-8" style="color: #ef4444;">No se pudo cargar la conversación.</p>';
             return;
         }
         const data = await response.json();
         renderConversation(data);
+        await loadClienteContexto(id);
     }
+    
+    function connectWebSocket(convId) {
+        // Construir URL del WebSocket
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws/chat/${convId}/`;
+        
+        chatSocket = new WebSocket(wsUrl);
+        
+        chatSocket.onopen = function(e) {
+            console.log('WebSocket conectado para conversación', convId);
+        };
+        
+        chatSocket.onmessage = function(e) {
+            try {
+                const data = JSON.parse(e.data);
+                console.log('[WEBSOCKET] Mensaje recibido:', data);
+                
+                if (data.type === 'message') {
+                    // Agregar nuevo mensaje al chat
+                    console.log('[WEBSOCKET] Agregando mensaje al chat:', data.data);
+                    addMessageToChat(data.data);
+                } else if (data.type === 'typing') {
+                    // Mostrar/ocultar indicador de "escribiendo..."
+                    console.log('[WEBSOCKET] Cambiando estado de typing:', data.data);
+                    showTypingIndicator(data.data);
+                } else if (data.type === 'reload') {
+                    // Recargar la conversación completa
+                    console.log('[WEBSOCKET] Recargando conversación');
+                    loadConversation(convId);
+                } else {
+                    console.log('[WEBSOCKET] Tipo de mensaje desconocido:', data.type, data);
+                }
+            } catch (error) {
+                console.error('[WEBSOCKET] Error procesando mensaje:', error, e.data);
+            }
+        };
+        
+        chatSocket.onerror = function(e) {
+            console.error('Error en WebSocket:', e);
+        };
+        
+        chatSocket.onclose = function(e) {
+            console.log('WebSocket desconectado');
+            // Intentar reconectar después de 3 segundos
+            if (currentConversation === convId) {
+                setTimeout(() => {
+                    if (currentConversation === convId) {
+                        connectWebSocket(convId);
+                    }
+                }, 3000);
+            }
+        };
+    }
+    
+    // Set para rastrear mensajes ya agregados (evitar duplicados)
+    const mensajesAgregados = new Set();
+    
+    function addMessageToChat(messageData) {
+        // Remover indicador de "escribiendo" si existe
+        if (typingIndicator) {
+            typingIndicator.remove();
+            typingIndicator = null;
+        }
+        
+        // Crear un ID único para el mensaje (contenido + fecha + emisor)
+        const mensajeId = `${messageData.emisor}_${messageData.contenido}_${messageData.fecha_envio || ''}`;
+        
+        // Verificar si el mensaje ya existe
+        if (mensajesAgregados.has(mensajeId)) {
+            console.log('[CHAT] Mensaje duplicado ignorado:', mensajeId);
+            return;
+        }
+        
+        // Marcar como agregado
+        mensajesAgregados.add(mensajeId);
+        
+        const isSent = messageData.emisor !== 'Cliente';
+        const bubble = document.createElement('div');
+        bubble.className = `flex items-end gap-2 ${isSent ? 'flex-row-reverse' : ''}`;
+        bubble.style.marginBottom = '4px';
+        bubble.setAttribute('data-mensaje-id', mensajeId); // Agregar atributo para identificación
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message-bubble ${isSent ? 'sent' : 'received'}`;
+        
+        // Formatear el contenido: convertir saltos de línea a <br>
+        let contenidoFormateado = escapeHtml(messageData.contenido || '');
+        contenidoFormateado = contenidoFormateado.replace(/\n/g, '<br>');
+        
+        messageDiv.innerHTML = `
+            <div class="text-sm" style="color: #e9edef; white-space: pre-wrap; word-wrap: break-word; line-height: 1.4;">${contenidoFormateado}</div>
+            <div class="text-xs mt-1" style="color: rgba(233, 237, 239, 0.6); display: flex; align-items: center; gap: 4px;">
+                <span>${messageData.fecha_envio || new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</span>
+                ${isSent ? '<span class="message-status read">✓✓</span>' : ''}
+            </div>
+        `;
+        
+        bubble.appendChild(messageDiv);
+        messagesContainer.appendChild(bubble);
+        
+        // Scroll al final
+        setTimeout(() => {
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }, 50);
+    }
+    
+    function showTypingIndicator(show) {
+        // Remover indicador existente
+        if (typingIndicator) {
+            typingIndicator.remove();
+            typingIndicator = null;
+        }
+        
+        if (show) {
+            // Crear indicador de "escribiendo..."
+            typingIndicator = document.createElement('div');
+            typingIndicator.className = 'flex items-end gap-2';
+            typingIndicator.id = 'typing-indicator';
+            
+            const typingBubble = document.createElement('div');
+            typingBubble.className = 'message-bubble received';
+            typingBubble.innerHTML = `
+                <div class="flex gap-1" style="padding: 4px 0;">
+                    <div class="typing-dot" style="width: 8px; height: 8px; background: rgba(233, 237, 239, 0.6); border-radius: 50%; animation: typing 1.4s infinite;"></div>
+                    <div class="typing-dot" style="width: 8px; height: 8px; background: rgba(233, 237, 239, 0.6); border-radius: 50%; animation: typing 1.4s infinite 0.2s;"></div>
+                    <div class="typing-dot" style="width: 8px; height: 8px; background: rgba(233, 237, 239, 0.6); border-radius: 50%; animation: typing 1.4s infinite 0.4s;"></div>
+                </div>
+            `;
+            
+            typingIndicator.appendChild(typingBubble);
+            messagesContainer.appendChild(typingIndicator);
+            
+            // Scroll al final
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    async function loadClienteContexto(convId) {
+        if (!convId) {
+            console.error('No hay ID de conversación');
+            detailPanel.innerHTML = '<p class="text-center py-8" style="color: #ef4444;">No hay conversación seleccionada.</p>';
+            return;
+        }
+        
+        try {
+            console.log('Cargando contexto para conversación:', convId);
+            const response = await fetch(`/chat/api/conversacion/${convId}/contexto/`);
+            console.log('Respuesta recibida:', response.status, response.statusText);
+            
+            if (response.ok) {
+                const contexto = await response.json();
+                console.log('Contexto recibido:', contexto);
+                updateClienteContexto(contexto);
+            } else {
+                const errorText = await response.text();
+                console.error('Error en la respuesta:', response.status, response.statusText, errorText);
+                detailPanel.innerHTML = `<p class="text-center py-8" style="color: #ef4444;">Error al cargar el análisis (${response.status}). Por favor intentá nuevamente.</p>`;
+            }
+        } catch (e) {
+            console.error('Error cargando contexto:', e);
+            detailPanel.innerHTML = '<p class="text-center py-8" style="color: #ef4444;">Error al cargar el análisis: ' + e.message + '</p>';
+        }
+    }
+    
+    function updateClienteContexto(contexto) {
+        console.log('Actualizando contexto del cliente:', contexto);
+        
+        if (!contexto || !contexto.cliente) {
+            console.error('Contexto inválido:', contexto);
+            detailPanel.innerHTML = '<p class="text-center py-8" style="color: #ef4444;">Error: Datos del cliente no disponibles.</p>';
+            return;
+        }
+        
+        const cliente = contexto.cliente || {};
+        const compras = contexto.compras_anteriores || [];
+        const cotizaciones = contexto.cotizaciones_activas || [];
+        const ctxPersistente = contexto.contexto_persistente || {};
+        const analisis = contexto.analisis_ia || {};
+        
+        const inicial = cliente.inicial || (cliente.nombre ? cliente.nombre.charAt(0).toUpperCase() : '?');
+        
+        let html = `
+            <div class="flex items-center gap-4 mb-6">
+                <div class="avatar-circle" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">${inicial}</div>
+                <div>
+                    <p class="text-base font-semibold" style="color: #e9edef;">${cliente.nombre || 'Sin nombre'}</p>
+                    <p class="text-xs" style="color: #8696a0;">${cliente.email || 'Sin email'}</p>
+                </div>
+            </div>
+            
+            <dl class="space-y-4 text-xs mb-6" style="color: #8696a0;">
+                <div class="flex justify-between"><dt class="font-semibold">Teléfono</dt><dd style="color: #e9edef;">${cliente.telefono || 'N/A'}</dd></div>
+                <div class="flex justify-between"><dt class="font-semibold">Tipo</dt><dd style="color: #e9edef;">${cliente.tipo || 'N/A'}</dd></div>
+                ${ctxPersistente.total_interacciones ? `<div class="flex justify-between"><dt class="font-semibold">Interacciones</dt><dd style="color: #e9edef;">${ctxPersistente.total_interacciones}</dd></div>` : ''}
+            </dl>`;
+        
+        // Termómetro de intención de compra
+        if (analisis.intencion_compra) {
+            const intencion = analisis.intencion_compra;
+            const score = intencion.score || 50;
+            const nivel = intencion.nivel || 'medio';
+            const nivelClass = nivel === 'alto' ? 'high' : nivel === 'bajo' ? 'low' : 'medium';
+            
+            html += `
+                <div class="intent-thermometer">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-semibold" style="color: #e9edef;">Intención de compra</span>
+                        <span class="text-lg font-bold" style="color: #00a884;">${score}%</span>
+                    </div>
+                    <div class="thermometer-bar">
+                        <div class="thermometer-fill ${nivelClass}" style="width: ${score}%;"></div>
+                    </div>
+                    <p class="text-xs mt-2" style="color: #8696a0;">${intencion.que_busca || 'No determinado'}</p>
+                </div>`;
+        }
+        
+        // Resumen de IA
+        if (analisis.resumen) {
+            const resumen = analisis.resumen;
+            html += `
+                <div class="info-card">
+                    <div class="info-card-title">Resumen de la conversación</div>
+                    <div class="info-card-content">${resumen.resumen_conversacion || 'Sin resumen disponible'}</div>
+                </div>
+                
+                <div class="info-card">
+                    <div class="info-card-title">Qué quiere el cliente</div>
+                    <div class="info-card-content">${resumen.que_quiere || 'No determinado'}</div>
+                </div>`;
+            
+            if (resumen.que_pregunto && resumen.que_pregunto.length > 0) {
+                html += `
+                    <div class="info-card">
+                        <div class="info-card-title">Preguntas realizadas</div>
+                        <ul class="key-points">
+                            ${resumen.que_pregunto.map(p => `<li>${p}</li>`).join('')}
+                        </ul>
+                    </div>`;
+            }
+            
+            if (resumen.puntos_clave && resumen.puntos_clave.length > 0) {
+                html += `
+                    <div class="info-card">
+                        <div class="info-card-title">Puntos clave</div>
+                        <ul class="key-points">
+                            ${resumen.puntos_clave.map(p => `<li>${p}</li>`).join('')}
+                        </ul>
+                    </div>`;
+            }
+        }
+        
+        // Sugerencias
+        if (analisis.intencion_compra && analisis.intencion_compra.sugerencias && analisis.intencion_compra.sugerencias.length > 0) {
+            html += `
+                <div class="info-card">
+                    <div class="info-card-title">Sugerencias de IA</div>
+                    <div class="space-y-2">
+                        ${analisis.intencion_compra.sugerencias.map(s => `
+                            <div class="suggestion-item" onclick="aplicarSugerencia('${s.replace(/'/g, "\\'")}')">
+                                <p class="text-sm" style="color: #e9edef;">${s}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>`;
+        }
+        
+        // Productos de interés
+        if (ctxPersistente.productos_interes && ctxPersistente.productos_interes.length > 0) {
+            html += `<div class="info-card">
+                <div class="info-card-title">Productos de interés</div>
+                <div class="flex flex-wrap gap-1 mt-2">
+                    ${ctxPersistente.productos_interes.slice(0, 5).map(p => `<span class="rounded-full px-2 py-1 text-[10px]" style="background: #00a88420; color: #00a884; border: 1px solid #00a88440;">${p}</span>`).join('')}
+                </div>
+            </div>`;
+        }
+        
+        // Compras anteriores
+        if (compras.length > 0) {
+            html += `<div class="info-card">
+                <div class="info-card-title">Compras anteriores</div>
+                <div class="space-y-1 mt-2">
+                    ${compras.map(c => `<div class="flex justify-between text-[11px]"><span style="color: #e9edef;">Venta #${c.id}</span><span style="color: #00a884;">$${c.total.toLocaleString('es-AR')}</span></div>`).join('')}
+                </div>
+            </div>`;
+        }
+        
+        // Cotizaciones activas
+        if (cotizaciones.length > 0) {
+            html += `<div class="info-card">
+                <div class="info-card-title">Cotizaciones activas</div>
+                <div class="space-y-1 mt-2">
+                    ${cotizaciones.map(c => `<div class="flex justify-between text-[11px]"><span style="color: #e9edef;">Cotización #${c.id}</span><span style="color: #00a884;">$${c.total.toLocaleString('es-AR')}</span></div>`).join('')}
+                </div>
+            </div>`;
+        }
+        
+        detailPanel.innerHTML = html;
+    }
+    
+    window.aplicarSugerencia = function(sugerencia) {
+        if (messageBox && !messageBox.disabled) {
+            messageBox.value = sugerencia;
+            messageBox.style.height = 'auto';
+            messageBox.style.height = Math.min(messageBox.scrollHeight, 100) + 'px';
+            messageBox.focus();
+        }
+    };
 
     function renderConversation(data) {
         document.getElementById('chat-customer-name').textContent = data.cliente.nombre;
-        document.getElementById('chat-customer-phone').textContent = data.cliente.telefono;
-        document.getElementById('chat-source').textContent = data.fuente;
+        document.getElementById('chat-avatar').textContent = data.cliente.inicial;
+        document.getElementById('chat-customer-status').textContent = data.fuente;
 
-        chatWindow.innerHTML = '';
-        data.mensajes.forEach(msg => {
-            const clone = messageTemplate.content.cloneNode(true);
-            const wrapper = clone.querySelector('div');
-            const bubble = clone.querySelector('.bubble');
-            const avatar = clone.querySelector('.avatar');
-            const text = clone.querySelector('p');
-            const time = clone.querySelector('time');
-
-            text.textContent = msg.contenido;
-            time.textContent = msg.fecha_envio;
-
-            if (msg.emisor === 'Cliente') {
-                avatar.textContent = data.cliente.inicial;
-            } else {
-                wrapper.classList.add('flex-row-reverse');
-                avatar.textContent = 'IS';
-                bubble.classList.add('bg-slate-900', 'text-white');
-            }
-            chatWindow.appendChild(clone);
-        });
-        chatWindow.scrollTop = chatWindow.scrollHeight;
-
-        detailPanel.innerHTML = `
-            <div class="flex items-center gap-4">
-                <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900 text-lg font-semibold text-white">${data.cliente.inicial}</div>
-                <div>
-                    <p class="text-base font-semibold text-slate-900">${data.cliente.nombre}</p>
-                    <p class="text-xs text-slate-500">${data.cliente.email}</p>
-                </div>
-            </div>
-            <dl class="mt-6 space-y-3 text-xs text-slate-600">
-                <div class="flex justify-between"><dt class="font-semibold text-slate-500">Teléfono</dt><dd>${data.cliente.telefono}</dd></div>
-                <div class="flex justify-between"><dt class="font-semibold text-slate-500">Tipo</dt><dd>${data.cliente.tipo_cliente}</dd></div>
-                <div><dt class="font-semibold text-slate-500">Etiquetas</dt><dd class="mt-2 flex flex-wrap gap-2">${data.etiquetas.map(tag => `<span class='rounded-full px-2 py-1 text-[11px]' style='background:${tag.color}1a;color:${tag.color};'>#${tag.nombre}</span>`).join('') || '<span class="text-slate-400">Sin etiquetas</span>'}</dd></div>
-                <div><dt class="font-semibold text-slate-500">Notas</dt><dd class="mt-2 whitespace-pre-line rounded-xl bg-white/70 p-3 text-[13px]">${data.resumen || 'Sin notas registradas.'}</dd></div>
-            </dl>`;
-
-        if (data.sla) {
-            slaBadge.textContent = `SLA ${new Date(data.sla).toLocaleString('es-AR')}`;
-            slaBadge.classList.remove('hidden');
-        } else {
-            slaBadge.classList.add('hidden');
+        messagesContainer.innerHTML = '';
+        // Limpiar el set de mensajes agregados cuando se carga una nueva conversación
+        mensajesAgregados.clear();
+        
+        if (data.mensajes.length === 0) {
+            messagesContainer.innerHTML = '<p class="text-center text-sm py-8" style="color: #8696a0;">No hay mensajes todavía</p>';
+            return;
         }
+        
+        data.mensajes.forEach(msg => {
+            // Crear ID único para cada mensaje
+            const mensajeId = `${msg.emisor}_${msg.contenido}_${msg.fecha_envio || ''}`;
+            mensajesAgregados.add(mensajeId); // Marcar como agregado
+            const isSent = msg.emisor !== 'Cliente';
+            const bubble = document.createElement('div');
+            bubble.className = `flex items-end gap-2 ${isSent ? 'flex-row-reverse' : ''}`;
+            bubble.style.marginBottom = '4px';
+            bubble.setAttribute('data-mensaje-id', mensajeId); // Agregar atributo para identificación
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message-bubble ${isSent ? 'sent' : 'received'}`;
+            
+            // Formatear el contenido: convertir saltos de línea a <br> y preservar formato
+            let contenidoFormateado = escapeHtml(msg.contenido || '');
+            // Convertir saltos de línea a <br>
+            contenidoFormateado = contenidoFormateado.replace(/\n/g, '<br>');
+            
+            const textDiv = document.createElement('div');
+            textDiv.className = 'text-sm';
+            textDiv.style.color = '#e9edef';
+            textDiv.style.whiteSpace = 'pre-wrap';
+            textDiv.style.wordWrap = 'break-word';
+            textDiv.style.lineHeight = '1.4';
+            textDiv.innerHTML = contenidoFormateado;
+            
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'text-xs mt-1';
+            timeDiv.style.color = isSent ? 'rgba(233, 237, 239, 0.6)' : 'rgba(233, 237, 239, 0.6)';
+            timeDiv.style.display = 'flex';
+            timeDiv.style.alignItems = 'center';
+            timeDiv.style.gap = '4px';
+            timeDiv.innerHTML = `
+                <span>${msg.fecha_envio || ''}</span>
+                ${isSent ? '<span class="message-status read">✓✓</span>' : ''}
+            `;
+            
+            messageDiv.appendChild(textDiv);
+            messageDiv.appendChild(timeDiv);
+            bubble.appendChild(messageDiv);
+            messagesContainer.appendChild(bubble);
+        });
+        
+        // Scroll al final después de un pequeño delay para asegurar que se renderizó
+        setTimeout(() => {
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }, 100);
     }
 
     sendButton.addEventListener('click', async () => {
         const message = messageBox.value.trim();
         if (!message || !currentConversation) return;
 
+        // Mostrar el mensaje inmediatamente en el chat
+        const tempMessage = {
+            emisor: 'Sistema',
+            contenido: message,
+            fecha_envio: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+        };
+        addMessageToChat(tempMessage);
+        
+        // Limpiar el input
+        messageBox.value = '';
+        messageBox.style.height = 'auto';
+
+        // Enviar mensaje al servidor
         const response = await fetch('{% url "crm:enviar_mensaje" %}', {
             method: 'POST',
             headers: {
@@ -321,12 +1470,61 @@
         });
 
         if (response.ok) {
-            messageBox.value = '';
-            await loadConversation(currentConversation);
+            // El mensaje ya se mostró, la respuesta llegará por WebSocket
+            // Mostrar indicador de "escribiendo..." mientras esperamos la respuesta
+            showTypingIndicator(true);
+        } else {
+            // Si falla, remover el mensaje temporal
+            const lastMessage = messagesContainer.lastElementChild;
+            if (lastMessage) {
+                lastMessage.remove();
+            }
+            alert('Error al enviar el mensaje');
         }
     });
 
-    quickActions.forEach(btn => btn.addEventListener('click', async () => {
+    messageBox.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendButton.click();
+        }
+    });
+
+    // Sugerir respuesta con IA
+    aiSuggestButton.addEventListener('click', async () => {
+        if (!currentConversation) return;
+        
+        aiSuggestButton.disabled = true;
+        aiSuggestButton.innerHTML = '<svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
+        
+        try {
+            const response = await fetch('{% url "crm:sugerir_respuesta_ia" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({ conversacion_id: currentConversation })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.sugerencia) {
+                    messageBox.value = data.sugerencia;
+                    messageBox.style.height = 'auto';
+                    messageBox.style.height = Math.min(messageBox.scrollHeight, 100) + 'px';
+                    messageBox.focus();
+                }
+            }
+        } catch (e) {
+            console.error('Error obteniendo sugerencia:', e);
+        } finally {
+            aiSuggestButton.disabled = false;
+            aiSuggestButton.innerHTML = '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>';
+        }
+    });
+
+    document.querySelectorAll('.quick-action').forEach(btn => btn.addEventListener('click', async () => {
         if (!currentConversation) return;
         const response = await fetch(`/chat/api/conversacion/${currentConversation}/actualizar/`, {
             method: 'POST',
@@ -338,18 +1536,19 @@
         });
         if (response.ok) {
             await loadConversation(currentConversation);
+            // Recargar lista de conversaciones
+            location.reload();
         }
     }));
 
-    filterChips.forEach(chip => {
-        chip.addEventListener('click', () => {
-            filterChips.forEach(c => c.classList.remove('active'));
-            chip.classList.add('active');
-            const filter = chip.dataset.filter;
+    filterTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            filterTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            const filter = tab.dataset.filter;
             conversationCards.forEach(card => {
                 const matchEstado = filter === 'todos' || card.dataset.estado === filter;
-                const matchPrioridad = ['low', 'medium', 'high', 'urgent'].includes(filter) ? card.dataset.prioridad === filter : true;
-                card.classList.toggle('hidden', !(matchEstado && matchPrioridad));
+                card.classList.toggle('hidden', !matchEstado);
             });
         });
     });
@@ -369,6 +1568,350 @@
     document.getElementById('back-to-list').addEventListener('click', () => {
         chatPanel.classList.remove('active');
     });
+    
+    // Abrir modal de análisis del cliente
+    btnAnalisisCliente.addEventListener('click', async () => {
+        if (currentConversation) {
+            modalAnalisis.classList.add('active');
+            // Mostrar loading
+            detailPanel.innerHTML = '<p class="text-center py-8" style="color: #8696a0;">Cargando análisis...</p>';
+            // Cargar datos
+            await loadClienteContexto(currentConversation);
+        } else {
+            alert('Por favor seleccioná una conversación primero');
+        }
+    });
+    
+    // Cerrar modal
+    cerrarModalAnalisis.addEventListener('click', () => {
+        modalAnalisis.classList.remove('active');
+    });
+    
+    // Cerrar modal al hacer clic fuera
+    modalAnalisis.addEventListener('click', (e) => {
+        if (e.target === modalAnalisis) {
+            modalAnalisis.classList.remove('active');
+        }
+    });
+    
+    // Cerrar modal con ESC
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modalAnalisis.classList.contains('active')) {
+            modalAnalisis.classList.remove('active');
+        }
+    });
+    
+    // Acciones rápidas - Buscar y enviar producto
+    const btnBuscarProducto = document.getElementById('btn-buscar-producto');
+    const modalBuscarProducto = document.getElementById('modal-buscar-producto');
+    const inputBuscarProducto = document.getElementById('input-buscar-producto');
+    const resultadosProductos = document.getElementById('resultados-productos');
+    const cerrarModalProducto = document.getElementById('cerrar-modal-producto');
+    
+    let buscarTimeout = null;
+    
+    btnBuscarProducto.addEventListener('click', () => {
+        if (!currentConversation) return;
+        modalBuscarProducto.classList.remove('hidden');
+        modalBuscarProducto.classList.add('flex');
+        inputBuscarProducto.focus();
+    });
+    
+    cerrarModalProducto.addEventListener('click', () => {
+        modalBuscarProducto.classList.add('hidden');
+        modalBuscarProducto.classList.remove('flex');
+        inputBuscarProducto.value = '';
+        resultadosProductos.innerHTML = '';
+    });
+    
+    inputBuscarProducto.addEventListener('input', (e) => {
+        clearTimeout(buscarTimeout);
+        const query = e.target.value.trim();
+        
+        if (query.length < 2) {
+            resultadosProductos.innerHTML = '';
+            return;
+        }
+        
+        buscarTimeout = setTimeout(async () => {
+            try {
+                const response = await fetch(`{% url "crm:buscar_productos_api" %}?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                renderResultadosProductos(data.productos);
+            } catch (e) {
+                console.error('Error buscando productos:', e);
+            }
+        }, 300);
+    });
+    
+    function renderResultadosProductos(productos) {
+        if (productos.length === 0) {
+            resultadosProductos.innerHTML = '<p class="text-sm text-center py-4" style="color: #8696a0;">No se encontraron productos</p>';
+            return;
+        }
+        
+        resultadosProductos.innerHTML = productos.map(prod => {
+            const precio = prod.precio_minorista || prod.precio_mayorista || 0;
+            const atributos = [prod.atributo_1, prod.atributo_2].filter(a => a).join(' - ');
+            return `
+                <div class="rounded-lg p-4 hover:opacity-80 transition" style="background: #2a3942; border: 1px solid #3d4a52;">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <h4 class="font-semibold" style="color: #e9edef;">${prod.nombre}</h4>
+                            ${atributos ? `<p class="text-xs mt-1" style="color: #8696a0;">${atributos}</p>` : ''}
+                            <p class="text-xs mt-1" style="color: #8696a0;">SKU: ${prod.sku} | Stock: ${prod.stock}</p>
+                            <p class="text-sm font-semibold mt-2" style="color: #00a884;">$${precio.toLocaleString('es-AR', {minimumFractionDigits: 2})}</p>
+                        </div>
+                        <button onclick="enviarProducto(${prod.id})" class="ml-4 rounded-lg px-4 py-2 text-xs font-semibold text-white hover:opacity-90" style="background: #00a884;">
+                            Enviar
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    window.enviarProducto = async function(varianteId) {
+        if (!currentConversation) return;
+        
+        try {
+            const response = await fetch('{% url "crm:enviar_producto_chat" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    conversacion_id: currentConversation,
+                    variante_id: varianteId
+                })
+            });
+            
+            if (response.ok) {
+                modalBuscarProducto.classList.add('hidden');
+                modalBuscarProducto.classList.remove('flex');
+                inputBuscarProducto.value = '';
+                resultadosProductos.innerHTML = '';
+                await loadConversation(currentConversation);
+            } else {
+                alert('Error al enviar el producto');
+            }
+        } catch (e) {
+            console.error('Error:', e);
+            alert('Error al enviar el producto');
+        }
+    };
+    
+    // Acciones rápidas - Crear cotización
+    const btnCrearCotizacion = document.getElementById('btn-crear-cotizacion');
+    const modalCrearCotizacion = document.getElementById('modal-crear-cotizacion');
+    const inputBuscarCotizacion = document.getElementById('input-buscar-cotizacion');
+    const resultadosCotizacion = document.getElementById('resultados-cotizacion');
+    const productosCotizacion = document.getElementById('productos-cotizacion');
+    const totalCotizacion = document.getElementById('total-cotizacion');
+    const cerrarModalCotizacion = document.getElementById('cerrar-modal-cotizacion');
+    const cancelarCotizacion = document.getElementById('cancelar-cotizacion');
+    const enviarCotizacion = document.getElementById('enviar-cotizacion');
+    
+    let productosSeleccionados = [];
+    let buscarCotizacionTimeout = null;
+    
+    btnCrearCotizacion.addEventListener('click', () => {
+        if (!currentConversation) return;
+        productosSeleccionados = [];
+        actualizarProductosCotizacion();
+        modalCrearCotizacion.classList.remove('hidden');
+        modalCrearCotizacion.classList.add('flex');
+        inputBuscarCotizacion.focus();
+    });
+    
+    cerrarModalCotizacion.addEventListener('click', cerrarModalCotizacionFn);
+    cancelarCotizacion.addEventListener('click', cerrarModalCotizacionFn);
+    
+    function cerrarModalCotizacionFn() {
+        modalCrearCotizacion.classList.add('hidden');
+        modalCrearCotizacion.classList.remove('flex');
+        inputBuscarCotizacion.value = '';
+        resultadosCotizacion.innerHTML = '';
+        productosSeleccionados = [];
+        actualizarProductosCotizacion();
+    }
+    
+    inputBuscarCotizacion.addEventListener('input', (e) => {
+        clearTimeout(buscarCotizacionTimeout);
+        const query = e.target.value.trim();
+        
+        if (query.length < 2) {
+            resultadosCotizacion.innerHTML = '';
+            return;
+        }
+        
+        buscarCotizacionTimeout = setTimeout(async () => {
+            try {
+                const response = await fetch(`{% url "crm:buscar_productos_api" %}?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                renderResultadosCotizacion(data.productos);
+            } catch (e) {
+                console.error('Error buscando productos:', e);
+            }
+        }, 300);
+    });
+    
+    function renderResultadosCotizacion(productos) {
+        if (productos.length === 0) {
+            resultadosCotizacion.innerHTML = '<p class="text-sm text-center py-2" style="color: #8696a0;">No se encontraron productos</p>';
+            return;
+        }
+        
+        resultadosCotizacion.innerHTML = productos.map(prod => {
+            const precio = prod.precio_minorista || prod.precio_mayorista || 0;
+            const atributos = [prod.atributo_1, prod.atributo_2].filter(a => a).join(' - ');
+            const yaAgregado = productosSeleccionados.some(p => p.id === prod.id);
+            return `
+                <div class="rounded-lg p-3 hover:opacity-80 transition" style="background: #2a3942; border: 1px solid #3d4a52;">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1">
+                            <h4 class="text-sm font-semibold" style="color: #e9edef;">${prod.nombre}</h4>
+                            ${atributos ? `<p class="text-xs" style="color: #8696a0;">${atributos}</p>` : ''}
+                            <p class="text-xs font-semibold mt-1" style="color: #00a884;">$${precio.toLocaleString('es-AR', {minimumFractionDigits: 2})}</p>
+                        </div>
+                        ${yaAgregado ? 
+                            '<span class="text-xs" style="color: #8696a0;">Agregado</span>' :
+                            `<button onclick="agregarProductoCotizacion(${prod.id}, '${prod.nombre.replace(/'/g, "\\'")}', ${precio})" class="ml-3 rounded-lg px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90" style="background: #00a884;">
+                                Agregar
+                            </button>`
+                        }
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    window.agregarProductoCotizacion = function(id, nombre, precio) {
+        productosSeleccionados.push({id, nombre, precio, cantidad: 1});
+        actualizarProductosCotizacion();
+        inputBuscarCotizacion.value = '';
+        resultadosCotizacion.innerHTML = '';
+    };
+    
+    function actualizarProductosCotizacion() {
+        if (productosSeleccionados.length === 0) {
+            productosCotizacion.innerHTML = '<p class="text-sm text-center py-4" style="color: #8696a0;">No hay productos agregados</p>';
+            totalCotizacion.textContent = '$0.00';
+            return;
+        }
+        
+        let total = 0;
+        productosCotizacion.innerHTML = productosSeleccionados.map((prod, index) => {
+            const subtotal = prod.precio * prod.cantidad;
+            total += subtotal;
+            return `
+                <div class="flex items-center justify-between rounded-lg p-3" style="background: #2a3942; border: 1px solid #3d4a52;">
+                    <div class="flex-1">
+                        <h4 class="text-sm font-semibold" style="color: #e9edef;">${prod.nombre}</h4>
+                        <div class="mt-2 flex items-center gap-3">
+                            <label class="text-xs" style="color: #8696a0;">Cantidad:</label>
+                            <input type="number" min="1" value="${prod.cantidad}" 
+                                onchange="actualizarCantidad(${index}, this.value)"
+                                class="w-20 rounded-lg px-2 py-1 text-sm" style="background: #202c33; border: 1px solid #3d4a52; color: #e9edef;">
+                            <span class="text-xs font-semibold" style="color: #e9edef;">x $${prod.precio.toLocaleString('es-AR', {minimumFractionDigits: 2})} = $${subtotal.toLocaleString('es-AR', {minimumFractionDigits: 2})}</span>
+                        </div>
+                    </div>
+                    <button onclick="eliminarProductoCotizacion(${index})" class="ml-3 rounded-lg px-3 py-1.5 text-xs font-semibold hover:opacity-80" style="background: #ef444420; color: #ef4444; border: 1px solid #ef444440;">
+                        Eliminar
+                    </button>
+                </div>
+            `;
+        }).join('');
+        
+        totalCotizacion.textContent = `$${total.toLocaleString('es-AR', {minimumFractionDigits: 2})}`;
+    }
+    
+    window.actualizarCantidad = function(index, cantidad) {
+        productosSeleccionados[index].cantidad = Math.max(1, parseInt(cantidad) || 1);
+        actualizarProductosCotizacion();
+    };
+    
+    window.eliminarProductoCotizacion = function(index) {
+        productosSeleccionados.splice(index, 1);
+        actualizarProductosCotizacion();
+    };
+    
+    enviarCotizacion.addEventListener('click', async () => {
+        if (!currentConversation || productosSeleccionados.length === 0) return;
+        
+        try {
+            const productos = productosSeleccionados.map(p => ({
+                variante_id: p.id,
+                cantidad: p.cantidad
+            }));
+            
+            const response = await fetch('{% url "crm:crear_cotizacion_api" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    conversacion_id: currentConversation,
+                    productos: productos,
+                    dias_validez: 7
+                })
+            });
+            
+            if (response.ok) {
+                cerrarModalCotizacionFn();
+                await loadConversation(currentConversation);
+                alert('Cotización creada y enviada exitosamente');
+            } else {
+                const error = await response.json();
+                alert('Error: ' + (error.error || 'No se pudo crear la cotización'));
+            }
+        } catch (e) {
+            console.error('Error:', e);
+            alert('Error al crear la cotización');
+        }
+    });
+    
+    // Botón reiniciar conversación
+    const btnReiniciarConversacion = document.getElementById('btn-reiniciar-conversacion');
+    btnReiniciarConversacion.addEventListener('click', async () => {
+        if (!currentConversation) {
+            alert('Por favor seleccioná una conversación primero');
+            return;
+        }
+        
+        // Confirmar acción
+        if (!confirm('¿Estás seguro de que querés reiniciar esta conversación? Se borrarán todos los mensajes y el contexto del cliente. Esta acción no se puede deshacer.')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/chat/api/conversacion/${currentConversation}/reiniciar/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                alert('Conversación reiniciada exitosamente. Se borraron ' + data.mensajes_borrados + ' mensajes.');
+                // Recargar la conversación (ahora vacía)
+                await loadConversation(currentConversation);
+                // Limpiar el panel de mensajes
+                messagesContainer.innerHTML = '<p class="text-center py-8" style="color: #8696a0;">No hay mensajes en esta conversación</p>';
+                // Cerrar modal si está abierto
+                modalAnalisis.classList.remove('active');
+            } else {
+                const error = await response.json();
+                alert('Error: ' + (error.error || 'No se pudo reiniciar la conversación'));
+            }
+        } catch (e) {
+            console.error('Error:', e);
+            alert('Error al reiniciar la conversación');
+        }
+    });
 </script>
 {% endblock %}
-

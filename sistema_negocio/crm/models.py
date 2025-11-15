@@ -132,3 +132,128 @@ class Mensaje(models.Model):
         ordering = ['fecha_envio'] # Ordena los mensajes por fecha
         verbose_name = "Mensaje"
         verbose_name_plural = "Mensajes"
+
+
+class ClienteContexto(models.Model):
+    """
+    Guarda el contexto y preferencias del cliente para personalizar respuestas.
+    Se actualiza automáticamente con cada interacción.
+    """
+    cliente = models.OneToOneField(Cliente, on_delete=models.CASCADE, related_name='contexto')
+    
+    # Preferencias detectadas
+    productos_interes = models.JSONField(
+        default=list,
+        help_text="Lista de productos que el cliente ha consultado o mostrado interés"
+    )
+    categorias_preferidas = models.JSONField(
+        default=list,
+        help_text="Categorías de productos que más consulta"
+    )
+    tipo_consulta_comun = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Tipo de consulta más común (compra, stock, precio, etc.)"
+    )
+    
+    # Información de comportamiento
+    ultima_interaccion = models.DateTimeField(auto_now=True)
+    total_interacciones = models.IntegerField(default=0)
+    promedio_respuesta_segundos = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Tiempo promedio que tarda en responder (si aplica)"
+    )
+    
+    # Notas y observaciones
+    notas_internas = models.TextField(
+        blank=True,
+        help_text="Notas internas sobre el cliente (no se muestran al cliente)"
+    )
+    tags_comportamiento = models.JSONField(
+        default=list,
+        help_text="Tags automáticos sobre el comportamiento (ej: 'comprador frecuente', 'consulta precios')"
+    )
+    
+    # Metadata adicional
+    metadata = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Datos adicionales en formato JSON"
+    )
+    
+    creado = models.DateTimeField(auto_now_add=True)
+    actualizado = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Contexto del Cliente"
+        verbose_name_plural = "Contextos de Clientes"
+    
+    def __str__(self):
+        return f"Contexto de {self.cliente.nombre}"
+    
+    def actualizar_producto_interes(self, producto_nombre: str):
+        """Agrega un producto a la lista de intereses"""
+        if producto_nombre not in self.productos_interes:
+            self.productos_interes.append(producto_nombre)
+            # Mantener solo los últimos 10
+            if len(self.productos_interes) > 10:
+                self.productos_interes = self.productos_interes[-10:]
+            self.save(update_fields=['productos_interes', 'actualizado'])
+    
+    def actualizar_categoria_preferida(self, categoria_nombre: str):
+        """Agrega una categoría a las preferidas"""
+        if categoria_nombre not in self.categorias_preferidas:
+            self.categorias_preferidas.append(categoria_nombre)
+            if len(self.categorias_preferidas) > 5:
+                self.categorias_preferidas = self.categorias_preferidas[-5:]
+            self.save(update_fields=['categorias_preferidas', 'actualizado'])
+
+
+class Cotizacion(models.Model):
+    """
+    Cotización generada desde una conversación del CRM.
+    Permite crear cotizaciones rápidas y enviarlas al cliente.
+    """
+    ESTADO_CHOICES = [
+        ('Pendiente', 'Pendiente'),
+        ('Enviada', 'Enviada'),
+        ('Aceptada', 'Aceptada'),
+        ('Rechazada', 'Rechazada'),
+        ('Expirada', 'Expirada'),
+    ]
+    
+    conversacion = models.ForeignKey(Conversacion, on_delete=models.CASCADE, related_name='cotizaciones')
+    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='cotizaciones')
+    productos = models.JSONField(
+        help_text="Lista de productos con precios: [{'sku': '...', 'nombre': '...', 'cantidad': 1, 'precio': 1000}]"
+    )
+    total = models.DecimalField(max_digits=12, decimal_places=2)
+    valido_hasta = models.DateTimeField(
+        help_text="Fecha de expiración de la cotización"
+    )
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='Pendiente')
+    venta_relacionada = models.ForeignKey(
+        'ventas.Venta',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        help_text="Venta creada a partir de esta cotización"
+    )
+    notas = models.TextField(blank=True, help_text="Notas internas sobre la cotización")
+    creado = models.DateTimeField(auto_now_add=True)
+    actualizado = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Cotización"
+        verbose_name_plural = "Cotizaciones"
+        ordering = ['-creado']
+    
+    def __str__(self):
+        return f"Cotización #{self.id} - {self.cliente.nombre} - ${self.total}"
+    
+    @property
+    def esta_expirada(self):
+        """Verifica si la cotización está expirada"""
+        from django.utils import timezone
+        return timezone.now() > self.valido_hasta

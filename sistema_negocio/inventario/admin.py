@@ -2,6 +2,8 @@ from django.contrib import admin
 from .models import (
     Categoria,
     DetalleIphone,
+    PlanCanjeConfig,
+    PlanCanjeTransaccion,
     Precio,
     Producto,
     ProductoImagen,
@@ -106,4 +108,36 @@ class PrecioAdmin(admin.ModelAdmin):
     search_fields = ("variante__sku", "variante__producto__nombre")
     list_editable = ("precio", "activo")
     autocomplete_fields = ("variante",)
+
+
+@admin.register(PlanCanjeConfig)
+class PlanCanjeConfigAdmin(admin.ModelAdmin):
+    list_display = ("modelo_iphone", "capacidad", "valor_base_canje_usd", "activo", "actualizado")
+    list_filter = ("activo", "modelo_iphone")
+    search_fields = ("modelo_iphone", "capacidad")
+    list_editable = ("activo", "valor_base_canje_usd")
+    ordering = ("modelo_iphone", "capacidad")
+    fieldsets = (
+        ("Información Básica", {
+            "fields": ("modelo_iphone", "capacidad", "valor_base_canje_usd", "activo")
+        }),
+        ("Descuentos", {
+            "fields": ("descuentos_bateria", "descuentos_estado", "descuentos_accesorios"),
+            "description": "Descuentos en formato JSON. Ej: {'<80': 0.15, '80-90': 0.10, '>90': 0.0}"
+        }),
+        ("Guías de Ayuda", {
+            "fields": ("guia_estado_excelente", "guia_estado_bueno", "guia_estado_regular"),
+            "description": "Guías que se mostrarán al admin para ayudar a evaluar el estado del iPhone"
+        }),
+    )
+
+
+@admin.register(PlanCanjeTransaccion)
+class PlanCanjeTransaccionAdmin(admin.ModelAdmin):
+    list_display = ("id", "fecha", "iphone_recibido_modelo", "iphone_entregado", "diferencia_ars", "vendedor")
+    list_filter = ("fecha", "iphone_recibido_estado", "vendedor")
+    search_fields = ("iphone_recibido_modelo", "iphone_recibido_imei", "cliente_nombre", "venta_asociada__id")
+    readonly_fields = ("fecha", "creado", "actualizado")
+    date_hierarchy = "fecha"
+    ordering = ("-fecha",)
     

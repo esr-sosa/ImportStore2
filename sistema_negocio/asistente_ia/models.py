@@ -1,4 +1,38 @@
 from django.db import models
+from django.contrib.auth.models import User
+
+
+class ConversationThread(models.Model):
+    """Hilo de conversación estilo ChatGPT para mantener contexto separado."""
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='conversaciones')
+    titulo = models.CharField(max_length=200, blank=True)
+    creado = models.DateTimeField(auto_now_add=True)
+    actualizado = models.DateTimeField(auto_now=True)
+    activo = models.BooleanField(default=True)
+    
+    class Meta:
+        ordering = ['-actualizado']
+        verbose_name = "Conversación"
+        verbose_name_plural = "Conversaciones"
+    
+    def __str__(self):
+        return f"{self.titulo or 'Sin título'} - {self.usuario.username}"
+
+
+class ConversationMessage(models.Model):
+    """Mensaje individual dentro de una conversación."""
+    thread = models.ForeignKey(ConversationThread, on_delete=models.CASCADE, related_name='mensajes')
+    rol = models.CharField(max_length=20, choices=[('user', 'Usuario'), ('assistant', 'Asistente'), ('system', 'Sistema')])
+    contenido = models.TextField()
+    creado = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['creado']
+        verbose_name = "Mensaje"
+        verbose_name_plural = "Mensajes"
+    
+    def __str__(self):
+        return f"{self.rol}: {self.contenido[:50]}..."
 
 
 class AssistantQuickReply(models.Model):

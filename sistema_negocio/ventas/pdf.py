@@ -832,12 +832,7 @@ def generar_comprobante_pdf(venta) -> ContentFile:
             categoria = detalle.variante.producto.categoria
             if categoria:
                 categoria_nombre_lower = categoria.nombre.lower().strip()
-                # Detectar si es iPhone (categoría "celulares" o nombre del producto contiene "iphone")
-                es_iphone = (
-                    categoria_nombre_lower == "celulares" or 
-                    "iphone" in detalle.variante.producto.nombre.lower()
-                )
-                
+                es_iphone = categoria_nombre_lower == "celulares"
                 if es_iphone:
                     # Intentar obtener el DetalleIphone usando getattr para evitar excepciones
                     detalle_iphone = getattr(detalle.variante, 'detalle_iphone', None)

@@ -63,6 +63,21 @@ ASGI/Channels (recomendado en prod): usar un servidor como `daphne` o `uvicorn` 
 ## WhatsApp
 Configurar `WHATSAPP_*` en `.env`. El servicio usa timeouts, reintentos y logging estructurado.
 
+**📱 Guía completa de configuración**: Ver `crm/GUIA_WHATSAPP_API.md`
+
+**Resumen rápido:**
+1. Crear app en https://developers.facebook.com/
+2. Agregar producto "WhatsApp Business API"
+3. Obtener `WHATSAPP_ACCESS_TOKEN` y `WHATSAPP_PHONE_NUMBER_ID`
+4. Configurar webhook en Meta apuntando a: `https://tu-dominio.com/webhook/`
+5. Usar ngrok para desarrollo local: `ngrok http 8000`
+6. Agregar variables al `.env`:
+   ```env
+   WHATSAPP_ACCESS_TOKEN=tu_token_aqui
+   WHATSAPP_PHONE_NUMBER_ID=tu_phone_id_aqui
+   WHATSAPP_VERIFY_TOKEN=token_secreto_que_elegiste
+   ```
+
 ## Asistente IA (Gemini)
 `GEMINI_API_KEY` requerido. La capa de interpretación valida modelos y campos permitidos para proteger la base.
 

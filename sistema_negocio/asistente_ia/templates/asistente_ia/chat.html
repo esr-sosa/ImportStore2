@@ -1,15 +1,155 @@
 {% extends "base.html" %}
 
-{% block title %}ISAC Workspace{% endblock %}
+{% block title %}ISAC · Asistente Inteligente{% endblock %}
 
 {% block extra_head %}
 <style>
-    main { background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%); }
-    .glass-panel {
-        backdrop-filter: blur(18px);
-        -webkit-backdrop-filter: blur(18px);
-        background: rgba(255, 255, 255, 0.72);
+    main { 
+        background: #1a1a1a;
+        min-height: 100vh;
     }
+    
+    .glass-panel {
+        background: #1f1f1f;
+        border: 1px solid #2d2d2d;
+    }
+    
+    .message-bubble {
+        animation: slideIn 0.3s ease-out;
+    }
+    
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .typing-dot {
+        animation: typing 1.4s infinite;
+    }
+    
+    .typing-dot:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+    
+    .typing-dot:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+    
+    @keyframes typing {
+        0%, 60%, 100% {
+            transform: translateY(0);
+            opacity: 0.7;
+        }
+        30% {
+            transform: translateY(-10px);
+            opacity: 1;
+        }
+    }
+    
+    .stat-card {
+        transition: all 0.3s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    }
+    
+    .quick-reply-card {
+        transition: all 0.2s ease;
+    }
+    
+    .quick-reply-card:hover {
+        transform: translateX(4px);
+        border-color: #6366f1;
+    }
+    
+    #chat-messages {
+        scroll-behavior: auto;
+    }
+    
+    #chat-messages::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    #chat-messages::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    
+    #chat-messages::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 3px;
+    }
+    
+    #chat-messages::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
+    
+    .markdown-content h1, .markdown-content h2, .markdown-content h3 {
+        font-weight: 600;
+        margin-top: 1em;
+        margin-bottom: 0.5em;
+        color: #f3f4f6;
+    }
+    
+    .markdown-content p {
+        color: #d1d5db;
+    }
+    
+    .markdown-content ul, .markdown-content ol {
+        margin-left: 1.5em;
+        margin-top: 0.5em;
+        color: #d1d5db;
+    }
+    
+    .markdown-content li {
+        color: #d1d5db;
+    }
+    
+    .markdown-content code {
+        background: rgba(255, 255, 255, 0.1);
+        color: #f3f4f6;
+        padding: 0.2em 0.4em;
+        border-radius: 4px;
+        font-size: 0.9em;
+    }
+    
+    .markdown-content pre {
+        background: rgba(255, 255, 255, 0.05);
+        color: #f3f4f6;
+        padding: 1em;
+        border-radius: 8px;
+        overflow-x: auto;
+        margin: 1em 0;
+    }
+    
+    .markdown-content strong {
+        color: #ffffff;
+        font-weight: 600;
+    }
+    
+    /* Estilo ChatGPT */
+    .chat-container {
+        max-width: 768px;
+        margin: 0 auto;
+    }
+    
+    .message-assistant {
+        background: #1f1f1f;
+        border-bottom: 1px solid #2d2d2d;
+    }
+    
+    .message-user {
+        background: #1a1a1a;
+        border-bottom: 1px solid #2d2d2d;
+    }
+    
     @media (max-width: 1024px) {
         main { padding-bottom: 5rem; }
         #assistant-layout { grid-template-columns: 1fr; }
@@ -18,175 +158,273 @@
 {% endblock %}
 
 {% block content %}
-<div class="min-h-screen w-full py-8 lg:py-12">
-    <div class="mx-auto w-full max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-        <header class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-                <p class="text-sm font-semibold tracking-wide text-blue-600">ISAC · Centro de Operaciones</p>
-                <h1 class="text-3xl font-bold text-slate-900 sm:text-4xl">Asistente inteligente omnicanal</h1>
-                <p class="mt-2 max-w-2xl text-sm text-slate-600">
-                    Consulta KPIs, genera resúmenes de conversaciones, arma playbooks y dispara acciones rápidas sobre el inventario
-                    o las ventas sin salir del panel.
-                </p>
-            </div>
-            <div class="flex flex-wrap gap-3 text-xs font-semibold">
-                <span class="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-4 py-2 text-emerald-700">
-                    <span class="h-2 w-2 animate-pulse rounded-full bg-emerald-500"></span>
-                    En línea
-                </span>
-                <span class="inline-flex items-center gap-2 rounded-full bg-blue-100 px-4 py-2 text-blue-700">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                    Gemini Pro conectado
-                </span>
-                <span class="inline-flex items-center gap-2 rounded-full bg-indigo-100 px-4 py-2 text-indigo-700">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                    </svg>
-                    Última sincronización hace <span id="sync-age" class="font-bold">30s</span>
-                </span>
+<div class="min-h-screen w-full bg-[#1a1a1a]">
+    <div class="mx-auto w-full max-w-7xl space-y-4 px-4 py-4 sm:px-6 lg:px-8">
+        <!-- Header estilo ChatGPT -->
+        <header class="border-b border-gray-700 bg-[#1f1f1f] py-4">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="relative">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600">
+                            <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                            </svg>
+                        </div>
+                        <div class="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 border-2 border-white"></div>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-semibold text-white">ISAC</h1>
+                        <p class="text-xs text-gray-400">Asistente Inteligente</p>
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 text-xs">
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-900/30 border border-emerald-700/50 px-3 py-1.5 text-emerald-400 font-medium">
+                        <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                        En línea
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-900/30 border border-blue-700/50 px-3 py-1.5 text-blue-400 font-medium">
+                        Gemini 2.5
+                    </span>
+                </div>
             </div>
         </header>
 
-        <div id="assistant-layout" class="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]">
-            <!-- Chat principal -->
-            <section class="glass-panel rounded-3xl border border-white/60 shadow-xl">
-                <div class="flex flex-col divide-y divide-slate-200/70">
-                    <div class="flex flex-wrap items-center justify-between gap-4 p-6">
-                        <div class="flex items-center gap-4">
-                            <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-lg font-bold text-white shadow-lg shadow-slate-900/10">
-                                IS
-                            </div>
-                            <div>
-                                <h2 class="text-lg font-semibold text-slate-900">Tu copiloto operativo</h2>
-                                <p class="text-sm text-slate-500">Sugerencias personalizadas con historial contextualizado</p>
-                            </div>
+        <!-- Estadísticas compactas -->
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4" id="quick-stats">
+            <div class="stat-card rounded-lg border border-gray-700 bg-[#1f1f1f] p-3 shadow-sm">
+                <p class="text-xs font-medium text-gray-400 mb-1">Mensajes</p>
+                <p class="text-2xl font-bold text-white" id="stat-messages">0</p>
+            </div>
+            <div class="stat-card rounded-lg border border-gray-700 bg-[#1f1f1f] p-3 shadow-sm">
+                <p class="text-xs font-medium text-gray-400 mb-1">Exitosas</p>
+                <p class="text-2xl font-bold text-white" id="stat-success">0</p>
+            </div>
+            <div class="stat-card rounded-lg border border-gray-700 bg-[#1f1f1f] p-3 shadow-sm">
+                <p class="text-xs font-medium text-gray-400 mb-1">Tiempo</p>
+                <p class="text-2xl font-bold text-white" id="stat-avg-time">0s</p>
+            </div>
+            <div class="stat-card rounded-lg border border-gray-700 bg-[#1f1f1f] p-3 shadow-sm">
+                <p class="text-xs font-medium text-gray-400 mb-1">Contexto</p>
+                <p class="text-2xl font-bold text-white" id="stat-context">0</p>
+            </div>
+        </div>
+
+        <div id="assistant-layout" class="grid gap-4 lg:grid-cols-[250px_minmax(0,2fr)_minmax(0,1fr)]">
+            <!-- Sidebar de conversaciones -->
+            <aside class="hidden lg:block rounded-lg border border-gray-700 bg-[#1f1f1f] p-4">
+                <div class="mb-4 flex items-center justify-between">
+                    <h3 class="text-sm font-semibold text-white">Conversaciones</h3>
+                    <button id="new-thread-btn" class="rounded-lg bg-indigo-600 p-1.5 text-white hover:bg-indigo-700" title="Nueva conversación">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div id="threads-list" class="space-y-2 max-h-[calc(100vh-200px)] overflow-y-auto">
+                    {% for thread in threads %}
+                    <div data-thread-id="{{ thread.id }}" class="thread-item block rounded-lg border border-gray-700 bg-[#2d2d2d] p-3 hover:bg-[#3d3d3d] transition cursor-pointer {% if active_thread and active_thread.id == thread.id %}border-indigo-500 bg-indigo-900/20{% endif %}">
+                        <h4 class="text-xs font-semibold text-white truncate">{{ thread.titulo|default:"Sin título" }}</h4>
+                        <p class="mt-1 text-xs text-gray-400">{{ thread.actualizado|date:"d/m H:i" }}</p>
+                    </div>
+                    {% empty %}
+                    <p class="text-xs text-center text-gray-400 py-4">No hay conversaciones</p>
+                    {% endfor %}
+                </div>
+            </aside>
+
+            <!-- Chat principal estilo ChatGPT -->
+            <section class="flex flex-col rounded-lg border border-gray-700 bg-[#1f1f1f] shadow-sm">
+                <!-- Header del chat -->
+                <div class="flex items-center justify-between border-b border-gray-700 px-4 py-3">
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600">
+                            <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                            </svg>
                         </div>
-                        <div class="flex flex-wrap gap-2 text-xs font-medium">
-                            <button id="clear-thread" class="rounded-full border border-slate-200 px-4 py-2 text-slate-600 transition hover:border-slate-300 hover:text-slate-900">Limpiar hilo</button>
-                            <button id="export-thread" class="rounded-full bg-slate-900 px-4 py-2 text-white shadow hover:bg-slate-800">Exportar resumen</button>
+                        <div>
+                            <h2 class="text-sm font-semibold text-white" id="thread-title">{% if active_thread %}{{ active_thread.titulo|default:"Conversación" }}{% else %}Nueva Conversación{% endif %}</h2>
+                            <p class="text-xs text-gray-400">Asistente inteligente</p>
                         </div>
                     </div>
+                    <div class="flex gap-2">
+                        <button id="new-conversation-btn" class="rounded-lg border border-gray-600 bg-[#2d2d2d] px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-[#3d3d3d]">
+                            Nueva
+                        </button>
+                        <button id="delete-thread-btn" data-thread-id="{% if active_thread %}{{ active_thread.id }}{% endif %}" class="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 {% if not active_thread %}hidden{% endif %}">
+                            Eliminar
+                        </button>
+                    </div>
+                </div>
 
-                    <div id="chat-messages" class="flex max-h-[540px] flex-col gap-5 overflow-y-auto px-6 py-6" data-state="idle">
-                        <div class="flex items-start gap-3">
-                            <div class="mt-1 flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-sm font-semibold text-white">IS</div>
-                            <div class="max-w-2xl rounded-2xl bg-white/90 p-4 shadow-sm">
-                                <p class="text-sm text-slate-700">
-                                    Hola, soy ISAC. Traje tus métricas de inventario, ventas y conversaciones. ¿Querés iniciar un flujo de trabajo o revisar un indicador específico?
-                                </p>
-                                <div class="mt-3 flex flex-wrap gap-2">
-                                    <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">Tiempo de primera respuesta &lt; 2 min</span>
-                                    <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">Stock crítico: 8 variantes</span>
+                <!-- Área de mensajes -->
+                <div id="chat-messages" class="flex flex-col overflow-y-auto overflow-x-hidden" data-state="idle" style="height: 600px; min-height: 600px; max-height: 600px; scroll-behavior: smooth;">
+                    {% if not active_thread %}
+                    <!-- Mensaje de bienvenida -->
+                    <div class="message-assistant message-bubble px-4 py-6">
+                        <div class="chat-container mx-auto flex gap-4">
+                            <div class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600">
+                                <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <div class="markdown-content text-sm leading-relaxed text-gray-200">
+                                    <p class="font-semibold text-white mb-2">¡Hola! Soy ISAC, tu asistente inteligente de ImportStore.</p>
+                                    <p class="text-gray-300 mb-2">Como asesor/empleado de la empresa, puedo ayudarte con:</p>
+                                    <ul class="list-disc list-inside space-y-1 text-gray-300 ml-2">
+                                        <li>Consultar inventario y stock en tiempo real</li>
+                                        <li>Analizar ventas y métricas del negocio</li>
+                                        <li>Generar resúmenes y reportes operativos</li>
+                                        <li>Responder preguntas sobre productos y precios</li>
+                                        <li>Consultar playbooks y procedimientos</li>
+                                        <li>Acceder al centro de conocimiento de la empresa</li>
+                                    </ul>
+                                    <p class="mt-3 text-xs text-gray-400">Escribí tu pregunta o elegí una respuesta rápida del panel lateral para comenzar.</p>
                                 </div>
                             </div>
                         </div>
                     </div>
+                    {% endif %}
+                </div>
 
-                    <div class="p-6">
-                        <div class="rounded-2xl border border-slate-200/80 bg-white/70 p-4 shadow-sm">
-                            <form id="chat-form" class="flex flex-col gap-3">
-                                <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500" id="chat-flags"></div>
-                                <div class="relative flex items-center gap-3">
-                                    <input
-                                        id="message-input"
-                                        type="text"
-                                        class="w-full rounded-2xl border border-transparent bg-slate-100 px-5 py-4 text-sm font-medium text-slate-900 shadow-inner focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-500/20"
-                                        placeholder="Preguntale a ISAC: 'Armame un resumen de las ventas de hoy con descuento aplicado'"
-                                        autocomplete="off"
-                                    >
-                                    <button type="button" id="quick-catalogue" class="absolute left-3 flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-500 shadow hover:text-slate-900" title="Ver respuestas rápidas">
-                                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
-                                    </button>
-                                    <button type="submit" id="send-button" class="ml-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-lg shadow-slate-900/20 transition hover:bg-slate-800 disabled:cursor-wait disabled:bg-slate-300">
-                                        <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21l20-9L2.01 3 2 10l15 2-15 2z"/></svg>
-                                    </button>
-                                </div>
-                            </form>
-                            <div id="typing-indicator" class="mt-3 hidden items-center gap-2 text-xs font-medium text-slate-500">
-                                <span class="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-white">IS</span>
-                                <span class="flex items-center gap-1">
-                                    <span class="inline-block h-2 w-2 animate-bounce rounded-full bg-slate-400"></span>
-                                    <span class="inline-block h-2 w-2 animate-bounce rounded-full bg-slate-400 delay-150"></span>
-                                    <span class="inline-block h-2 w-2 animate-bounce rounded-full bg-slate-400 delay-300"></span>
-                                </span>
-                                <span>ISAC está pensando…</span>
+                <!-- Input estilo ChatGPT -->
+                <div class="border-t border-gray-700 bg-[#1f1f1f] p-4">
+                    <form id="chat-form" class="flex flex-col gap-2">
+                        <div class="flex flex-wrap items-center gap-2 text-xs hidden" id="chat-flags"></div>
+                        <div class="relative flex items-end gap-2">
+                            <!-- Botón para subir imágenes -->
+                            <button type="button" id="upload-image-btn" class="flex h-[52px] w-[52px] items-center justify-center rounded-xl border border-gray-600 bg-[#2d2d2d] text-gray-400 transition hover:bg-gray-700 hover:text-white" title="Subir imagen/PDF">
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                </svg>
+                            </button>
+                            <input type="file" id="image-input" accept="image/*,.pdf" multiple class="hidden">
+                            <div class="flex-1 rounded-xl border border-gray-600 bg-[#2d2d2d] shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
+                                <textarea
+                                    id="message-input"
+                                    rows="1"
+                                    class="block w-full resize-none border-0 bg-transparent px-4 py-3 text-sm text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-0"
+                                    placeholder="Escribí tu mensaje aquí..."
+                                    style="min-height: 52px; max-height: 200px;"
+                                ></textarea>
                             </div>
+                            <button type="submit" id="send-button" class="flex h-[52px] w-[52px] items-center justify-center rounded-xl bg-gray-900 text-white shadow-sm transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50">
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                                </svg>
+                            </button>
                         </div>
+                        <!-- Preview de imágenes subidas -->
+                        <div id="image-preview-container" class="flex flex-wrap gap-2 mt-2 hidden"></div>
+                    </form>
+                    <!-- Indicador de escritura -->
+                    <div id="typing-indicator" class="mt-3 hidden items-center gap-2 text-sm text-gray-400">
+                        <div class="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600">
+                            <svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                            </svg>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <span class="typing-dot h-2 w-2 rounded-full bg-gray-400"></span>
+                            <span class="typing-dot h-2 w-2 rounded-full bg-gray-400"></span>
+                            <span class="typing-dot h-2 w-2 rounded-full bg-gray-400"></span>
+                        </div>
+                        <span class="font-medium">ISAC está escribiendo...</span>
                     </div>
                 </div>
             </section>
 
-            <!-- Panel lateral -->
-            <aside class="space-y-6">
-                <section class="glass-panel rounded-3xl border border-white/60 p-6 shadow-xl">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <h3 class="text-base font-semibold text-slate-900">Respuestas rápidas</h3>
-                            <p class="text-xs text-slate-500">Atajos para tareas frecuentes</p>
+            <!-- Panel lateral compacto -->
+            <aside class="space-y-4">
+                <!-- Respuestas rápidas -->
+                <section class="rounded-lg border border-gray-700 bg-[#1f1f1f] p-4 shadow-sm">
+                    <div class="mb-3 flex items-center justify-between">
+                        <h3 class="text-sm font-semibold text-white">Respuestas rápidas</h3>
+                        <div class="flex gap-2">
+                            <a href="{% url 'asistente_ia:manage_quick_replies' %}" class="text-xs text-indigo-400 hover:text-indigo-300" title="Gestionar">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                </svg>
+                            </a>
+                            <button id="refresh-quick-replies" class="text-xs text-gray-400 hover:text-gray-300">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                </svg>
+                            </button>
                         </div>
-                        <button id="refresh-quick-replies" class="text-xs font-semibold text-blue-600 hover:text-blue-700">Actualizar</button>
                     </div>
-                    <div id="quick-replies" class="mt-4 grid gap-3">
+                    <div id="quick-replies" class="space-y-2 max-h-[300px] overflow-y-auto">
                         {% for reply in quick_replies %}
                             <button
-                                class="group flex w-full items-start gap-3 rounded-2xl border border-slate-200 bg-white/80 p-4 text-left transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow"
+                                class="quick-reply-card flex w-full items-start gap-2 rounded-lg border border-gray-700 bg-[#2d2d2d] p-3 text-left transition hover:border-indigo-500 hover:bg-[#3d3d3d]"
                                 data-id="{{ reply.id }}"
                                 data-prompt="{{ reply.prompt|escapejs }}"
                             >
-                                <span class="mt-1 inline-flex h-8 w-8 items-center justify-center rounded-xl bg-blue-100 text-sm font-semibold text-blue-600">{{ reply.categoria|slice:":1"|upper }}</span>
-                                <span>
-                                    <span class="block text-sm font-semibold text-slate-900">{{ reply.titulo }}</span>
-                                    <span class="mt-1 block text-xs text-slate-500">{{ reply.get_categoria_display }}</span>
+                                <span class="mt-0.5 inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-indigo-900/50 border border-indigo-700/50 text-xs font-semibold text-indigo-400">
+                                    {{ reply.categoria|slice:":1"|upper }}
                                 </span>
+                                <div class="flex-1 min-w-0">
+                                    <span class="block text-xs font-semibold text-white truncate">{{ reply.titulo }}</span>
+                                    <span class="mt-0.5 block text-xs text-gray-400">{{ reply.get_categoria_display }}</span>
+                                </div>
                             </button>
                         {% empty %}
-                            <p class="text-sm text-slate-500">No hay respuestas configuradas aún.</p>
+                            <p class="text-xs text-gray-400 text-center py-4">No hay respuestas configuradas.</p>
                         {% endfor %}
                     </div>
                 </section>
 
-                <section class="glass-panel rounded-3xl border border-white/60 p-6 shadow-xl">
-                    <h3 class="text-base font-semibold text-slate-900">Playbooks operativos</h3>
-                    <p class="text-xs text-slate-500">Checklist paso a paso para procesos críticos</p>
-                    <div class="mt-4 space-y-3" id="playbook-list">
+                <!-- Playbooks -->
+                <section class="rounded-lg border border-gray-700 bg-[#1f1f1f] p-4 shadow-sm">
+                    <div class="mb-3 flex items-center justify-between">
+                        <h3 class="text-sm font-semibold text-white">Playbooks</h3>
+                        <a href="{% url 'asistente_ia:manage_playbooks' %}" class="text-xs text-indigo-400 hover:text-indigo-300" title="Gestionar">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                            </svg>
+                        </a>
+                    </div>
+                    <div class="space-y-2 max-h-[200px] overflow-y-auto" id="playbook-list">
                         {% for playbook in playbooks %}
-                            <article class="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
-                                <div class="flex items-start justify-between gap-3">
-                                    <div>
-                                        <h4 class="text-sm font-semibold text-slate-900">{{ playbook.titulo }}</h4>
-                                        <p class="mt-1 text-xs text-slate-500">{{ playbook.descripcion|truncatechars:120 }}</p>
+                            <article class="rounded-lg border border-gray-700 bg-[#2d2d2d] p-3">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="flex-1 min-w-0">
+                                        <h4 class="text-xs font-semibold text-white truncate">{{ playbook.titulo }}</h4>
+                                        <p class="mt-1 text-xs text-gray-400 line-clamp-2">{{ playbook.descripcion|truncatechars:80 }}</p>
                                     </div>
-                                    <button data-playbook="{{ playbook.id }}" class="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white hover:bg-slate-800">Abrir</button>
+                                    <button data-playbook="{{ playbook.id }}" class="rounded-lg bg-indigo-600 px-2 py-1 text-xs font-medium text-white hover:bg-indigo-700">
+                                        Abrir
+                                    </button>
                                 </div>
                             </article>
                         {% empty %}
-                            <p class="text-sm text-slate-500">Configura playbooks desde el admin para verlos aquí.</p>
+                            <p class="text-xs text-gray-400 text-center py-4">Sin playbooks.</p>
                         {% endfor %}
                     </div>
                 </section>
 
-                <section class="glass-panel rounded-3xl border border-white/60 p-6 shadow-xl">
-                    <div class="flex items-center justify-between">
-                        <h3 class="text-base font-semibold text-slate-900">Centro de conocimiento</h3>
-                        <span class="text-xs text-slate-500">{{ knowledge|length }} artículos</span>
+                <!-- Centro de conocimiento -->
+                <section class="rounded-lg border border-gray-700 bg-[#1f1f1f] p-4 shadow-sm">
+                    <div class="mb-3 flex items-center justify-between">
+                        <h3 class="text-sm font-semibold text-white">Conocimiento</h3>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-gray-400 bg-[#2d2d2d] border border-gray-700 px-2 py-0.5 rounded-full">{{ knowledge|length }}</span>
+                            <a href="{% url 'asistente_ia:manage_knowledge' %}" class="text-xs text-indigo-400 hover:text-indigo-300" title="Gestionar">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                </svg>
+                            </a>
+                        </div>
                     </div>
-                    <div class="mt-4 space-y-4" id="knowledge-cards">
+                    <div class="space-y-2 max-h-[200px] overflow-y-auto" id="knowledge-cards">
                         {% for article in knowledge %}
-                            <article class="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
-                                <h4 class="text-sm font-semibold text-slate-900">{{ article.titulo }}</h4>
-                                <p class="mt-1 text-xs text-slate-500">{{ article.resumen }}</p>
-                                {% if article.tag_list %}
-                                    <div class="mt-3 flex flex-wrap gap-2">
-                                        {% for tag in article.tag_list %}
-                                            <span class="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-500">#{{ tag }}</span>
-                                        {% endfor %}
-                                    </div>
-                                {% endif %}
+                            <article class="rounded-lg border border-gray-700 bg-[#2d2d2d] p-3">
+                                <h4 class="text-xs font-semibold text-white mb-1">{{ article.titulo }}</h4>
+                                <p class="text-xs text-gray-400 line-clamp-2">{{ article.resumen }}</p>
                             </article>
                         {% empty %}
-                            <p class="text-sm text-slate-500">Carga artículos en el admin para mantener procedimientos documentados.</p>
+                            <p class="text-xs text-gray-400 text-center py-4">Sin artículos.</p>
                         {% endfor %}
                     </div>
                 </section>
@@ -195,32 +433,49 @@
     </div>
 
     <!-- Modal Playbook -->
-    <div id="playbook-modal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/70 px-4 py-10">
-        <div class="glass-panel w-full max-w-3xl rounded-3xl border border-white/40 p-6 shadow-2xl">
-            <div class="flex items-start justify-between gap-4">
-                <div>
-                    <h3 id="playbook-modal-title" class="text-xl font-semibold text-slate-900"></h3>
-                    <p id="playbook-modal-description" class="mt-2 text-sm text-slate-500"></p>
+    <div id="playbook-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 backdrop-blur-sm px-4 py-10">
+        <div class="w-full max-w-2xl rounded-xl bg-[#1f1f1f] border border-gray-700 p-6 shadow-2xl">
+            <div class="mb-6 flex items-start justify-between gap-4">
+                <div class="flex-1">
+                    <h3 id="playbook-modal-title" class="text-xl font-bold text-white"></h3>
+                    <p id="playbook-modal-description" class="mt-2 text-sm text-gray-400"></p>
                 </div>
-                <button id="playbook-modal-close" class="rounded-full bg-slate-900/10 p-2 text-slate-600 hover:bg-slate-900/20">
-                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                <button id="playbook-modal-close" class="rounded-lg bg-[#2d2d2d] border border-gray-700 p-2 text-gray-400 hover:bg-[#3d3d3d] hover:text-gray-300">
+                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
                 </button>
             </div>
-            <ol id="playbook-modal-steps" class="mt-6 space-y-4"></ol>
+            <ol id="playbook-modal-steps" class="space-y-3"></ol>
         </div>
     </div>
 
     <!-- Drawer Respuestas Rápidas -->
-    <div id="quick-reply-drawer" class="fixed inset-x-0 bottom-0 z-40 hidden max-h-[60vh] overflow-y-auto rounded-t-3xl bg-white p-6 shadow-2xl lg:hidden">
-        <div class="mb-4 flex items-center justify-between">
-            <h3 class="text-base font-semibold text-slate-900">Atajos sugeridos</h3>
-            <button id="drawer-close" class="text-sm font-medium text-blue-600">Cerrar</button>
+    <div id="quick-reply-drawer" class="fixed inset-x-0 bottom-0 z-50 hidden max-h-[70vh] overflow-y-auto rounded-t-xl bg-[#1f1f1f] border-t border-gray-700 shadow-2xl lg:hidden">
+        <div class="sticky top-0 border-b border-gray-700 bg-[#1f1f1f] p-4 flex items-center justify-between">
+            <h3 class="text-base font-semibold text-white">Respuestas rápidas</h3>
+            <button id="drawer-close" class="rounded-lg bg-[#2d2d2d] border border-gray-700 p-2 text-gray-400 hover:text-gray-300">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
         </div>
-        <div id="drawer-content" class="space-y-3"></div>
+        <div id="drawer-content" class="p-4 space-y-3"></div>
     </div>
 </div>
 
 <script>
+    // Estado global
+    const state = {
+        messageCount: 0,
+        successCount: 0,
+        totalTime: 0,
+        responseTimes: [],
+        contextFlags: 0,
+        currentThreadId: {% if active_thread %}{{ active_thread.id }}{% else %}null{% endif %}
+    };
+
+    // Elementos DOM
     const messageInput = document.getElementById('message-input');
     const chatMessages = document.getElementById('chat-messages');
     const typingIndicator = document.getElementById('typing-indicator');
@@ -233,74 +488,163 @@
     const drawerCloseBtn = document.getElementById('drawer-close');
     const flagsContainer = document.getElementById('chat-flags');
     let lastQuickReply = null;
+    let requestStartTime = null;
 
-    function appendMessage(text, type = 'assistant') {
+    // Auto-resize textarea
+    messageInput.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 200) + 'px';
+    });
+
+    // Función para renderizar markdown básico
+    function renderMarkdown(text) {
+        text = text.replace(/\n/g, '<br>');
+        text = text.replace(/^### (.*$)/gim, '<h3 class="font-semibold text-base mt-4 mb-2 text-gray-100">$1</h3>');
+        text = text.replace(/^## (.*$)/gim, '<h2 class="font-semibold text-lg mt-4 mb-2 text-gray-100">$1</h2>');
+        text = text.replace(/^# (.*$)/gim, '<h1 class="font-bold text-xl mt-4 mb-2 text-gray-100">$1</h1>');
+        text = text.replace(/^\* (.*$)/gim, '<li class="ml-4 text-gray-300">$1</li>');
+        text = text.replace(/^- (.*$)/gim, '<li class="ml-4 text-gray-300">$1</li>');
+        text = text.replace(/`([^`]+)`/g, '<code class="bg-gray-700 px-1.5 py-0.5 rounded text-xs text-gray-100">$1</code>');
+        text = text.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-white">$1</strong>');
+        return text;
+    }
+
+    // Función mejorada para agregar mensajes
+    function appendMessage(text, type = 'assistant', metadata = {}) {
         const wrapper = document.createElement('div');
-        wrapper.className = type === 'assistant' ? 'flex items-start gap-3' : 'flex flex-row-reverse items-start gap-3';
+        wrapper.className = `message-bubble px-4 py-6 ${type === 'assistant' ? 'message-assistant' : 'message-user'}`;
+
+        const container = document.createElement('div');
+        container.className = 'chat-container mx-auto flex gap-4';
 
         const avatar = document.createElement('div');
-        avatar.className = 'mt-1 flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-sm font-semibold text-white';
-        avatar.textContent = type === 'assistant' ? 'IS' : 'Tú';
-
-        const bubble = document.createElement('div');
-        bubble.className = type === 'assistant'
-            ? 'max-w-2xl rounded-2xl bg-white/90 p-4 shadow-sm'
-            : 'max-w-2xl rounded-2xl bg-slate-900 p-4 text-white shadow-lg';
-        bubble.innerHTML = `<p class="text-sm leading-relaxed">${text.replace(/\n/g, '<br>')}</p>`;
-
         if (type === 'assistant') {
-            wrapper.appendChild(avatar);
-            wrapper.appendChild(bubble);
+            avatar.className = 'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600';
+            avatar.innerHTML = '<svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>';
         } else {
-            wrapper.appendChild(avatar);
-            wrapper.appendChild(bubble);
+            avatar.className = 'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gray-800';
+            avatar.textContent = 'Tú';
+            avatar.className += ' text-white text-sm font-semibold';
         }
 
+        const content = document.createElement('div');
+        content.className = 'flex-1';
+
+        const bubble = document.createElement('div');
+        bubble.className = type === 'assistant' 
+            ? 'markdown-content text-sm leading-relaxed text-gray-200' 
+            : 'text-sm leading-relaxed text-gray-100';
+        bubble.innerHTML = renderMarkdown(text);
+        content.appendChild(bubble);
+
+        // Botón de copiar para mensajes del asistente
+        if (type === 'assistant') {
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'mt-2 text-xs text-gray-500 hover:text-gray-700 transition';
+            copyBtn.innerHTML = '<svg class="inline h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>Copiar';
+            copyBtn.onclick = () => {
+                navigator.clipboard.writeText(text);
+                copyBtn.innerHTML = '<svg class="inline h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Copiado';
+                copyBtn.className = 'mt-2 text-xs text-emerald-600 font-medium';
+                setTimeout(() => {
+                    copyBtn.innerHTML = '<svg class="inline h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>Copiar';
+                    copyBtn.className = 'mt-2 text-xs text-gray-400 hover:text-gray-300 transition';
+                }, 2000);
+            };
+            content.appendChild(copyBtn);
+        }
+
+        container.appendChild(avatar);
+        container.appendChild(content);
+        wrapper.appendChild(container);
         chatMessages.appendChild(wrapper);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        // Scroll automático al final cuando se agrega un mensaje
+        setTimeout(() => {
+            chatMessages.scrollTo({
+                top: chatMessages.scrollHeight,
+                behavior: 'smooth'
+            });
+        }, 100);
+
+        if (type === 'user') {
+            state.messageCount++;
+            updateStats();
+        }
     }
 
+    // Función para actualizar estadísticas
+    function updateStats() {
+        document.getElementById('stat-messages').textContent = state.messageCount;
+        document.getElementById('stat-success').textContent = state.successCount;
+        
+        if (state.responseTimes.length > 0) {
+            const avgTime = Math.round(state.responseTimes.reduce((a, b) => a + b, 0) / state.responseTimes.length);
+            document.getElementById('stat-avg-time').textContent = `${avgTime}s`;
+        }
+        
+        document.getElementById('stat-context').textContent = flagsContainer.children.length;
+    }
+
+    // Función para toggle typing
     function toggleTyping(show) {
         typingIndicator.classList.toggle('hidden', !show);
+        if (show) {
+            requestStartTime = Date.now();
+        } else if (requestStartTime) {
+            const responseTime = Math.round((Date.now() - requestStartTime) / 1000);
+            state.responseTimes.push(responseTime);
+            if (state.responseTimes.length > 10) state.responseTimes.shift();
+            requestStartTime = null;
+        }
     }
 
+    // Función para agregar flags
     function addFlag(text) {
         const pill = document.createElement('span');
-        pill.className = 'inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-500';
-        pill.innerHTML = `${text} <button class="ml-1" type="button">✕</button>`;
-        pill.querySelector('button').addEventListener('click', () => pill.remove());
+        pill.className = 'inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-1 text-xs font-medium text-indigo-700';
+        pill.innerHTML = `${text} <button class="ml-1 hover:text-indigo-900" type="button">✕</button>`;
+        pill.querySelector('button').addEventListener('click', () => {
+            pill.remove();
+            updateStats();
+        });
         flagsContainer.appendChild(pill);
+        updateStats();
     }
 
+    // Event listeners para respuestas rápidas
     quickReplies?.querySelectorAll('button[data-id]').forEach(button => {
         button.addEventListener('click', () => {
             const prompt = button.dataset.prompt;
             lastQuickReply = button.dataset.id;
-            addFlag(button.textContent.trim());
             messageInput.value = prompt;
             messageInput.focus();
+            messageInput.dispatchEvent(new Event('input'));
         });
     });
 
+    // Drawer de respuestas rápidas
     quickCatalogueBtn?.addEventListener('click', async () => {
         if (!quickDrawer) return;
         quickDrawer.classList.remove('hidden');
-        drawerContent.innerHTML = '<p class="text-sm text-slate-500">Cargando…</p>';
+        drawerContent.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">Cargando…</p>';
         try {
             const response = await fetch('{% url "asistente_ia:quick_replies" %}');
             const data = await response.json();
             drawerContent.innerHTML = '';
             Object.entries(data.quick_replies || {}).forEach(([categoria, items]) => {
                 const section = document.createElement('div');
-                section.innerHTML = `<h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500">${categoria}</h4>`;
+                section.className = 'mb-4';
+                section.innerHTML = `<h4 class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">${categoria}</h4>`;
                 items.forEach(item => {
                     const card = document.createElement('button');
-                    card.className = 'mt-2 w-full rounded-2xl border border-slate-200 p-3 text-left text-sm font-medium text-slate-700';
+                    card.className = 'w-full rounded-lg border border-gray-700 bg-[#2d2d2d] p-3 text-left text-sm font-medium text-gray-300 transition hover:border-indigo-500 hover:bg-[#3d3d3d] mb-2';
                     card.textContent = item.titulo;
                     card.addEventListener('click', () => {
                         lastQuickReply = item.id;
                         messageInput.value = item.prompt;
                         messageInput.focus();
+                        messageInput.dispatchEvent(new Event('input'));
                         quickDrawer.classList.add('hidden');
                     });
                     section.appendChild(card);
@@ -308,7 +652,7 @@
                 drawerContent.appendChild(section);
             });
         } catch (error) {
-            drawerContent.innerHTML = '<p class="text-sm text-red-500">No se pudieron cargar las respuestas rápidas.</p>';
+            drawerContent.innerHTML = '<p class="text-sm text-red-500 text-center py-4">Error al cargar respuestas rápidas.</p>';
             console.error(error);
         }
     });
@@ -317,20 +661,326 @@
 
     document.getElementById('refresh-quick-replies')?.addEventListener('click', () => quickCatalogueBtn?.click());
 
+    // Limpiar hilo
     document.getElementById('clear-thread')?.addEventListener('click', () => {
-        chatMessages.querySelectorAll(':scope > div:not(:first-child)').forEach(node => node.remove());
-        fetch('{% url "asistente_ia:ask_question" %}', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' }, body: JSON.stringify({ question: 'Olvida el contexto y comenzá una nueva sesión.' }) });
+        if (confirm('¿Estás seguro de limpiar la conversación?')) {
+            chatMessages.querySelectorAll(':scope > div:not(:first-child)').forEach(node => node.remove());
+            flagsContainer.innerHTML = '';
+            fetch('{% url "asistente_ia:ask_question" %}', { 
+                method: 'POST', 
+                headers: { 
+                    'Content-Type': 'application/json', 
+                    'X-CSRFToken': '{{ csrf_token }}' 
+                }, 
+                body: JSON.stringify({ question: 'Olvida el contexto y comenzá una nueva sesión.' }) 
+            });
+            state.messageCount = 0;
+            state.successCount = 0;
+            updateStats();
+        }
     });
 
+    // Cargar mensajes del thread activo al inicio
+    {% if active_thread and messages_list_json %}
+    const existingMessages = {{ messages_list_json|safe }};
+    existingMessages.forEach(msg => {
+        appendMessage(msg.contenido || msg.content, (msg.rol === 'assistant' || msg.role === 'assistant') ? 'assistant' : 'user');
+    });
+    {% endif %}
+    
+    // Inicializar carga de threads al inicio
+    loadThreads();
+
+    // Función para cargar threads en el sidebar sin recargar
+    async function loadThreads() {
+        try {
+            const response = await fetch('{% url "asistente_ia:list_threads" %}');
+            const data = await response.json();
+            const threadsList = document.getElementById('threads-list');
+            if (!threadsList) return;
+            
+            threadsList.innerHTML = '';
+            if (data.threads && data.threads.length > 0) {
+                data.threads.forEach(thread => {
+                    const threadItem = document.createElement('div');
+                    threadItem.className = `thread-item block rounded-lg border border-gray-700 bg-[#2d2d2d] p-3 hover:bg-[#3d3d3d] transition cursor-pointer ${state.currentThreadId == thread.id ? 'border-indigo-500 bg-indigo-900/20' : ''}`;
+                    threadItem.dataset.threadId = thread.id;
+                    threadItem.innerHTML = `
+                        <h4 class="text-xs font-semibold text-white truncate">${thread.titulo}</h4>
+                        <p class="mt-1 text-xs text-gray-400">${new Date(thread.actualizado).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
+                    `;
+                    threadItem.addEventListener('click', () => loadThread(thread.id));
+                    threadsList.appendChild(threadItem);
+                });
+            } else {
+                threadsList.innerHTML = '<p class="text-xs text-center text-gray-400 py-4">No hay conversaciones</p>';
+            }
+        } catch (error) {
+            console.error('Error al cargar threads:', error);
+        }
+    }
+    
+    // Agregar event listeners a los threads existentes en el HTML inicial
+    document.querySelectorAll('.thread-item').forEach(item => {
+        const threadId = item.dataset.threadId;
+        if (threadId) {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                loadThread(threadId);
+            });
+        }
+    });
+
+    // Función para cargar un thread específico sin recargar
+    async function loadThread(threadId) {
+        state.currentThreadId = threadId;
+        chatMessages.innerHTML = '';
+        state.messageCount = 0;
+        state.successCount = 0;
+        updateStats();
+        
+        try {
+            // Cargar mensajes del thread desde la API
+            const response = await fetch(`{% url "asistente_ia:thread_messages" 0 %}`.replace('/0/', `/${threadId}/`));
+            if (!response.ok) {
+                throw new Error('Error al cargar mensajes');
+            }
+            
+            const data = await response.json();
+            
+            // Actualizar título del thread
+            const titleEl = document.getElementById('thread-title');
+            if (titleEl && data.titulo) {
+                titleEl.textContent = data.titulo;
+            }
+            
+            // Cargar mensajes
+            if (data.messages && data.messages.length > 0) {
+                data.messages.forEach(msg => {
+                    appendMessage(msg.content, msg.role === 'assistant' ? 'assistant' : 'user');
+                });
+            }
+            
+            // Actualizar botón de eliminar
+            const deleteBtn = document.getElementById('delete-thread-btn');
+            if (deleteBtn) {
+                deleteBtn.dataset.threadId = threadId;
+                deleteBtn.style.display = 'block';
+            }
+            
+            // Actualizar URL sin recargar
+            window.history.pushState({}, '', `?thread_id=${threadId}`);
+            loadThreads(); // Actualizar sidebar para resaltar el thread activo
+        } catch (error) {
+            console.error('Error al cargar thread:', error);
+            appendMessage('❌ Error al cargar la conversación. Por favor, intentá de nuevo.', 'assistant');
+        }
+    }
+
+    // Función para mostrar el mensaje de bienvenida
+    function showWelcomeMessage() {
+        const welcomeHTML = `
+            <div class="message-assistant message-bubble px-4 py-6">
+                <div class="chat-container mx-auto flex gap-4">
+                    <div class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600">
+                        <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <div class="markdown-content text-sm leading-relaxed text-gray-200">
+                            <p class="font-semibold text-white mb-2">¡Hola! Soy ISAC, tu asistente inteligente de ImportStore.</p>
+                            <p class="text-gray-300 mb-2">Como asesor/empleado de la empresa, puedo ayudarte con:</p>
+                            <ul class="list-disc list-inside space-y-1 text-gray-300 ml-2">
+                                <li>Consultar inventario y stock en tiempo real</li>
+                                <li>Analizar ventas y métricas del negocio</li>
+                                <li>Generar resúmenes y reportes operativos</li>
+                                <li>Responder preguntas sobre productos y precios</li>
+                                <li>Consultar playbooks y procedimientos</li>
+                                <li>Acceder al centro de conocimiento de la empresa</li>
+                            </ul>
+                            <p class="mt-3 text-xs text-gray-400">Escribí tu pregunta o elegí una respuesta rápida del panel lateral para comenzar.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        chatMessages.innerHTML = welcomeHTML;
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // Crear nueva conversación (sin recargar)
+    document.getElementById('new-conversation-btn')?.addEventListener('click', () => {
+        state.currentThreadId = null;
+        chatMessages.innerHTML = '';
+        state.messageCount = 0;
+        state.successCount = 0;
+        updateStats();
+        
+        // Mostrar mensaje de bienvenida
+        showWelcomeMessage();
+        
+        // Ocultar botón de eliminar
+        const deleteBtn = document.getElementById('delete-thread-btn');
+        if (deleteBtn) {
+            deleteBtn.style.display = 'none';
+        }
+        
+        // Actualizar título
+        const titleEl = document.getElementById('thread-title');
+        if (titleEl) {
+            titleEl.textContent = 'Nueva Conversación';
+        }
+        
+        window.history.pushState({}, '', '{% url "asistente_ia:chat" %}');
+        loadThreads();
+    });
+
+    document.getElementById('new-thread-btn')?.addEventListener('click', async () => {
+        try {
+            const response = await fetch('{% url "asistente_ia:create_thread" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({ titulo: 'Nueva conversación' })
+            });
+            const data = await response.json();
+            if (data.id) {
+                state.currentThreadId = data.id;
+                chatMessages.innerHTML = '';
+                state.messageCount = 0;
+                state.successCount = 0;
+                updateStats();
+                
+                // Mostrar mensaje de bienvenida
+                showWelcomeMessage();
+                
+                // Mostrar botón de eliminar
+                const deleteBtn = document.getElementById('delete-thread-btn');
+                if (deleteBtn) {
+                    deleteBtn.dataset.threadId = data.id;
+                    deleteBtn.style.display = 'block';
+                }
+                
+                // Actualizar título
+                const titleEl = document.getElementById('thread-title');
+                if (titleEl) {
+                    titleEl.textContent = data.titulo || 'Nueva Conversación';
+                }
+                
+                window.history.pushState({}, '', `?thread_id=${data.id}`);
+                loadThreads(); // Actualizar sidebar sin recargar
+            }
+        } catch (error) {
+            console.error('Error al crear thread:', error);
+        }
+    });
+
+    // Eliminar thread (sin recargar)
+    document.getElementById('delete-thread-btn')?.addEventListener('click', async () => {
+        const threadId = document.getElementById('delete-thread-btn').dataset.threadId;
+        if (!confirm('¿Estás seguro de eliminar esta conversación?')) return;
+        
+        try {
+            const response = await fetch(`{% url "asistente_ia:delete_thread" 0 %}`.replace('/0/', `/${threadId}/`), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            });
+            if (response.ok) {
+                // Si era el thread activo, limpiar
+                if (state.currentThreadId == threadId) {
+                    state.currentThreadId = null;
+                    chatMessages.innerHTML = '';
+                    state.messageCount = 0;
+                    state.successCount = 0;
+                    updateStats();
+                }
+                window.history.pushState({}, '', '{% url "asistente_ia:chat" %}');
+                loadThreads(); // Actualizar sidebar sin recargar
+            }
+        } catch (error) {
+            console.error('Error al eliminar thread:', error);
+        }
+    });
+
+    // Manejo de imágenes
+    let selectedImages = [];
+    const imageInput = document.getElementById('image-input');
+    const uploadImageBtn = document.getElementById('upload-image-btn');
+    const imagePreviewContainer = document.getElementById('image-preview-container');
+
+    uploadImageBtn?.addEventListener('click', () => {
+        imageInput.click();
+    });
+
+    imageInput?.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files);
+        selectedImages = [];
+        
+        files.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                selectedImages.push({
+                    file: file,
+                    base64: event.target.result
+                });
+                updateImagePreview();
+            };
+            reader.readAsDataURL(file);
+        });
+    });
+
+    function updateImagePreview() {
+        if (selectedImages.length === 0) {
+            imagePreviewContainer.classList.add('hidden');
+            return;
+        }
+        
+        imagePreviewContainer.classList.remove('hidden');
+        imagePreviewContainer.innerHTML = '';
+        
+        selectedImages.forEach((img, index) => {
+            const preview = document.createElement('div');
+            preview.className = 'relative inline-block';
+            preview.innerHTML = `
+                <img src="${img.base64}" alt="Preview" class="h-20 w-20 rounded-lg object-cover border border-gray-600">
+                <button type="button" class="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-600 text-white text-xs hover:bg-red-700" data-index="${index}">×</button>
+            `;
+            preview.querySelector('button').addEventListener('click', () => {
+                selectedImages.splice(index, 1);
+                updateImagePreview();
+            });
+            imagePreviewContainer.appendChild(preview);
+        });
+    }
+
+    // Enviar mensaje
     chatForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         const question = messageInput.value.trim();
-        if (!question) return;
+        if (!question && selectedImages.length === 0) return;
 
-        appendMessage(question, 'user');
+        if (question) {
+            appendMessage(question, 'user');
+        }
+        if (selectedImages.length > 0) {
+            appendMessage(`[${selectedImages.length} imagen${selectedImages.length > 1 ? 'es' : ''} adjunta${selectedImages.length > 1 ? 's' : ''}]`, 'user');
+        }
+        
         messageInput.value = '';
+        messageInput.style.height = 'auto';
         toggleTyping(true);
         sendButton.disabled = true;
+
+        // Convertir imágenes a base64 para enviar
+        const imagesBase64 = selectedImages.map(img => img.base64);
+        selectedImages = [];
+        updateImagePreview();
 
         try {
             const response = await fetch('{% url "asistente_ia:ask_question" %}', {
@@ -340,9 +990,14 @@
                     'X-CSRFToken': '{{ csrf_token }}'
                 },
                 body: JSON.stringify({
-                    question,
+                    question: question || '',
+                    images: imagesBase64,
+                    thread_id: state.currentThreadId,
                     quick_reply_id: lastQuickReply,
-                    context: Array.from(flagsContainer.querySelectorAll('span')).map(el => el.textContent.trim())
+                    context: Array.from(flagsContainer.querySelectorAll('span')).map(el => {
+                        const text = el.textContent.trim();
+                        return text.replace('✕', '').trim();
+                    })
                 })
             });
 
@@ -351,25 +1006,37 @@
                 throw new Error(data.error || 'No se pudo obtener respuesta');
             }
 
-            appendMessage(data.answer, 'assistant');
-            if (Array.isArray(data.suggested)) {
-                data.suggested.forEach(item => addFlag(`${item.categoria}: ${item.titulo}`));
+            // Actualizar thread_id si se creó uno nuevo (sin recargar)
+            if (data.thread_id && !state.currentThreadId) {
+                state.currentThreadId = data.thread_id;
+                window.history.pushState({}, '', `?thread_id=${data.thread_id}`);
+                loadThreads(); // Actualizar sidebar sin recargar
             }
+
+            appendMessage(data.answer, 'assistant');
+            state.successCount++;
+            
+            // No mostrar sugerencias automáticamente - el usuario puede usar el panel lateral
+            // if (Array.isArray(data.suggested) && data.suggested.length > 0) {
+            //     data.suggested.forEach(item => addFlag(`${item.categoria}: ${item.titulo}`));
+            // }
         } catch (error) {
-            appendMessage(`<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg> ${error.message}`, 'assistant');
+            appendMessage(`❌ Error: ${error.message}`, 'assistant');
         } finally {
             toggleTyping(false);
             sendButton.disabled = false;
             lastQuickReply = null;
+            updateStats();
         }
     });
 
+    // Playbooks
     document.querySelectorAll('button[data-playbook]')?.forEach(button => {
         button.addEventListener('click', async () => {
             const modal = document.getElementById('playbook-modal');
             modal.classList.remove('hidden');
             const stepsContainer = document.getElementById('playbook-modal-steps');
-            stepsContainer.innerHTML = '<li class="text-sm text-slate-500">Cargando…</li>';
+            stepsContainer.innerHTML = '<li class="text-sm text-gray-500 text-center py-4">Cargando…</li>';
             try {
                 const response = await fetch(`{% url 'asistente_ia:playbook_detail' 0 %}`.replace('/0/', `/${button.dataset.playbook}/`));
                 const data = await response.json();
@@ -378,12 +1045,20 @@
                 stepsContainer.innerHTML = '';
                 (data.pasos || []).forEach((step, index) => {
                     const item = document.createElement('li');
-                    item.className = 'rounded-2xl border border-slate-200 bg-white/80 p-4 text-sm text-slate-700 shadow-sm';
-                    item.innerHTML = `<span class="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">${index + 1}</span><p class="font-semibold">${step.titulo || 'Paso ' + (index + 1)}</p><p class="mt-1 text-xs text-slate-500">${step.descripcion || ''}</p>`;
+                    item.className = 'rounded-lg border border-gray-700 bg-[#2d2d2d] p-4';
+                    item.innerHTML = `
+                        <div class="flex items-start gap-3">
+                            <span class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-indigo-600 text-sm font-semibold text-white">${index + 1}</span>
+                            <div class="flex-1">
+                                <p class="font-semibold text-white">${step.titulo || 'Paso ' + (index + 1)}</p>
+                                <p class="mt-1 text-sm text-gray-400">${step.descripcion || ''}</p>
+                            </div>
+                        </div>
+                    `;
                     stepsContainer.appendChild(item);
                 });
             } catch (error) {
-                stepsContainer.innerHTML = '<li class="text-sm text-red-500">No se pudo cargar el playbook.</li>';
+                stepsContainer.innerHTML = '<li class="text-sm text-red-500 text-center py-4">Error al cargar el playbook.</li>';
             }
         });
     });
@@ -392,16 +1067,39 @@
         document.getElementById('playbook-modal').classList.add('hidden');
     });
 
+    document.getElementById('playbook-modal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'playbook-modal') {
+            document.getElementById('playbook-modal').classList.add('hidden');
+        }
+    });
+
+    // Exportar conversación
     document.getElementById('export-thread')?.addEventListener('click', () => {
-        const transcript = Array.from(chatMessages.querySelectorAll('p')).map(p => p.textContent.trim()).join('\n');
+        const messages = Array.from(chatMessages.querySelectorAll('.message-bubble'));
+        let transcript = '=== Conversación ISAC ===\n\n';
+        messages.forEach(msg => {
+            const isUser = msg.classList.contains('message-user');
+            const text = msg.querySelector('.markdown-content, .text-sm')?.textContent || '';
+            transcript += `${isUser ? 'Tú' : 'ISAC'}: ${text}\n\n`;
+        });
         const blob = new Blob([transcript], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `transcripcion-isac-${new Date().toISOString()}.txt`;
+        link.download = `isac-conversacion-${new Date().toISOString().split('T')[0]}.txt`;
         link.click();
         URL.revokeObjectURL(url);
     });
+
+    // Atajos de teclado
+    messageInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            chatForm.dispatchEvent(new Event('submit'));
+        }
+    });
+
+    // Inicializar estadísticas
+    updateStats();
 </script>
 {% endblock %}
-
