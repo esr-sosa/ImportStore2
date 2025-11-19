@@ -29,9 +29,14 @@ CREATE TABLE IF NOT EXISTS `asistente_ia_assistantknowledgearticle` (
   `destacado` tinyint(1) NOT NULL,
   `actualizado` datetime(6) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Volcando datos para la tabla sistema_negocio.asistente_ia_assistantknowledgearticle: ~0 rows (aproximadamente)
+-- Volcando datos para la tabla sistema_negocio.asistente_ia_assistantknowledgearticle: ~4 rows (aproximadamente)
+INSERT INTO `asistente_ia_assistantknowledgearticle` (`id`, `titulo`, `resumen`, `contenido`, `tags`, `destacado`, `actualizado`) VALUES
+	(2, 'Cómo Buscar Productos en el Sistema', 'Guía para buscar productos por SKU, nombre o categoría en el inventario.', 'CÓMO BUSCAR PRODUCTOS EN EL SISTEMA\n\nEl sistema de inventario permite buscar productos de varias formas:\n\n1. Por SKU:\n   - Ingresar el código SKU completo en el buscador\n   - Ejemplo: "IPHONE-16-128GB-TITANIO-NEGRO"\n\n2. Por Nombre:\n   - Escribir parte del nombre del producto\n   - El sistema buscará coincidencias parciales\n   - Ejemplo: "iPhone 16" mostrará todos los modelos iPhone 16\n\n3. Por Categoría:\n   - Filtrar por categoría desde el panel de inventario\n   - Categorías disponibles: Celulares, Accesorios, etc.\n\n4. Por Código de Barras:\n   - Escanear el código de barras con el lector\n   - El sistema identificará automáticamente el producto\n\nTips:\n- Usar el asistente IA para búsquedas más complejas\n- Los resultados muestran stock, precios y SKU\n- Se puede exportar la lista de resultados a CSV', 'búsqueda, inventario, SKU, producto', 0, '2025-11-14 20:48:04.422932'),
+	(3, 'Proceso de Plan Canje', 'Cómo calcular y procesar un canje de iPhone usado por uno nuevo.', 'PROCESO DE PLAN CANJE\n\nEl Plan Canje permite que los clientes entreguen su iPhone usado a cambio de uno nuevo, recibiendo un descuento según el estado del equipo.\n\nPasos:\n\n1. Evaluar el iPhone usado:\n   - Verificar modelo, capacidad y color\n   - Revisar estado físico (pantalla, marco, botones, cámara)\n   - Consultar salud de batería\n   - Verificar accesorios incluidos (caja original)\n\n2. Calcular valor:\n   - El sistema calcula automáticamente el valor base\n   - Aplica descuentos según estado y batería\n   - Muestra el valor final en USD y ARS\n\n3. Seleccionar iPhone nuevo:\n   - Elegir el modelo que el cliente desea adquirir\n   - Verificar disponibilidad en stock\n\n4. Calcular diferencia:\n   - El sistema muestra la diferencia a pagar\n   - Se puede ajustar manualmente si es necesario\n\n5. Procesar canje:\n   - Registrar el IMEI del iPhone usado\n   - Completar la venta del iPhone nuevo\n   - Actualizar inventario\n\nConfiguración:\n- Los valores base y descuentos se configuran en /iphones/plan-canje/config/\n- Se pueden ajustar según políticas de la empresa', 'plan canje, iPhone, usado, descuento', 1, '2025-11-14 20:48:04.426933'),
+	(4, 'Uso del Asistente IA (ISAC)', 'Guía para aprovechar al máximo el asistente inteligente del sistema.', 'USO DEL ASISTENTE IA (ISAC)\r\n\r\nISAC es tu asistente inteligente que te ayuda a gestionar el negocio de manera eficiente.\r\n\r\nFuncionalidades principales:\r\n\r\n1. Consultas de Inventario:\r\n   - "¿Qué iPhone 16 tenemos en stock?"\r\n   - "Muestra productos con bajo stock"\r\n   - "¿Cuál es el precio del SKU X?"\r\n\r\n2. Análisis de Ventas:\r\n   - "Ventas del día de hoy"\r\n   - "Productos más vendidos este mes"\r\n   - "Total de ingresos del mes"\r\n\r\n3. Respuestas Rápidas:\r\n   - Usa las respuestas rápidas del panel lateral\r\n   - Son consultas predefinidas para ahorrar tiempo\r\n\r\n4. Playbooks:\r\n   - Consulta procesos paso a paso\r\n   - Guías para operaciones comunes\r\n\r\n5. Centro de Conocimiento:\r\n   - Accede a artículos con información importante\r\n   - Políticas, procedimientos y guías\r\n\r\nTips:\r\n- Sé específico en tus preguntas\r\n- ISAC entiende contexto de conversaciones anteriores\r\n- Usa lenguaje natural, no necesitas comandos especiales', 'ISAC, asistente, IA, ayuda', 1, '2025-11-14 21:26:08.830089'),
+	(5, 'Configuración de Precios', 'Cómo establecer y actualizar precios minorista y mayorista.', 'CONFIGURACIÓN DE PRECIOS\n\nEl sistema permite configurar precios en dos modalidades: Minorista y Mayorista.\n\nPrecios Minoristas:\n- Precio de venta al público final\n- Se muestra en la tienda y POS\n- Puede tener descuentos promocionales\n\nPrecios Mayoristas:\n- Precio para compras al por mayor\n- Generalmente con descuento sobre minorista\n- Requiere validación según políticas\n\nCómo actualizar precios:\n\n1. Desde el Inventario:\n   - Ir a la lista de productos\n   - Hacer clic en el precio editable\n   - Ingresar nuevo valor\n   - Guardar cambios\n\n2. Desde el Producto:\n   - Editar el producto específico\n   - Modificar precios en la sección correspondiente\n   - Guardar cambios\n\n3. Actualización masiva:\n   - Usar la función de exportar/importar CSV\n   - Modificar precios en el archivo\n   - Importar de vuelta al sistema\n\nConsideraciones:\n- Los precios se pueden configurar en ARS o USD\n- El sistema calcula conversiones automáticamente\n- Los cambios se registran en el historial', 'precios, minorista, mayorista, configuración', 0, '2025-11-14 20:48:04.436942');
 
 -- Volcando estructura para tabla sistema_negocio.asistente_ia_assistantplaybook
 CREATE TABLE IF NOT EXISTS `asistente_ia_assistantplaybook` (
@@ -42,9 +47,14 @@ CREATE TABLE IF NOT EXISTS `asistente_ia_assistantplaybook` (
   `es_template` tinyint(1) NOT NULL,
   `actualizado` datetime(6) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Volcando datos para la tabla sistema_negocio.asistente_ia_assistantplaybook: ~0 rows (aproximadamente)
+-- Volcando datos para la tabla sistema_negocio.asistente_ia_assistantplaybook: ~5 rows (aproximadamente)
+INSERT INTO `asistente_ia_assistantplaybook` (`id`, `titulo`, `descripcion`, `pasos`, `es_template`, `actualizado`) VALUES
+	(4, 'Proceso de Venta en POS', 'Guía paso a paso para realizar una venta completa desde el POS.', '[{"titulo": "Buscar productos", "descripcion": "Usar el buscador del POS para encontrar productos por nombre o SKU. Verificar stock disponible antes de agregar."}, {"titulo": "Agregar al carrito", "descripcion": "Seleccionar variantes (color, capacidad, etc.) y cantidad. El sistema valida stock automáticamente."}, {"titulo": "Aplicar descuentos", "descripcion": "Si corresponde, aplicar descuentos por cantidad, promociones o ajustes manuales. Verificar que el total sea correcto."}, {"titulo": "Registrar pago", "descripcion": "Seleccionar método de pago (efectivo, tarjeta, transferencia, mixto). Ingresar monto recibido y calcular vuelto si aplica."}, {"titulo": "Emitir comprobante", "descripcion": "Generar comprobante de venta. Verificar que todos los datos sean correctos antes de enviar al cliente."}, {"titulo": "Verificar actualización", "descripcion": "Confirmar que el stock se actualizó correctamente y que la venta quedó registrada en el sistema."}]', 1, '2025-11-14 20:59:24.921080'),
+	(5, 'Carga de Nuevo Inventario', 'Proceso completo para recibir y cargar nueva mercadería al sistema.', '[{"titulo": "Verificar factura del proveedor", "descripcion": "Revisar la factura recibida y comparar productos, cantidades y precios con lo recibido físicamente."}, {"titulo": "Inspeccionar mercadería", "descripcion": "Verificar que todos los productos estén en buen estado, sin daños, y que coincidan con la factura."}, {"titulo": "Crear/Actualizar productos", "descripcion": "Ir a Inventario > Añadir producto. Si el producto ya existe, actualizar stock. Si es nuevo, crear con todos los datos (nombre, categoría, atributos, SKU)."}, {"titulo": "Configurar precios", "descripcion": "Establecer precios minorista y mayorista en ARS según la política de la empresa. Verificar márgenes de ganancia."}, {"titulo": "Registrar stock inicial", "descripcion": "Ingresar la cantidad recibida como stock actual. Configurar stock mínimo si corresponde."}, {"titulo": "Generar etiquetas", "descripcion": "Ir a Inventario > Descargar etiquetas seleccionadas. Imprimir etiquetas de precio para todos los productos nuevos."}, {"titulo": "Verificar en dashboard", "descripcion": "Confirmar que los productos aparecen correctamente en el inventario y que el valor del catálogo se actualizó."}]', 1, '2025-11-14 20:59:24.928105'),
+	(6, 'Análisis de Ventas y Reportes', 'Cómo generar y analizar reportes de ventas para tomar decisiones de negocio.', '[{"titulo": "Consultar ventas del día", "descripcion": "Usar el asistente IA: \\"¿Cuántas ventas se realizaron hoy?\\" o ir al dashboard para ver estadísticas en tiempo real."}, {"titulo": "Analizar productos más vendidos", "descripcion": "Preguntar al asistente: \\"Muestra los productos más vendidos del mes\\" para identificar tendencias."}, {"titulo": "Revisar ingresos", "descripcion": "Consultar ingresos totales del mes y comparar con períodos anteriores para evaluar crecimiento."}, {"titulo": "Identificar productos con bajo stock", "descripcion": "Usar el asistente o el dashboard para ver productos que necesitan reposición urgente."}, {"titulo": "Tomar decisiones", "descripcion": "Basarse en los datos para decidir qué productos reponer, qué promociones hacer, o qué ajustar en precios."}]', 1, '2025-11-14 20:59:24.933286'),
+	(7, 'Gestión de Precios y Actualizaciones', 'Proceso para actualizar precios de productos existentes en el inventario.', '[{"titulo": "Identificar productos a actualizar", "descripcion": "Usar el asistente: \\"Muestra productos sin precio\\" o revisar el inventario manualmente."}, {"titulo": "Calcular nuevos precios", "descripcion": "Considerar costo, margen de ganancia deseado, competencia y política de precios de la empresa."}, {"titulo": "Actualizar en el sistema", "descripcion": "Ir a Inventario > Editar producto o usar la edición rápida directamente desde el dashboard. Actualizar precios minorista y/o mayorista."}, {"titulo": "Regenerar etiquetas", "descripcion": "Si los precios cambiaron, generar nuevas etiquetas para los productos afectados."}, {"titulo": "Verificar cambios", "descripcion": "Confirmar que los precios se actualizaron correctamente y que aparecen bien en el POS y dashboard."}]', 1, '2025-11-14 20:59:24.939405');
 
 -- Volcando estructura para tabla sistema_negocio.asistente_ia_assistantquickreply
 CREATE TABLE IF NOT EXISTS `asistente_ia_assistantquickreply` (
@@ -58,9 +68,97 @@ CREATE TABLE IF NOT EXISTS `asistente_ia_assistantquickreply` (
   `actualizado` datetime(6) NOT NULL,
   PRIMARY KEY (`id`),
   CONSTRAINT `asistente_ia_assistantquickreply_chk_1` CHECK ((`orden` >= 0))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Volcando datos para la tabla sistema_negocio.asistente_ia_assistantquickreply: ~0 rows (aproximadamente)
+-- Volcando datos para la tabla sistema_negocio.asistente_ia_assistantquickreply: ~8 rows (aproximadamente)
+INSERT INTO `asistente_ia_assistantquickreply` (`id`, `titulo`, `prompt`, `categoria`, `orden`, `activo`, `creado`, `actualizado`) VALUES
+	(1, 'Consultar stock de iPhone', '¿Qué modelos de iPhone tenemos en stock? Muestra stock, precios y SKU de cada uno.', 'inventario', 1, 1, '2025-11-14 20:48:04.362452', '2025-11-14 20:48:04.362452'),
+	(2, 'Productos con bajo stock', 'Muestra todos los productos que tienen stock por debajo del mínimo configurado.', 'inventario', 2, 1, '2025-11-14 20:48:04.367462', '2025-11-14 20:48:04.367462'),
+	(3, 'Ventas del día', '¿Cuántas ventas se realizaron hoy? Muestra el total y un resumen.', 'ventas', 1, 1, '2025-11-14 20:48:04.371861', '2025-11-14 20:48:04.371861'),
+	(4, 'Productos más vendidos', 'Muestra los 10 productos más vendidos en el último mes con sus cantidades.', 'ventas', 2, 1, '2025-11-14 20:48:04.376147', '2025-11-14 20:48:04.376147'),
+	(5, 'Precio de un producto', 'Necesito consultar el precio de un producto. ¿Cómo busco por SKU o nombre?', 'soporte', 1, 1, '2025-11-14 20:48:04.380229', '2025-11-14 20:48:04.380229'),
+	(6, 'Agregar nuevo producto', '¿Cuál es el proceso para agregar un nuevo producto al inventario?', 'soporte', 2, 1, '2025-11-14 20:48:04.386233', '2025-11-14 20:48:04.386233'),
+	(7, 'Reporte de ingresos', 'Genera un reporte de ingresos del mes actual con totales por día.', 'finanzas', 1, 1, '2025-11-14 20:48:04.390235', '2025-11-14 20:48:04.390235'),
+	(8, 'Productos sin precio', 'Muestra todos los productos que no tienen precio configurado.', 'inventario', 3, 1, '2025-11-14 20:48:04.395370', '2025-11-14 20:48:04.395370');
+
+-- Volcando estructura para tabla sistema_negocio.asistente_ia_conversationmessage
+CREATE TABLE IF NOT EXISTS `asistente_ia_conversationmessage` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `rol` varchar(20) NOT NULL,
+  `contenido` longtext NOT NULL,
+  `creado` datetime(6) NOT NULL,
+  `thread_id` bigint NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `asistente_ia_convers_thread_id_db7f5658_fk_asistente` (`thread_id`),
+  CONSTRAINT `asistente_ia_convers_thread_id_db7f5658_fk_asistente` FOREIGN KEY (`thread_id`) REFERENCES `asistente_ia_conversationthread` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=37 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Volcando datos para la tabla sistema_negocio.asistente_ia_conversationmessage: ~34 rows (aproximadamente)
+INSERT INTO `asistente_ia_conversationmessage` (`id`, `rol`, `contenido`, `creado`, `thread_id`) VALUES
+	(1, 'user', 'hola', '2025-11-14 20:55:03.382059', 3),
+	(2, 'assistant', '¡Hola admin! ¿En qué te puedo ayudar hoy? Puedo consultarte stock, precios, generar reportes, o ayudarte con cualquier consulta del negocio.', '2025-11-14 20:55:07.706857', 3),
+	(3, 'user', 'que hora es', '2025-11-14 20:55:24.873315', 3),
+	(4, 'assistant', 'Admin, entiendo que querés saber la hora, pero como ISAC, mi función es asistirte con la gestión interna de ImportStore (stock, precios, ventas, reportes, etc.). No tengo acceso a la hora actual para brindártela. Podés consultarla en tu dispositivo o computadora.\n\n¿Hay algo más relacionado con el negocio en lo que pueda ayudarte en este momento?', '2025-11-14 20:55:36.333863', 3),
+	(5, 'user', 'reporte de ingresos', '2025-11-14 20:55:54.800073', 3),
+	(6, 'assistant', 'admin, entiendo que estás buscando un reporte de ingresos. Para poder generar uno o indicarte cómo acceder a él en el sistema, necesitaría que me especifiques un poco más qué tipo de reporte buscás.\n\nPor ejemplo, ¿necesitás un reporte de ingresos por un **período específico** (semanal, mensual, anual), por **línea de productos**, o de algún otro tipo de detalle?\n\nGeneralmente, podés encontrar la funcionalidad para generar estos reportes en la sección de **Finanzas** o **Reportes** de tu panel en el sistema de gestión de ImportStore. Si me das más detalles, con gusto te guío paso a paso.', '2025-11-14 20:56:10.049524', 3),
+	(7, 'user', 'aa', '2025-11-14 20:57:54.103956', 3),
+	(8, 'assistant', 'admin, con "aa" no me queda claro qué quisiste indicar. ¿Estás intentando especificar algo sobre el reporte de ingresos que me pediste, o tenés alguna otra consulta en la que pueda ayudarte en este momento?\n\nSi es por el reporte de ingresos, recordá que necesito saber el período (semanal, mensual, anual) o si es por línea de productos para poder orientarte mejor.', '2025-11-14 20:58:01.234729', 3),
+	(9, 'user', 'cuantos cargadores hay', '2025-11-14 20:58:43.174788', 4),
+	(10, 'assistant', 'admin, busqué en la base de datos pero no encontré resultados para "cargadores" con esa consulta. Parece que no hay stock registrado o no se encontraron coincidencias exactas.\n\n¿Querés que revise con otros criterios, como marcas o modelos específicos de cargadores, o te ayudo con alguna otra consulta?', '2025-11-14 20:58:52.876452', 4),
+	(11, 'user', '¿Cuántas ventas se realizaron hoy? Muestra el total y un resumen.', '2025-11-14 21:01:42.302895', 6),
+	(12, 'assistant', '¡Excelente!\n\nPara el día de hoy, se registraron un total de **3 ventas**.\n\nActualmente, solo tengo el conteo total. Si necesitás un resumen más detallado con información específica de cada venta (productos vendidos, montos, clientes, etc.), puedo generar un reporte de ventas completo.\n\n¿Te gustaría que prepare un reporte más exhaustivo o tenés alguna otra consulta sobre el análisis de ventas? Recordá que tenés el playbook de "Análisis de Ventas y Reportes" disponible para explorar más opciones.', '2025-11-14 21:02:06.099141', 6),
+	(13, 'user', 'si', '2025-11-14 21:02:18.924674', 6),
+	(14, 'assistant', '¡Entendido! Entonces, querés un reporte de ventas más exhaustivo.\n\nPara generarte el reporte que necesitás, ¿qué detalles te gustaría incluir? Por ejemplo, podemos mostrar:\n\n*   Productos específicos vendidos en cada transacción\n*   Montos de cada venta\n*   Clientes asociados\n*   Métodos de pago\n*   O un rango de fechas particular, si no es solo el día de hoy.\n\nRecordá que en el playbook de **Análisis de Ventas y Reportes** tenés distintas opciones para generar y personalizar estos informes.\n\n¿Querés que prepare un reporte estándar con los productos y montos de las 3 ventas de hoy, o tenés alguna preferencia?', '2025-11-14 21:02:26.104954', 6),
+	(15, 'user', 'que se vendio ayer', '2025-11-14 21:07:26.369384', 6),
+	(16, 'assistant', '¡Claro! Aquí te detallo las ventas registradas **ayer**:\n\nAyer se realizaron un total de **9 transacciones** (ventas) por un monto total de **$24.907.272,60 ARS**.\n\nEste es el detalle por cada venta:\n\n*   **Venta POS-BE12561B** - Total: **$10.000,00 ARS**\n    *   **Cargador 20w** x1 - $10.000,00 ARS\n\n*   **Venta POS-6251D818** - Total: **$10.000,00 ARS**\n    *   **Cargador 20w** x1 - $10.000,00 ARS\n\n*   **Venta POS-CB216F2A** - Total: **$10.000,00 ARS**\n    *   **Cargador 20w** x1 - $10.000,00 ARS\n\n*   **Venta POS-119A299D** - Total: **$10.000,00 ARS**\n    *   **Cargador 20w** x1 - $10.000,00 ARS\n\n*   **Venta POS-B627CAD1** - Total: **$12.121.212,00 ARS**\n    *   **iPhone 13 mini Sin especificar** x1 - $12.121.212,00 ARS\n\n*   **Venta POS-4B6258AE** - Total: **$10.000,00 ARS**\n    *   **Cargador 20w** x1 - $10.000,00 ARS\n\n*   **Venta POS-3BABAE79** - Total: **$12.121.212,00 ARS**\n    *   **iPhone 13 mini Sin especificar** x1 - $12.121.212,00 ARS\n\n*   **Venta POS-B0240418** - Total: **$8.800,00 ARS**\n    *   **Cargador 20w** x1 - $8.800,00 ARS\n\n*   **Venta POS-F5DB5517** - Total: **$616.048,60 ARS**\n    *   **Cargador 20w** x1 - $9.988,00 ARS\n    *   **iPhone 13 mini Sin especificar** x1 - $606.060,60 ARS\n\n¿Necesitás este reporte para alguna fecha específica o querés que desglosemos la información de alguna otra manera? Recordá que en el playbook de "Análisis de Ventas y Reportes" tenés más opciones para personalizar los informes.', '2025-11-14 21:07:48.894595', 6),
+	(17, 'user', 'cuantos cargadores hay', '2025-11-14 21:08:22.312191', 6),
+	(18, 'assistant', '¡Entendido! Acabo de consultar el inventario.\n\nEn este momento, tenemos un total de **11 unidades de cargadores** disponibles en stock.\n\nSi necesitás saber la cantidad de un tipo específico de cargador (por ejemplo, el "Cargador 20w" o algún otro modelo), avisame y busco ese detalle. También podés consultar el artículo "Cómo Buscar Productos en el Sistema" si querés explorar el stock por SKU o nombre de producto.', '2025-11-14 21:08:29.885699', 6),
+	(19, 'user', 'hola', '2025-11-14 21:22:47.706835', 6),
+	(20, 'assistant', '¡Hola! 👋\n\n¿En qué te puedo ayudar hoy? Puedo consultar stock, precios, generar reportes, o ayudarte con cualquier otra consulta del negocio.\n\nRecordá que siempre podés consultar los Playbooks o Artículos de conocimiento para procesos específicos.', '2025-11-14 21:22:50.415767', 6),
+	(21, 'user', 'que podes hacer', '2025-11-14 21:23:06.588345', 6),
+	(22, 'assistant', '¡Excelente pregunta! Estoy acá para asistirlos en la gestión diaria de ImportStore.\n\nEn resumen, puedo ayudarte con lo siguiente:\n\n*   **Consultas de inventario:** Chequear el stock actual de cualquier producto, como iPhones, cargadores, accesorios, etc.\n*   **Análisis de ventas:** Generar reportes de ventas por día, semana, mes, o un período específico, desglosando por producto, monto, etc. (como el reporte que te pasé hace un rato). Para esto, tenés disponible el playbook de "Análisis de Ventas y Reportes".\n*   **Gestión de productos y precios:** Ayudar con consultas sobre precios, actualizaciones, o procesos para cargar nuevo inventario. Podés consultar el playbook de "Carga de Nuevo Inventario" o "Gestión de Precios y Actualizaciones".\n*   **Soporte operativo:**\n    *   **Atención de reclamos:** Guiarte a través del "Playbook de Atención de Reclamo".\n    *   **Proceso de venta:** Orientarte con el "Proceso de Venta Completa".\n    *   **Políticas y procedimientos:** Resolver dudas sobre nuestra "Política de Garantías" o el "Proceso de Plan Canje", entre otros artículos de conocimiento.\n*   **Búsqueda de información:** En general, puedo buscar cualquier dato relevante que tengamos en el sistema para optimizar tu trabajo.\n\nSi tenés alguna consulta específica en mente o necesitás ayuda con algún proceso, no dudes en preguntarme. Estoy para hacer tu trabajo más fácil.', '2025-11-14 21:23:12.074137', 6),
+	(23, 'user', 'HO', '2025-11-14 21:24:37.507163', 7),
+	(24, 'assistant', 'Hola! ¿En qué te puedo ayudar hoy? Puedo consultarte stock, precios, generar reportes, o ayudarte con cualquier consulta del negocio.', '2025-11-14 21:24:42.604942', 7),
+	(25, 'user', 'cuantos iphone hay', '2025-11-14 21:27:33.863258', 6),
+	(26, 'assistant', '¡Hola! Acabo de revisar el inventario y, en este momento, **no tenemos iPhones disponibles en stock.** El sistema me indica 0 unidades.\n\n¿Hay algún modelo específico de iPhone que estabas buscando? A veces, si no hay stock global, puede haber una entrada pendiente o un movimiento que no se reflejó.\n\nTambién puedo ayudarte a buscar otros productos o con cualquier otra consulta que tengas.', '2025-11-14 21:27:45.517415', 6),
+	(27, 'user', 'Genera un reporte de ingresos del mes actual con totales por día.', '2025-11-14 21:28:24.933235', 8),
+	(28, 'assistant', '¡Hola! Acá te presento el reporte de ingresos del mes actual, con los totales por día, considerando solo las ventas completadas:\n\n---\n\n**Reporte de Ingresos - Noviembre 2025 (Ventas Completadas)**\n\n*   **14/11/2025:** $0.00 ARS (No hay ventas completadas registradas para este día)\n*   **13/11/2025:** $13,733,234.76 ARS\n*   **12/11/2025:** $32,326,285.40 ARS\n\n---\n\n**Total de Ingresos del Mes (hasta el 14/11/2025): $46,059,520.16 ARS**\n\nTené en cuenta que las ventas con estado "Pendiente de pago" o "Cancelado" no se incluyeron en este cálculo de ingresos.\n\nSi necesitás algún otro tipo de reporte o análisis de ventas, recordá que podés consultar el Playbook de **Análisis de Ventas y Reportes** en el panel lateral del sistema. ¡Decime si necesitás algo más!', '2025-11-14 21:28:58.330993', 8),
+	(29, 'user', '¿Cuál es el proceso para agregar un nuevo producto al inventario?', '2025-11-14 21:29:21.202414', 8),
+	(30, 'assistant', '¡Excelente pregunta! Para agregar un nuevo producto al inventario y asegurarte de seguir todos los pasos correctamente, te recomiendo consultar el Playbook de **Carga de Nuevo Inventario**.\n\nEn ese Playbook vas a encontrar la guía detallada con todo el proceso, los campos a completar y las consideraciones importantes para que el producto se cargue de forma exitosa en nuestro sistema. Lo podés encontrar en el panel lateral.\n\n¿Necesitás alguna otra ayuda o tenés otra consulta operativa?', '2025-11-14 21:29:25.565539', 8),
+	(31, 'user', 'Detalles del pedido\nProducto	Total\nPack Rollo Papel Termico X5 Color Blanco Para Mini Impresora Térmica × 3	$1,35\nAdaptador OTG 3 en 1 × 1	$0,50\nCuchillo De Cocina Con Mango De Plástico 3.5\'\' × 3	$1,50\nSet 5 Bowls De Acero Inoxidable Con Tapa Recipiente Metalico × 4	$22,00\nKit Mochila Antirrobo Urbana Para Notebook Morral Estuche 3 en 1 × 5	$35,00\nFrasco Decant para perfume Vidrio 5ml unidad × 40	$20,00\nFrasco Decant para perfume Vidrio 10ml unidad × 40	$24,00\nTV BOX Caja Verde 4k Ultra HD 512gb + 64gb ram × 2	$32,00\nGorra Bros Varios Colores × 4	$9,20\nAdaptador Cargado Auto a Tipo C Simil Iphone 13 Pro Max 20w-charger × 10	$17,00\nTripode Para Camaras Y Celulares Tf 3110 Extensible A 1,2m × 2	$7,00\nReloj Smart S30 Promax Series 10 7 en 1 Mallas × 1	$10,90\nAdaptador Usb 2.0 Wifi 802.11n Wireless 300mbps × 1	$1,30\nSmartwatch T-Wear Ultra 2 Super AMOLED Display × 1	$6,50\nSoporte Para Celular Plegable LB-0108/JS-67 Metalico 360 Lambo Tech × 10	$19,00\nMemoria 128gb Kingston Común × 1	$6,00\nToma 12v Para Moto Cargador Puerto Usb Con Encendedor AJ-S02 × 1	$4,50\nCABLE KLGO AUXILIAR 3.5 a 3.5 EN L COLORES 1MT × 10	$8,00\nCable Samsung Usb-a A Usb-c Carga Rapida 1 Metro × 10	$9,00\nCable Samsung 2A Tipo C Carga Rápida Bolsa Azul x 50 OFERTA × 2	$35,00\nCABLE USB T-C A T-C SAMSUNG CAJA × 20	$16,00\nRiñonera Wanlifu Mochila Cruzada De Pecho Bandolera Morral × 1	$3,60\nReloj Smartwatch S20 Ultra Con 4 Mallas Intercambiables × 1	$7,90\nEstantes de ángulo ranurado 100cm x 50cm x 198cm 4 Pisos × 1	$95,00\nAuricular Gamer Gm-06 PC PS4 Headphones × 3	$6,00\nSubtotal:	$398,25\nDescuento:	-$19,91\nEnvío:	Envío a transporte\nTotal:	$378,34', '2025-11-14 21:32:15.921281', 12),
+	(32, 'assistant', '¡Hola! Veo que me estás compartiendo los detalles de un pedido. Es una lista bastante completa de productos con sus cantidades, los precios individuales, el subtotal de $398,25, un descuento de -$19,91, y el total final de $378,34, con envío a transporte.\n\nPara poder ayudarte de la mejor manera, ¿qué acción específica te gustaría realizar con esta información? Por ejemplo, ¿necesitás que revise el stock de alguno de estos artículos, que genere un comprobante de venta, que consulte algo sobre el envío, o hay algún otro proceso que necesites gestionar sobre este pedido?', '2025-11-14 21:32:31.607360', 12),
+	(33, 'user', 'agregar al stock', '2025-11-14 21:33:33.083527', 12),
+	(34, 'assistant', 'Ah, entiendo. Con esta lista de productos que me compartiste, lo que necesitás es realizar la **recepción de mercadería** para que se sumen a nuestro inventario, ¿verdad?\n\nPara llevar a cabo este proceso y actualizar el stock con todos estos artículos, te sugiero que consultes el **Playbook de Recepción de Mercadería**. Ahí vas a encontrar los pasos detallados para registrar correctamente la entrada de estos productos en el sistema, asegurando que el inventario esté siempre al día.\n\nLo podés encontrar en el panel lateral de la plataforma, junto con los otros recursos disponibles. Si tenés alguna duda específica mientras lo hacés, avisame y te asisto.', '2025-11-14 21:33:40.732167', 12),
+	(35, 'user', 'agrega al stock', '2025-11-14 21:40:13.167202', 12),
+	(36, 'assistant', 'Entiendo tu consulta. Querías que yo, como ISAC, agregara directamente esos productos al stock, ¿verdad?\n\nComo asistente de IA, yo no tengo la capacidad de modificar el inventario de forma directa en el sistema. Mi función es guiarte y proporcionarte la información o los recursos para que vos, como empleado, puedas realizar estas operaciones de gestión.\n\nPara poder cargar todos estos productos al stock y que se reflejen en nuestro inventario, es fundamental que sigas el procedimiento de **Recepción de Mercadería**. Como te mencioné, el **Playbook de Recepción de Mercadería** es la herramienta que te indica el paso a paso detallado para registrar correctamente la entrada de esta mercadería en el sistema.\n\nSi necesitás ayuda para entender algún punto del Playbook o tenés alguna dificultad al momento de cargar los artículos, avisame y te asisto con eso, pero la acción de carga la tenés que realizar vos a través del sistema siguiendo esos pasos.', '2025-11-14 21:40:22.873578', 12);
+
+-- Volcando estructura para tabla sistema_negocio.asistente_ia_conversationthread
+CREATE TABLE IF NOT EXISTS `asistente_ia_conversationthread` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `titulo` varchar(200) NOT NULL,
+  `creado` datetime(6) NOT NULL,
+  `actualizado` datetime(6) NOT NULL,
+  `activo` tinyint(1) NOT NULL,
+  `usuario_id` int NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `asistente_ia_convers_usuario_id_456ba82a_fk_auth_user` (`usuario_id`),
+  CONSTRAINT `asistente_ia_convers_usuario_id_456ba82a_fk_auth_user` FOREIGN KEY (`usuario_id`) REFERENCES `auth_user` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Volcando datos para la tabla sistema_negocio.asistente_ia_conversationthread: ~12 rows (aproximadamente)
+INSERT INTO `asistente_ia_conversationthread` (`id`, `titulo`, `creado`, `actualizado`, `activo`, `usuario_id`) VALUES
+	(1, 'Nueva conversación', '2025-11-14 20:51:22.467137', '2025-11-14 20:51:42.475171', 0, 2),
+	(2, '¿Qué modelos de iPhone tenemos en stock? Muestra s...', '2025-11-14 20:51:54.573370', '2025-11-14 20:57:45.120540', 0, 2),
+	(3, 'hola', '2025-11-14 20:54:58.768211', '2025-11-14 21:01:34.144420', 0, 2),
+	(4, 'cuantos cargadores hay', '2025-11-14 20:58:32.950284', '2025-11-14 21:22:44.269153', 0, 2),
+	(5, 'Nueva conversación', '2025-11-14 20:58:35.213982', '2025-11-14 21:01:38.059616', 0, 2),
+	(6, '¿Cuántas ventas se realizaron hoy? Muestra el tota...', '2025-11-14 21:01:42.284728', '2025-11-14 21:02:06.109431', 1, 2),
+	(7, 'HO', '2025-11-14 21:24:31.372322', '2025-11-14 21:24:42.608945', 1, 2),
+	(8, 'Genera un reporte de ingresos del mes actual con t...', '2025-11-14 21:28:24.925233', '2025-11-14 21:28:58.335993', 1, 2),
+	(9, 'Nueva conversación', '2025-11-14 21:31:52.414962', '2025-11-14 21:32:09.444278', 0, 2),
+	(10, 'Nueva conversación', '2025-11-14 21:31:58.567214', '2025-11-14 21:32:11.880561', 0, 2),
+	(11, 'Nueva conversación', '2025-11-14 21:31:59.776134', '2025-11-14 21:32:04.844584', 0, 2),
+	(12, 'Detalles del pedido\nProducto	Total\nPack Rollo Pape...', '2025-11-14 21:32:13.667463', '2025-11-14 21:32:31.612359', 1, 2);
 
 -- Volcando estructura para tabla sistema_negocio.auth_group
 CREATE TABLE IF NOT EXISTS `auth_group` (
@@ -95,7 +193,7 @@ CREATE TABLE IF NOT EXISTS `auth_permission` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `auth_permission_content_type_id_codename_01ab375a_uniq` (`content_type_id`,`codename`),
   CONSTRAINT `auth_permission_content_type_id_2f476e4b_fk_django_co` FOREIGN KEY (`content_type_id`) REFERENCES `django_content_type` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=137 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=153 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Volcando datos para la tabla sistema_negocio.auth_permission: ~96 rows (aproximadamente)
 INSERT INTO `auth_permission` (`id`, `name`, `content_type_id`, `codename`) VALUES
@@ -234,7 +332,23 @@ INSERT INTO `auth_permission` (`id`, `name`, `content_type_id`, `codename`) VALU
 	(133, 'Can add Transacción Plan Canje', 34, 'add_plancanjetransaccion'),
 	(134, 'Can change Transacción Plan Canje', 34, 'change_plancanjetransaccion'),
 	(135, 'Can delete Transacción Plan Canje', 34, 'delete_plancanjetransaccion'),
-	(136, 'Can view Transacción Plan Canje', 34, 'view_plancanjetransaccion');
+	(136, 'Can view Transacción Plan Canje', 34, 'view_plancanjetransaccion'),
+	(137, 'Can add Mensaje', 35, 'add_conversationmessage'),
+	(138, 'Can change Mensaje', 35, 'change_conversationmessage'),
+	(139, 'Can delete Mensaje', 35, 'delete_conversationmessage'),
+	(140, 'Can view Mensaje', 35, 'view_conversationmessage'),
+	(141, 'Can add Conversación', 36, 'add_conversationthread'),
+	(142, 'Can change Conversación', 36, 'change_conversationthread'),
+	(143, 'Can delete Conversación', 36, 'delete_conversationthread'),
+	(144, 'Can view Conversación', 36, 'view_conversationthread'),
+	(145, 'Can add Cotización', 37, 'add_cotizacion'),
+	(146, 'Can change Cotización', 37, 'change_cotizacion'),
+	(147, 'Can delete Cotización', 37, 'delete_cotizacion'),
+	(148, 'Can view Cotización', 37, 'view_cotizacion'),
+	(149, 'Can add Contexto del Cliente', 38, 'add_clientecontexto'),
+	(150, 'Can change Contexto del Cliente', 38, 'change_clientecontexto'),
+	(151, 'Can delete Contexto del Cliente', 38, 'delete_clientecontexto'),
+	(152, 'Can view Contexto del Cliente', 38, 'view_clientecontexto');
 
 -- Volcando estructura para tabla sistema_negocio.auth_user
 CREATE TABLE IF NOT EXISTS `auth_user` (
@@ -256,7 +370,7 @@ CREATE TABLE IF NOT EXISTS `auth_user` (
 -- Volcando datos para la tabla sistema_negocio.auth_user: ~2 rows (aproximadamente)
 INSERT INTO `auth_user` (`id`, `password`, `last_login`, `is_superuser`, `username`, `first_name`, `last_name`, `email`, `is_staff`, `is_active`, `date_joined`) VALUES
 	(1, 'pbkdf2_sha256$600000$Aug4S1VCCpAva4vjvJtxir$B+dNpahdN40gH9WmT7VbSO3KytHeJvuRVW9P1vsmB+A=', '2025-11-03 01:06:37.277911', 1, 'esrsosa', '', '', 'emanuelsosa4436@gmail.com', 1, 1, '2025-11-03 01:05:46.221246'),
-	(2, 'pbkdf2_sha256$1000000$LnCcyS3JAbLnu8OcMupBTT$bc0lw8TgvI3UJyviyceBwtOBaI/EQFIacG2yRqLE9es=', '2025-11-14 17:19:34.303416', 1, 'admin', '', '', 'admin@gmail.com', 1, 1, '2025-11-11 20:06:13.956375');
+	(2, 'pbkdf2_sha256$1000000$LnCcyS3JAbLnu8OcMupBTT$bc0lw8TgvI3UJyviyceBwtOBaI/EQFIacG2yRqLE9es=', '2025-11-15 00:54:36.924252', 1, 'admin', '', '', 'admin@gmail.com', 1, 1, '2025-11-11 20:06:13.956375');
 
 -- Volcando estructura para tabla sistema_negocio.auth_user_groups
 CREATE TABLE IF NOT EXISTS `auth_user_groups` (
@@ -352,12 +466,42 @@ CREATE TABLE IF NOT EXISTS `configuracion_configuracionsistema` (
   `notas_sistema` longtext NOT NULL,
   `dolar_blue_manual` decimal(10,2) DEFAULT NULL,
   `ultima_actualizacion` datetime(6) NOT NULL,
+  `correo_contacto` varchar(254) NOT NULL,
+  `costo_envio_local` decimal(10,2) DEFAULT NULL,
+  `costo_envio_nacional` decimal(10,2) DEFAULT NULL,
+  `descuento_efectivo_porcentaje` decimal(5,2) NOT NULL,
+  `envios_disponibles` tinyint(1) NOT NULL,
+  `envios_locales` varchar(200) NOT NULL,
+  `envios_nacionales` varchar(200) NOT NULL,
+  `facebook` varchar(200) NOT NULL,
+  `google_maps_url` varchar(200) NOT NULL,
+  `horario_domingos` varchar(100) NOT NULL,
+  `horario_lunes_a_viernes` varchar(100) NOT NULL,
+  `horario_sabados` varchar(100) NOT NULL,
+  `instagram_empresa` varchar(100) NOT NULL,
+  `instagram_principal` varchar(100) NOT NULL,
+  `instagram_secundario` varchar(100) NOT NULL,
+  `nombre_local` varchar(200) NOT NULL,
+  `pago_efectivo_local` tinyint(1) NOT NULL,
+  `pago_efectivo_retiro` tinyint(1) NOT NULL,
+  `pago_online` tinyint(1) NOT NULL,
+  `pago_online_link` varchar(200) NOT NULL,
+  `pago_tarjeta` tinyint(1) NOT NULL,
+  `pago_transferencia` tinyint(1) NOT NULL,
+  `politica_envio` longtext NOT NULL,
+  `telefono_local` varchar(40) NOT NULL,
+  `telefono_whatsapp` varchar(40) NOT NULL,
+  `tiktok` varchar(100) NOT NULL,
+  `transferencia_alias` varchar(50) NOT NULL,
+  `transferencia_cbu` varchar(22) NOT NULL,
+  `ubicacion_mapa` varchar(255) NOT NULL,
+  `whatsapp_alternativo` varchar(40) NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Volcando datos para la tabla sistema_negocio.configuracion_configuracionsistema: ~1 rows (aproximadamente)
-INSERT INTO `configuracion_configuracionsistema` (`id`, `nombre_comercial`, `lema`, `logo`, `color_principal`, `modo_oscuro_predeterminado`, `mostrar_alertas`, `whatsapp_numero`, `acceso_admin_habilitado`, `contacto_email`, `domicilio_comercial`, `notas_sistema`, `dolar_blue_manual`, `ultima_actualizacion`) VALUES
-	(1, 'ImportSt', 'Distribuidora de tecnología', 'branding/Belgrano_47_San_Luis..png', '#ffffff', 0, 1, '2665032890', 1, 'importstore.sanluis@gmail.com', 'Belgrano 47 local 1', '', NULL, '2025-11-12 23:14:31.174793');
+INSERT INTO `configuracion_configuracionsistema` (`id`, `nombre_comercial`, `lema`, `logo`, `color_principal`, `modo_oscuro_predeterminado`, `mostrar_alertas`, `whatsapp_numero`, `acceso_admin_habilitado`, `contacto_email`, `domicilio_comercial`, `notas_sistema`, `dolar_blue_manual`, `ultima_actualizacion`, `correo_contacto`, `costo_envio_local`, `costo_envio_nacional`, `descuento_efectivo_porcentaje`, `envios_disponibles`, `envios_locales`, `envios_nacionales`, `facebook`, `google_maps_url`, `horario_domingos`, `horario_lunes_a_viernes`, `horario_sabados`, `instagram_empresa`, `instagram_principal`, `instagram_secundario`, `nombre_local`, `pago_efectivo_local`, `pago_efectivo_retiro`, `pago_online`, `pago_online_link`, `pago_tarjeta`, `pago_transferencia`, `politica_envio`, `telefono_local`, `telefono_whatsapp`, `tiktok`, `transferencia_alias`, `transferencia_cbu`, `ubicacion_mapa`, `whatsapp_alternativo`) VALUES
+	(1, 'ImportSt', 'Distribuidora de tecnología', 'branding/Belgrano_47_San_Luis..png', '#ffffff', 0, 1, '2665032890', 1, 'importstore.sanluis@gmail.com', 'Belgrano 47 local 1', '', NULL, '2025-11-12 23:14:31.174793', '', NULL, NULL, 0.00, 1, '', '', '', '', '', '', '', '', '', '', '', 1, 1, 0, '', 1, 1, '', '', '', '', '', '', '', '');
 
 -- Volcando estructura para tabla sistema_negocio.configuracion_configuraciontienda
 CREATE TABLE IF NOT EXISTS `configuracion_configuraciontienda` (
@@ -405,14 +549,40 @@ CREATE TABLE IF NOT EXISTS `crm_cliente` (
   `ultima_actualizacion` datetime(6) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `telefono` (`telefono`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- Volcando datos para la tabla sistema_negocio.crm_cliente: ~0 rows (aproximadamente)
+-- Volcando datos para la tabla sistema_negocio.crm_cliente: ~6 rows (aproximadamente)
 INSERT INTO `crm_cliente` (`id`, `nombre`, `telefono`, `email`, `tipo_cliente`, `instagram_handle`, `fecha_creacion`, `ultima_actualizacion`) VALUES
 	(1, 'Sosa Raul emanuel', '2665032890', NULL, 'Potencial', NULL, '2025-11-12 17:18:10.837266', '2025-11-12 17:18:10.837266'),
 	(2, 's', 's', NULL, 'Minorista', NULL, '2025-11-13 04:02:07.468363', '2025-11-13 04:02:07.468363'),
 	(3, 'caca', 'caca', NULL, 'Minorista', NULL, '2025-11-13 23:05:30.894709', '2025-11-13 23:05:30.894709'),
-	(4, 'Facundo Bastias', 'Facundo Bastias', NULL, 'Minorista', NULL, '2025-11-14 16:37:09.311891', '2025-11-14 16:37:09.311891');
+	(4, 'Facundo Bastias', 'Facundo Bastias', NULL, 'Minorista', NULL, '2025-11-14 16:37:09.311891', '2025-11-14 16:37:09.311891'),
+	(5, 'Emanuel', '5492665032890', NULL, 'Potencial', NULL, '2025-11-15 00:33:10.512087', '2025-11-15 14:58:05.013602'),
+	(6, 'Cliente 1181', '16315551181', NULL, 'Potencial', NULL, '2025-11-15 00:51:02.402397', '2025-11-15 00:51:02.403399');
+
+-- Volcando estructura para tabla sistema_negocio.crm_clientecontexto
+CREATE TABLE IF NOT EXISTS `crm_clientecontexto` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `productos_interes` json NOT NULL,
+  `categorias_preferidas` json NOT NULL,
+  `tipo_consulta_comun` varchar(50) NOT NULL,
+  `ultima_interaccion` datetime(6) NOT NULL,
+  `total_interacciones` int NOT NULL,
+  `promedio_respuesta_segundos` double DEFAULT NULL,
+  `notas_internas` longtext NOT NULL,
+  `tags_comportamiento` json NOT NULL,
+  `metadata` json NOT NULL,
+  `creado` datetime(6) NOT NULL,
+  `actualizado` datetime(6) NOT NULL,
+  `cliente_id` bigint NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `cliente_id` (`cliente_id`),
+  CONSTRAINT `crm_clientecontexto_cliente_id_e7e1a085_fk_crm_cliente_id` FOREIGN KEY (`cliente_id`) REFERENCES `crm_cliente` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Volcando datos para la tabla sistema_negocio.crm_clientecontexto: ~1 rows (aproximadamente)
+INSERT INTO `crm_clientecontexto` (`id`, `productos_interes`, `categorias_preferidas`, `tipo_consulta_comun`, `ultima_interaccion`, `total_interacciones`, `promedio_respuesta_segundos`, `notas_internas`, `tags_comportamiento`, `metadata`, `creado`, `actualizado`, `cliente_id`) VALUES
+	(3, '[]', '[]', 'saludo', '2025-11-15 16:06:25.886904', 1, NULL, '', '[]', '{"intenciones": {"saludo": 1}}', '2025-11-15 16:06:25.882535', '2025-11-15 16:06:25.886904', 5);
 
 -- Volcando estructura para tabla sistema_negocio.crm_conversacion
 CREATE TABLE IF NOT EXISTS `crm_conversacion` (
@@ -431,9 +601,12 @@ CREATE TABLE IF NOT EXISTS `crm_conversacion` (
   KEY `crm_conversacion_cliente_id_6d9bafb1_fk_crm_cliente_id` (`cliente_id`),
   CONSTRAINT `crm_conversacion_asesor_asignado_id_b38461f1_fk_auth_user_id` FOREIGN KEY (`asesor_asignado_id`) REFERENCES `auth_user` (`id`),
   CONSTRAINT `crm_conversacion_cliente_id_6d9bafb1_fk_crm_cliente_id` FOREIGN KEY (`cliente_id`) REFERENCES `crm_cliente` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- Volcando datos para la tabla sistema_negocio.crm_conversacion: ~0 rows (aproximadamente)
+-- Volcando datos para la tabla sistema_negocio.crm_conversacion: ~2 rows (aproximadamente)
+INSERT INTO `crm_conversacion` (`id`, `fuente`, `estado`, `resumen`, `fecha_inicio`, `ultima_actualizacion`, `asesor_asignado_id`, `cliente_id`, `prioridad`, `sla_vencimiento`) VALUES
+	(1, 'WhatsApp', 'Abierta', '', '2025-11-15 00:33:10.512087', '2025-11-15 15:58:54.077671', NULL, 5, 'medium', NULL),
+	(2, 'WhatsApp', 'Abierta', '', '2025-11-15 00:51:02.757658', '2025-11-15 00:51:02.757658', NULL, 6, 'medium', NULL);
 
 -- Volcando estructura para tabla sistema_negocio.crm_conversacion_etiquetas
 CREATE TABLE IF NOT EXISTS `crm_conversacion_etiquetas` (
@@ -448,6 +621,33 @@ CREATE TABLE IF NOT EXISTS `crm_conversacion_etiquetas` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Volcando datos para la tabla sistema_negocio.crm_conversacion_etiquetas: ~0 rows (aproximadamente)
+
+-- Volcando estructura para tabla sistema_negocio.crm_cotizacion
+CREATE TABLE IF NOT EXISTS `crm_cotizacion` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `productos` json NOT NULL,
+  `total` decimal(12,2) NOT NULL,
+  `valido_hasta` datetime(6) NOT NULL,
+  `estado` varchar(20) NOT NULL,
+  `notas` longtext NOT NULL,
+  `creado` datetime(6) NOT NULL,
+  `actualizado` datetime(6) NOT NULL,
+  `cliente_id` bigint NOT NULL,
+  `conversacion_id` bigint NOT NULL,
+  `venta_relacionada_id` varchar(20) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `crm_cotizacion_cliente_id_77934741_fk_crm_cliente_id` (`cliente_id`),
+  KEY `crm_cotizacion_conversacion_id_56749d32_fk_crm_conversacion_id` (`conversacion_id`),
+  KEY `crm_cotizacion_venta_relacionada_id_690d174b_fk_ventas_venta_id` (`venta_relacionada_id`),
+  CONSTRAINT `crm_cotizacion_cliente_id_77934741_fk_crm_cliente_id` FOREIGN KEY (`cliente_id`) REFERENCES `crm_cliente` (`id`),
+  CONSTRAINT `crm_cotizacion_conversacion_id_56749d32_fk_crm_conversacion_id` FOREIGN KEY (`conversacion_id`) REFERENCES `crm_conversacion` (`id`),
+  CONSTRAINT `crm_cotizacion_venta_relacionada_id_690d174b_fk_ventas_venta_id` FOREIGN KEY (`venta_relacionada_id`) REFERENCES `ventas_venta` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Volcando datos para la tabla sistema_negocio.crm_cotizacion: ~2 rows (aproximadamente)
+INSERT INTO `crm_cotizacion` (`id`, `productos`, `total`, `valido_hasta`, `estado`, `notas`, `creado`, `actualizado`, `cliente_id`, `conversacion_id`, `venta_relacionada_id`) VALUES
+	(1, '[{"sku": "ADAPTADOR-5W-USB-IPHONE-CARGADORCABLE", "nombre": "Adaptador 5w USB IPhone Cargador+Cable", "precio": 1.0, "cantidad": 1, "subtotal": 1.0}]', 1.00, '2025-11-22 13:41:04.759570', 'Pendiente', '', '2025-11-15 13:41:04.759570', '2025-11-15 13:41:04.759570', 5, 1, NULL),
+	(2, '[{"sku": "ADAPTADOR-20W-TIPO-C-OOGAN", "nombre": "Adaptador 20W Tipo C Oogan", "precio": 1560000.0, "cantidad": 1, "subtotal": 1560000.0}]', 1560000.00, '2025-11-22 14:39:14.741696', 'Pendiente', '', '2025-11-15 14:39:14.741696', '2025-11-15 14:39:14.741696', 5, 1, NULL);
 
 -- Volcando estructura para tabla sistema_negocio.crm_etiqueta
 CREATE TABLE IF NOT EXISTS `crm_etiqueta` (
@@ -474,9 +674,14 @@ CREATE TABLE IF NOT EXISTS `crm_mensaje` (
   PRIMARY KEY (`id`),
   KEY `crm_mensaje_conversacion_id_4226bb24_fk_crm_conversacion_id` (`conversacion_id`),
   CONSTRAINT `crm_mensaje_conversacion_id_4226bb24_fk_crm_conversacion_id` FOREIGN KEY (`conversacion_id`) REFERENCES `crm_conversacion` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=191 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- Volcando datos para la tabla sistema_negocio.crm_mensaje: ~0 rows (aproximadamente)
+-- Volcando datos para la tabla sistema_negocio.crm_mensaje: ~4 rows (aproximadamente)
+INSERT INTO `crm_mensaje` (`id`, `emisor`, `contenido`, `fecha_envio`, `enviado_por_ia`, `conversacion_id`, `archivo`, `tipo_mensaje`, `metadata`) VALUES
+	(6, 'Cliente', 'this is a text message', '2025-11-15 00:51:02.874499', 0, 2, '', 'texto', NULL),
+	(130, 'Sistema', 'hola', '2025-11-15 14:22:28.371889', 0, 2, '', 'texto', NULL),
+	(189, 'Cliente', 'Hola', '2025-11-15 16:06:18.859594', 0, 1, '', 'texto', '{"whatsapp_id": "wamid.HBgNNTQ5MjY2NTAzMjg5MBUCABIYFDNBNUZFNTkwN0ZGNTc4RkZCOUYyAA=="}'),
+	(190, 'Sistema', '¡Hola Emanuel! ¿Cómo estás? Soy ISAC, tu asistente virtual de ImportSt.\n\n¡Un placer saludarte! ¿En qué te puedo ayudar hoy? 😉', '2025-11-15 16:06:26.899700', 1, 1, '', 'texto', '{"contexto_usado": {"tiene_historial": true, "productos_interes": false}, "productos_info": [], "requiere_asesor": false, "intencion_detectada": "saludo", "productos_mencionados": []}');
 
 -- Volcando estructura para tabla sistema_negocio.django_admin_log
 CREATE TABLE IF NOT EXISTS `django_admin_log` (
@@ -521,7 +726,7 @@ CREATE TABLE IF NOT EXISTS `django_content_type` (
   `model` varchar(100) COLLATE utf8mb4_general_ci NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `django_content_type_app_label_model_76bd3d3b_uniq` (`app_label`,`model`)
-) ENGINE=InnoDB AUTO_INCREMENT=35 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=39 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Volcando datos para la tabla sistema_negocio.django_content_type: ~24 rows (aproximadamente)
 INSERT INTO `django_content_type` (`id`, `app_label`, `model`) VALUES
@@ -529,6 +734,8 @@ INSERT INTO `django_content_type` (`id`, `app_label`, `model`) VALUES
 	(20, 'asistente_ia', 'assistantknowledgearticle'),
 	(21, 'asistente_ia', 'assistantplaybook'),
 	(22, 'asistente_ia', 'assistantquickreply'),
+	(35, 'asistente_ia', 'conversationmessage'),
+	(36, 'asistente_ia', 'conversationthread'),
 	(3, 'auth', 'group'),
 	(2, 'auth', 'permission'),
 	(4, 'auth', 'user'),
@@ -539,7 +746,9 @@ INSERT INTO `django_content_type` (`id`, `app_label`, `model`) VALUES
 	(24, 'configuracion', 'preferenciausuario'),
 	(5, 'contenttypes', 'contenttype'),
 	(7, 'crm', 'cliente'),
+	(38, 'crm', 'clientecontexto'),
 	(8, 'crm', 'conversacion'),
+	(37, 'crm', 'cotizacion'),
 	(17, 'crm', 'etiqueta'),
 	(9, 'crm', 'mensaje'),
 	(16, 'historial', 'registrohistorial'),
@@ -567,9 +776,9 @@ CREATE TABLE IF NOT EXISTS `django_migrations` (
   `name` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
   `applied` datetime(6) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=64 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=68 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- Volcando datos para la tabla sistema_negocio.django_migrations: ~51 rows (aproximadamente)
+-- Volcando datos para la tabla sistema_negocio.django_migrations: ~49 rows (aproximadamente)
 INSERT INTO `django_migrations` (`id`, `app`, `name`, `applied`) VALUES
 	(1, 'contenttypes', '0001_initial', '2025-11-03 00:56:19.084429'),
 	(2, 'auth', '0001_initial', '2025-11-03 00:56:19.801554'),
@@ -629,7 +838,11 @@ INSERT INTO `django_migrations` (`id`, `app`, `name`, `applied`) VALUES
 	(60, 'inventario', '0016_productoimagen', '2025-11-13 15:08:25.952422'),
 	(61, 'inventario', '0017_add_categoria_parent', '2025-11-13 17:35:07.708945'),
 	(62, 'inventario', '0018_plan_canje_models', '2025-11-14 16:54:45.570677'),
-	(63, 'inventario', '0019_add_plan_canje_new_fields', '2025-11-14 17:17:27.579056');
+	(63, 'inventario', '0019_add_plan_canje_new_fields', '2025-11-14 17:17:27.579056'),
+	(64, 'asistente_ia', '0002_conversationthread_conversationmessage', '2025-11-14 20:34:41.078806'),
+	(65, 'crm', '0005_clientecontexto', '2025-11-14 22:54:49.324933'),
+	(66, 'crm', '0006_cotizacion', '2025-11-14 22:54:49.583077'),
+	(67, 'configuracion', '0004_agregar_campos_crm_ia', '2025-11-15 14:25:50.574293');
 
 -- Volcando estructura para tabla sistema_negocio.django_session
 CREATE TABLE IF NOT EXISTS `django_session` (
@@ -649,10 +862,12 @@ INSERT INTO `django_session` (`session_key`, `session_data`, `expire_date`) VALU
 	('5lryevowz1wjg7yy2u5isjjyqexwhppj', '.eJxVjMsOwiAQRf-FtSFAedmle7-BTDuMRQ0YaBON8d9tky50e8-5580CLPMUlhZrSMh6ptjhdxtgvMW8AbxCvhQ-ljzXNPBN4Ttt_Fww3k-7-xeYoE3r23hLg3WepFHSolSmQ2kNCZReKKlJ0xqLGp0AJMCROvKSlDbOgjm6Ldpia6nkEJ-PVF-sF58veik_Eg:1vJgLW:7ILSkYu7KIE4HeTo7hREN10zlHtKWuJ0_lFQBGAwlDQ', '2025-11-27 23:03:18.430166'),
 	('6a2nxz8gwj04dc27fgiu8pfsz0ufe3sw', '.eJxVjMsOwiAQRf-FtSFAedmle7-BTDuMRQ0YaBON8d9tky50e8-5580CLPMUlhZrSMh6ptjhdxtgvMW8AbxCvhQ-ljzXNPBN4Ttt_Fww3k-7-xeYoE3r23hLg3WepFHSolSmQ2kNCZReKKlJ0xqLGp0AJMCROvKSlDbOgjm6Ldpia6nkEJ-PVF-sF58veik_Eg:1vJx6n:2NdhNSMnpoKA8ap2fqJXgzJSPmIQb8ybOc80zlbimas', '2025-11-28 16:57:13.787648'),
 	('70z6f8gggb58vnd2v689x39m3odiys6w', '.eJxVjcsOgjAURP-la0Jo6QPZ6Y4Fmqj7pnB7pT5aQiHRGP9dSFjods7MmTfRZho7PUU7aAekJIwkv1lj2pv1C4Cr8ZeQtsGPg2vSpZKuNKZ1AHvfrd0_QWdiN69FIbGRqkAqGJVAmciBSoEZ0CJjlCPHWWY5qMwAGmgxx4Ii40JJIzZqkUYbowte22fvhhcps4Q8AgTdD7Z1YT6pq_3hWJ3OW_L5AlLNR0Y:1vJwXw:YEHoEG60BtEDpEbl-T4IloOK4UY63GTbIXikZe8Stds', '2025-11-28 16:21:12.613905'),
+	('8kmsg3gdglo4u8kwhx9037n70fpsg7cn', '.eJxVjMsOwiAQRf-FtSFAedmle7-BTDuMRQ0YaBON8d9tky50e8-5580CLPMUlhZrSMh6ptjhdxtgvMW8AbxCvhQ-ljzXNPBN4Ttt_Fww3k-7-xeYoE3r23hLg3WepFHSolSmQ2kNCZReKKlJ0xqLGp0AJMCROvKSlDbOgjm6Ldpia6nkEJ-PVF-sF58veik_Eg:1vK4Ym:C7dmWNO6QDtO_mFoxNFt-OKy1AvmxxHpTpOKO1KrMMA', '2025-11-29 00:54:36.928253'),
 	('8wqugj5agb9y5sy0gj7jk0s2io8is6pt', '.eJxVjMsOwiAQRf-FtSFAedmle7-BTDuMRQ0YaBON8d9tky50e8-5580CLPMUlhZrSMh6ptjhdxtgvMW8AbxCvhQ-ljzXNPBN4Ttt_Fww3k-7-xeYoE3r23hLg3WepFHSolSmQ2kNCZReKKlJ0xqLGp0AJMCROvKSlDbOgjm6Ldpia6nkEJ-PVF-sF58veik_Eg:1vJZLk:fM3ivcDgx48Bc0WJTKAvHM6QgxtpTWC41O33ia_dTe8', '2025-11-27 15:35:04.744420'),
 	('979n20vlc3xf1n9wcjyybfkabgo8f81c', '.eJxVjMsOwiAQRf-FtSFAedmle7-BTDuMRQ0YaBON8d9tky50e8-5580CLPMUlhZrSMh6ptjhdxtgvMW8AbxCvhQ-ljzXNPBN4Ttt_Fww3k-7-xeYoE3r23hLg3WepFHSolSmQ2kNCZReKKlJ0xqLGp0AJMCROvKSlDbOgjm6Ldpia6nkEJ-PVF-sF58veik_Eg:1vJcD1:K-mnl51Gbjka-mZlSIZit2HLYAQb1e5Q1OqYHg-hGC8', '2025-11-27 18:38:15.620926'),
 	('aucedjbk59jktb21ux43qxlirnxej9fo', '.eJxVjDsOwjAQBe_iGllexz8o6TmDtfZ6cQA5UpxUiLuTSCmgfTNv3iLiutS49jLHkcRFaHH63RLmZ2k7oAe2-yTz1JZ5THJX5EG7vE1UXtfD_QtU7HV72-A4OR8YrAZHoO1A4CwrgqA0GDa8xYohr5AYKfPAAVgb6x3asxefL9MvN9U:1vJS0x:Xlyy9PYIro4uqMLfZPS1vCnh0vRvK7xPtjbjq9tVtgc', '2025-11-27 07:45:07.432670'),
 	('axfmt132087b8z8oh3gf943czt1n88c5', '.eJxVjDsOwjAQBe_iGllexz8o6TmDtfZ6cQA5UpxUiLuTSCmgfTNv3iLiutS49jLHkcRFaHH63RLmZ2k7oAe2-yTz1JZ5THJX5EG7vE1UXtfD_QtU7HV72-A4OR8YrAZHoO1A4CwrgqA0GDa8xYohr5AYKfPAAVgb6x3asxefL9MvN9U:1vJY3u:HG_xF0yH5NXICfa0BGk8GiDF4sTP0Vu3JWe8XClV-tQ', '2025-11-27 14:12:34.475382'),
+	('cab9s6dhf0ipes9bzw5n5trnu1t1snur', '.eJxVjMsOgjAQRf-la9O0pS9YuvcbmoHpSNW0hEKiMf67kLDQ7T3nnjcLsC5jWGucQ0LWMcVOv1sPwz3mHeAN8rXwoeRlTj3fFX7Qyi8F4-N8uH-BEeq4vY231FvnSRolLUplGpTWkEDphZKaNG2xqNEJQAIcqCEvSWnjLJjW7dEaa00lh_ic0vxinTKtEkJ8vvc5QEQ:1vK0cV:gbJYIIhjffYURZIhuo1-Zuef9JM2lyEU53jkGDmFpDw', '2025-12-14 20:42:11.957192'),
 	('cdkrgx38xp1w3fq8npqcijcm1fht51ig', '.eJxVjDsOwjAQBe_iGllexz8o6TmDtfZ6cQA5UpxUiLuTSCmgfTNv3iLiutS49jLHkcRFaHH63RLmZ2k7oAe2-yTz1JZ5THJX5EG7vE1UXtfD_QtU7HV72-A4OR8YrAZHoO1A4CwrgqA0GDa8xYohr5AYKfPAAVgb6x3asxefL9MvN9U:1vIurZ:S0Cc11OUsFmWeFc9tPJhZxf4PUGVy7e-0CKcLD0ClY0', '2025-11-25 20:21:13.921514'),
 	('cispeeq6ei2zzn9ab0h8m76pk0i56xoi', '.eJxVjMsOwiAQRf-FtSFAedmle7-BTDuMRQ0YaBON8d9tky50e8-5580CLPMUlhZrSMh6ptjhdxtgvMW8AbxCvhQ-ljzXNPBN4Ttt_Fww3k-7-xeYoE3r23hLg3WepFHSolSmQ2kNCZReKKlJ0xqLGp0AJMCROvKSlDbOgjm6Ldpia6nkEJ-PVF-sF58veik_Eg:1vJcot:H-Qt7yPmGKh7eAfLc6C0db1ETGFjPPf7dLCpRWRlr5s', '2025-11-27 19:17:23.522586'),
 	('dm7dx4zdh2kcj0eeydrxjanw5sj8jgnz', '.eJxVjrtuwzAMRX8l0GwYluNXs7WdO3UsCoHWI2Zii4Ykdwny72UcI0053se5vAgFSxrUEm1QaMRBlCJ71nrQZ-tvhjmBP1KuyaeAfX6L5Jsb8w8ydnzbsv8AA8SB23XXuL5pOyfrUjZGlvXeyKZ2hZFdUcrKVY5htjJtAcaB0W7vOunKqm4bqF9ahmoIAROpYCdKJA5fF_EDAcEnu74uMxHPC29x8AiGAnc8TX2wrL2_PjRjow44ayT_ZOw-0e9snK1Gh0xYB31CA4wuMzEHdkgtHhOPkoIQebLgy4s_NxpFAY_oYRQHv4xjJmxUOA_k-QsHY7SropeYaHoo9zoDL2JCz4SY4L4gtolCXK_f1180TZE-:1vJQR7:vxO6nisHIWCFvWmSuefHWUOCtzOWRtMflus6h7cR510', '2025-11-27 06:04:01.812474'),
@@ -667,7 +882,7 @@ INSERT INTO `django_session` (`session_key`, `session_data`, `expire_date`) VALU
 	('lodg84vdk4077oh2udceky68h8a7z7w1', '.eJxVjMsOwiAQRf-FtSFAedmle7-BTDuMRQ0YaBON8d9tky50e8-5580CLPMUlhZrSMh6ptjhdxtgvMW8AbxCvhQ-ljzXNPBN4Ttt_Fww3k-7-xeYoE3r23hLg3WepFHSolSmQ2kNCZReKKlJ0xqLGp0AJMCROvKSlDbOgjm6Ldpia6nkEJ-PVF-sF58veik_Eg:1vJacp:62xwQzSgcyQxghQw3Zr0KeMJiqLAvtYXL0eypQtJJtU', '2025-11-27 16:56:47.561253'),
 	('mhirscrf8ylm4v8o1qabjy5yykp8uvog', '.eJxVjrtuwzAMRX8l0GwYluNXs7WdO3UsCoHWI2Zii4Ykdwny72UcI0053se5vAgFSxrUEm1QaMRBlCJ71nrQZ-tvhjmBP1KuyaeAfX6L5Jsb8w8ydnzbsv8AA8SB23XXuL5pOyfrUjZGlvXeyKZ2hZFdUcrKVY5htjJtAcaB0W7vOunKqm4bqF9ahmoIAROpYCdKJA5fF_EDAcEnu74uMxHPC29x8AiGAnc8TX2wrL2_PjRjow44ayT_ZOw-0e9snK1Gh0xYB31CA4yu2kzMgS1Si8fEq6QgRN4s-PLiz41GUcAjehjFwS_jmAkbFc4DeX7DwRjtquglJpoeyr3OwIuY0DMhJrgviG2iENfr9_UXtQWRdw:1vJPWH:T76niIhumzDp7hi6NHzCXkT37N7TVL_yf00_5AuTAI0', '2025-11-27 05:05:17.460091'),
 	('msa2ueqt76z5z271ggymv3ql7b8s0q51', '.eJxVjEEOwiAQRe_C2pDCgIBL9z0DGZhBqoYmpV0Z765NutDtf-_9l4i4rTVunZc4kbgIJU6_W8L84LYDumO7zTLPbV2mJHdFHrTLcSZ-Xg_376Bir9_a55wVKxcCWHUenCFtTOFExnhndQAoAwAob5HAabaOCoA1CJY9BC3eH7yaNpA:1vFj1p:4rA4LdnEsEzjiX3swuXSXLPV6J6aGdCpLvGVo6o29Yo', '2025-11-17 01:06:37.279905'),
-	('mtrc6d2a4zzmk3fuq4bzsqq7trgb75kb', '.eJxVjLkOwjAQBf_FNbJi4wu60FFESEBDZW28XhKOGOWoEP-OI6WA9s28eTMP09j4aYi9b5FtmWSr362GcI_dDPAG3TXxkLqxb2s-K3yhA68Sxsducf8CDQxNfmtnqDbWkdBSGBRSr1EYTQUKV0ihSFGORYW2ACTAQGtygqTS1oDe2Bx9Jkz-1cfQphysysvhuD-dS_b5Au-lQAw:1vJxpW:_4FbcBaHhg_aqlgJ45tEZCTrVm0f3lLxrGFwI2WdIpg', '2025-11-28 17:43:26.408687'),
+	('mtrc6d2a4zzmk3fuq4bzsqq7trgb75kb', '.eJy9VMtuGzkQ_JXOnDaGIGtkPWxfgmRtYBeLPOBkD4tVIPSQPRLtGbbChxAlyL9vkyPJFqxNjBxy0ohsFqurqvm1mGMMy3n05OZGF5fFsOg9XKtQ3ZFNG_oW7YL7im1wpuqnkv521_dfs6bm1bb2AGCJfimnx-eTuppMz-tyPCwnuhyOz3Q5GdcDXZ4PhuWoHtUCRiM9HaCuUav6rD4v6-FoPJ3g-GIqoC1rnq8cKcMC-PrlP29v_nz_4aXsoPfGB7RhvpRfdpvi8t-vheOGpDCxkJrEm2yQhbfN2mgEaiCvfQ4MG_lsyX6ZxcGASogWwUZaI3jyJi3WZ7ZffOvtQfc3HiCnSiyv019tNPfgusVncIUte1ixg9pYbMwX1JxuD9QiCAQ5I3s7Crn4OIGZndlr6W8DTWoTVugEYBM1ukCpGWgYPkUCS0qOBfJ9SGer-trKem7uAlaR5P7uTLqnRcuw5M0LeJd3BMfHJuR9uUXdgSZYOdZRBfY96ByQjwVZcugAm0VmiBYcSZtyjndMcrH00HENEYLDCm-5I4bllWy39OyhtI_8SjjrpGhSRog-1Yd35GoSzp0NSbwbWhu_lUEMcLSQw45Tg4IrFqypo72MFWdxTk7k5oAnJ7tilOQkK2cF6tbYWQEIDXooJ5dnUwFqoBydluXpcDAcZ8N-T7YgGFuza1HtzARUIWIDon1LgCKPeJYM9AISsGlEM_IrUpmuro3KO83eiU4S8es3y23lqAfv__q7B0q0kHRrsaAz6nnqjjwCr8QtdRCmLhxvurR02fe5_yr69BPvHdXZgyCdtrvCjmcKczY3KZjVc53CHjxWlOMhcbepKBgVG0mMZyGcSWXMXfJM9i8lSinS6WiueSSdN0kzI-2re9JbW-1hM2ko9oS7MB6d56OhY6vxqWH7g8XkPO4f5JmCyqSOObXS3d57OLOPxvTejKdN6g0pdnr7WuU5Oz66R6Z1a6gXrw6eDiVp_BSNqM6S8j1UzpylBQvK9xVDf4u3_sd6vWF5-RIvVnFFPk_n_wgQ6F6Dn1TglzxeH7_9B9dkhVM:1vK0ZT:vz_-P6iqvY7-lLFTH__r0v9j5nvGPkuAciM3ymIKoTE', '2025-11-28 20:39:03.075682'),
 	('n14xf74ufx4zyfqgi8a40i2d51ad2stf', '.eJxVjMsOwiAQRf-FtSFAedmle7-BTDuMRQ0YaBON8d9tky50e8-5580CLPMUlhZrSMh6ptjhdxtgvMW8AbxCvhQ-ljzXNPBN4Ttt_Fww3k-7-xeYoE3r23hLg3WepFHSolSmQ2kNCZReKKlJ0xqLGp0AJMCROvKSlDbOgjm6Ldpia6nkEJ-PVF-sF58veik_Eg:1vJeN4:b6mBaIzmj96bwm-z0MTsfZz3RYR0ltWzIl_e76sVCeI', '2025-11-27 20:56:46.702226'),
 	('nb01o5oilyl8vw8stncrmzbuy1arcupw', '.eJxVjMsOwiAQRf-FtSFAedmle7-BTDuMRQ0YaBON8d9tky50e8-5580CLPMUlhZrSMh6ptjhdxtgvMW8AbxCvhQ-ljzXNPBN4Ttt_Fww3k-7-xeYoE3r23hLg3WepFHSolSmQ2kNCZReKKlJ0xqLGp0AJMCROvKSlDbOgjm6Ldpia6nkEJ-PVF-sF58veik_Eg:1vJYzV:ft5AtRNVxfLCyolYQ-GxgL_TG_X4f-HSFaa4SYaK0gs', '2025-11-27 15:12:05.379683'),
 	('ng8imfjbdx9wp1s58cb3bgeo1a4truta', '.eJxVjMsOwiAQRf-FtSFAedmle7-BTDuMRQ0YaBON8d9tky50e8-5580CLPMUlhZrSMh6ptjhdxtgvMW8AbxCvhQ-ljzXNPBN4Ttt_Fww3k-7-xeYoE3r23hLg3WepFHSolSmQ2kNCZReKKlJ0xqLGp0AJMCROvKSlDbOgjm6Ldpia6nkEJ-PVF-sF58veik_Eg:1vJbRB:dqab4L9vwPF5UZyKYAcxLfcMAq-ePFwqGK4NZtHlQ1Q', '2025-11-27 17:48:49.127033'),
@@ -690,9 +905,9 @@ CREATE TABLE IF NOT EXISTS `historial_registrohistorial` (
   PRIMARY KEY (`id`),
   KEY `historial_registrohistorial_usuario_id_ccace41c_fk_auth_user_id` (`usuario_id`),
   CONSTRAINT `historial_registrohistorial_usuario_id_ccace41c_fk_auth_user_id` FOREIGN KEY (`usuario_id`) REFERENCES `auth_user` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=91 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=96 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- Volcando datos para la tabla sistema_negocio.historial_registrohistorial: ~79 rows (aproximadamente)
+-- Volcando datos para la tabla sistema_negocio.historial_registrohistorial: ~71 rows (aproximadamente)
 INSERT INTO `historial_registrohistorial` (`id`, `tipo_accion`, `descripcion`, `fecha`, `usuario_id`) VALUES
 	(1, 'CREACION', 'Se agregó el nuevo iPhone: iPhone 13 mini - 1TB / Azul.', '2025-11-06 22:14:53.368133', 1),
 	(2, 'VENTA', 'Venta POS-0686AF2B por 9000.00 (efectivo).', '2025-11-11 20:09:48.099498', NULL),
@@ -780,7 +995,12 @@ INSERT INTO `historial_registrohistorial` (`id`, `tipo_accion`, `descripcion`, `
 	(87, 'MODIFICACION', 'Stock actualizado: Adaptador Apple 20w Tipo C (ORIGINAL APPLE) (ADAPTADOR-APPLE-20W-TIPO-C-ORIGINAL-APPLE) - 0 → 2', '2025-11-14 17:54:17.427883', 2),
 	(88, 'ESTADO', 'Estado inactivo → Adaptador 20W Tipo C Oogan ()', '2025-11-14 17:54:47.735980', 2),
 	(89, 'MODIFICACION', 'Precio actualizado: Adaptador 20W Tipo C Oogan (ADAPTADOR-20W-TIPO-C-OOGAN) - MINORISTA ARS - 1.00 → 1560000', '2025-11-14 17:58:11.451711', 2),
-	(90, 'MODIFICACION', 'Precio actualizado: Adaptador 20W Tipo C Oogan (ADAPTADOR-20W-TIPO-C-OOGAN) - MINORISTA ARS - 1560000.00 → 1560000', '2025-11-14 17:58:11.466784', 2);
+	(90, 'MODIFICACION', 'Precio actualizado: Adaptador 20W Tipo C Oogan (ADAPTADOR-20W-TIPO-C-OOGAN) - MINORISTA ARS - 1560000.00 → 1560000', '2025-11-14 17:58:11.466784', 2),
+	(91, 'MODIFICACION', 'Precio creado: Adaptador 20W Tipo C Oogan (ADAPTADOR-20W-TIPO-C-OOGAN) - MAYORISTA ARS - 1212.00 → 1212', '2025-11-14 18:48:54.529884', 2),
+	(92, 'ESTADO', 'Estado activo → Adaptador 20W Tipo C Oogan ()', '2025-11-14 18:49:12.518192', 2),
+	(93, 'MODIFICACION', 'Stock actualizado: Adaptador 20W Tipo C Oogan (ADAPTADOR-20W-TIPO-C-OOGAN) - 0 → 2', '2025-11-15 00:35:46.613252', 2),
+	(94, 'MODIFICACION', 'Stock actualizado: Adaptador 20W Tipo C Oogan (ADAPTADOR-20W-TIPO-C-OOGAN) - 0 → 2', '2025-11-15 00:35:46.621291', 2),
+	(95, 'VENTA', 'Venta POS-6B0D8096 por $2559150.00 (EFECTIVO_ARS).', '2025-11-15 00:57:54.268622', 2);
 
 -- Volcando estructura para tabla sistema_negocio.inventario_categoria
 CREATE TABLE IF NOT EXISTS `inventario_categoria` (
@@ -1023,7 +1243,7 @@ CREATE TABLE IF NOT EXISTS `inventario_precio` (
   KEY `idx_precio_activo` (`activo`),
   KEY `idx_precio_var_tipo_mon` (`variante_id`,`tipo`,`moneda`),
   CONSTRAINT `inventario_precio_variante_id_28e3c002_fk_inventari` FOREIGN KEY (`variante_id`) REFERENCES `inventario_productovariante` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=448 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=450 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Volcando datos para la tabla sistema_negocio.inventario_precio: ~273 rows (aproximadamente)
 INSERT INTO `inventario_precio` (`id`, `tipo_precio`, `costo`, `precio_venta_normal`, `precio_venta_minimo`, `precio_venta_descuento`, `variante_id`, `moneda`, `activo`, `actualizado`, `creado`, `precio`, `tipo`) VALUES
@@ -1297,7 +1517,8 @@ INSERT INTO `inventario_precio` (`id`, `tipo_precio`, `costo`, `precio_venta_nor
 	(444, 'MINORISTA', 1.00, 1.00, 1.00, NULL, 451, 'ARS', 1, '2025-11-13 17:23:36.000000', '2025-11-13 14:13:06.000000', 1.00, 'MINORISTA'),
 	(445, 'MINORISTA', 1.00, 1.00, 1.00, NULL, 453, 'ARS', 1, '2025-11-13 17:23:36.000000', '2025-11-13 17:14:45.000000', 1.00, 'MINORISTA'),
 	(446, 'MAYORISTA', 1222.00, 1212.00, 1212.00, NULL, 453, 'ARS', 1, '2025-11-13 17:14:45.000000', '2025-11-13 17:14:45.000000', 1212.00, 'MAYORISTA'),
-	(447, 'MINORISTA', 1.00, 1.00, 1.00, NULL, 452, 'ARS', 1, '2025-11-13 17:23:38.000000', '2025-11-13 17:23:38.000000', 1.00, 'MINORISTA');
+	(447, 'MINORISTA', 1.00, 1.00, 1.00, NULL, 452, 'ARS', 1, '2025-11-13 17:23:38.000000', '2025-11-13 17:23:38.000000', 1.00, 'MINORISTA'),
+	(448, 'MAYORISTA', 0.00, 1212.00, 1212.00, NULL, 387, 'ARS', 1, '2025-11-14 18:48:54.521774', '2025-11-14 15:48:54.000000', 1212.00, 'MAYORISTA');
 
 -- Volcando estructura para tabla sistema_negocio.inventario_producto
 CREATE TABLE IF NOT EXISTS `inventario_producto` (
@@ -1609,7 +1830,7 @@ CREATE TABLE IF NOT EXISTS `inventario_productovariante` (
 INSERT INTO `inventario_productovariante` (`id`, `nombre_variante`, `stock`, `producto_id`, `codigo_barras`, `peso`, `sku`, `activo`, `actualizado`, `atributo_1`, `atributo_2`, `creado`, `stock_actual`, `stock_minimo`, `qr_code`) VALUES
 	(1, 'pata recta', 64, 2, NULL, 0.00, 'cargador-20w-pata-recta', 1, '2025-11-13 20:23:37.305696', 'pata recta', '', '2025-11-07 16:08:45.931486', 64, 0, NULL),
 	(4, 'iPhone 16 128GB Titanio Negro', 1, 11, '443395475901', 0.00, 'IPHONE-16-128GB-TITANIO-NEGRO', 1, '2025-11-13 16:21:56.571924', '128GB', 'Titanio Negro', '2025-11-13 03:44:05.956153', 0, 0, 'https://importstore.com/producto/IPHONE-16-128GB-TITANIO-NEGRO'),
-	(9, 'iPhone 15 Pro 64GB Titanio Natural', 1, 21, '805687808856', 0.00, 'IPHONE-15-PRO-64GB-TITANIO-NATURAL', 1, '2025-11-13 18:59:41.084512', '64GB', 'Titanio Natural', '2025-11-13 15:28:11.020720', 1, 0, 'https://importstore.com/producto/IPHONE-15-PRO-64GB-TITANIO-NATURAL'),
+	(9, 'iPhone 15 Pro 64GB Titanio Natural', 1, 21, '805687808856', 0.00, 'IPHONE-15-PRO-64GB-TITANIO-NATURAL', 1, '2025-11-13 18:59:41.084512', '64GB', 'Titanio Natural', '2025-11-13 15:28:11.020720', 0, 0, 'https://importstore.com/producto/IPHONE-15-PRO-64GB-TITANIO-NATURAL'),
 	(13, '', 12, 25, NULL, 0.00, 'fundas', 1, '2025-11-13 20:23:37.620359', '', '', '2025-11-13 16:51:03.147755', 12, 0, NULL),
 	(191, '', 91, 168, NULL, 0.00, 'CARGADOR-20W-TIPO-C', 1, '2025-11-13 20:23:37.317051', '', '', '2025-11-13 17:13:02.962262', 91, 0, NULL),
 	(192, ' (1)', 6, 168, NULL, 0.00, 'CARGADOR-20W-TIPO-C-1', 1, '2025-11-13 20:23:37.330054', '', '', '2025-11-13 17:13:02.988076', 6, 0, NULL),
@@ -1807,7 +2028,7 @@ INSERT INTO `inventario_productovariante` (`id`, `nombre_variante`, `stock`, `pr
 	(384, '', 0, 327, NULL, 0.00, 'AURICULAR-EARPOD-SIMIL-TIPO-C', 0, '2025-11-13 20:23:36.426466', '', '', '2025-11-13 17:13:05.501370', 0, 0, NULL),
 	(385, '', 0, 328, NULL, 0.00, 'SMARTWATCH-TK-ULTRA-2', 0, '2025-11-13 20:23:39.227960', '', '', '2025-11-13 17:13:05.514744', 0, 0, NULL),
 	(386, '', 0, 329, NULL, 0.00, 'TIRA-NEON-1MT-CON-CONTROL', 1, '2025-11-13 20:23:39.423759', '', '', '2025-11-13 17:13:05.527891', 0, 0, NULL),
-	(387, '', 0, 330, NULL, 0.00, 'ADAPTADOR-20W-TIPO-C-OOGAN', 0, '2025-11-14 17:54:47.729983', '', '', '2025-11-13 17:13:05.542481', 0, 0, NULL),
+	(387, '', 0, 330, NULL, 0.00, 'ADAPTADOR-20W-TIPO-C-OOGAN', 1, '2025-11-15 00:35:46.612715', '', '', '2025-11-13 17:13:05.542481', 2, 0, NULL),
 	(388, '', 0, 331, NULL, 0.00, 'ADAPTADOR-20W-TIPO-C-CON-CABLE-TIPO-C-A-C-OOGAN', 0, '2025-11-13 20:23:36.074549', '', '', '2025-11-13 17:13:05.558705', 0, 0, NULL),
 	(389, '', 0, 332, NULL, 0.00, 'LAMPARA-FILAMENTO-LED-IMAN-RECARGABLE-VELADOR-DECORATIVO-TL4', 0, '2025-11-13 20:23:38.119286', '', '', '2025-11-13 17:13:05.572211', 0, 0, NULL),
 	(390, '', 10, 333, NULL, 0.00, 'SAMSUNG-GALAXY-A06-64GB-4RAM', 1, '2025-11-13 20:23:39.087355', '', '', '2025-11-13 17:13:05.586668', 10, 0, NULL),
@@ -1921,7 +2142,7 @@ CREATE TABLE IF NOT EXISTS `ventas_carritoremoto` (
 
 -- Volcando datos para la tabla sistema_negocio.ventas_carritoremoto: ~1 rows (aproximadamente)
 INSERT INTO `ventas_carritoremoto` (`id`, `items`, `actualizado`, `usuario_id`) VALUES
-	(1, '[]', '2025-11-14 16:37:10.140991', 2);
+	(1, '[]', '2025-11-15 00:57:54.939924', 2);
 
 -- Volcando estructura para tabla sistema_negocio.ventas_detalleventa
 CREATE TABLE IF NOT EXISTS `ventas_detalleventa` (
@@ -1941,7 +2162,7 @@ CREATE TABLE IF NOT EXISTS `ventas_detalleventa` (
   CONSTRAINT `ventas_detalleventa_variante_id_67772d78_fk_inventari` FOREIGN KEY (`variante_id`) REFERENCES `inventario_productovariante` (`id`),
   CONSTRAINT `ventas_detalleventa_venta_id_c370bcd7_fk_ventas_venta_id` FOREIGN KEY (`venta_id`) REFERENCES `ventas_venta` (`id`),
   CONSTRAINT `ventas_detalleventa_chk_1` CHECK ((`cantidad` >= 0))
-) ENGINE=InnoDB AUTO_INCREMENT=92 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=93 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Volcando datos para la tabla sistema_negocio.ventas_detalleventa: ~88 rows (aproximadamente)
 INSERT INTO `ventas_detalleventa` (`id`, `sku`, `descripcion`, `cantidad`, `precio_unitario_ars_congelado`, `subtotal_ars`, `variante_id`, `venta_id`, `precio_unitario_usd_original`, `tipo_cambio_usado`) VALUES
@@ -2032,7 +2253,8 @@ INSERT INTO `ventas_detalleventa` (`id`, `sku`, `descripcion`, `cantidad`, `prec
 	(88, 'VAR-1763137831336-2', 'protector de camara/ funda con proyector de camara', 23, 1500.00, 34500.00, NULL, 'POS-3EEECD18', NULL, NULL),
 	(89, 'VAR-1763137831336-3', 'Mix de fundas 1', 8, 1600.00, 12800.00, NULL, 'POS-3EEECD18', NULL, NULL),
 	(90, 'VAR-1763137831336-4', 'mix de fundas 2', 10, 1990.00, 19900.00, NULL, 'POS-3EEECD18', NULL, NULL),
-	(91, 'VAR-1763138174757-0', 'templado linea 17', 3, 1000.00, 3000.00, NULL, 'POS-3EEECD18', NULL, NULL);
+	(91, 'VAR-1763138174757-0', 'templado linea 17', 3, 1000.00, 3000.00, NULL, 'POS-3EEECD18', NULL, NULL),
+	(92, 'IPHONE-15-PRO-64GB-TITANIO-NATURAL', 'iPhone 15 Pro 64GB / Titanio Natural', 1, 2115000.00, 2115000.00, 9, 'POS-6B0D8096', 1500.00, 1410.00);
 
 -- Volcando estructura para tabla sistema_negocio.ventas_solicitudimpresion
 CREATE TABLE IF NOT EXISTS `ventas_solicitudimpresion` (
@@ -2127,6 +2349,7 @@ INSERT INTO `ventas_venta` (`id`, `fecha`, `metodo_pago`, `nota`, `cliente_docum
 	('POS-611E669B', '2025-11-13 23:12:47.308361', 'EFECTIVO_ARS', '', '', '', 'comprobantes/comprobante_POS-611E669B.pdf', 2, '2025-11-13 23:12:47.590545', NULL, 0.00, 0.00, 'COMPLETADO', 1.00, 1.00, 0, NULL, NULL, NULL, 0.00),
 	('POS-6251D818', '2025-11-12 17:58:54.795182', 'EFECTIVO_ARS', '', '', '', 'comprobantes/comprobante_POS-6251D818.pdf', 2, '2025-11-12 17:58:54.866074', NULL, 12.00, 2097.48, 'COMPLETADO', 10000.00, 12085.48, 0, NULL, NULL, NULL, 0.00),
 	('POS-65B108DF', '2025-11-12 21:38:39.249947', 'EFECTIVO_ARS', '', '', '', 'comprobantes/comprobante_POS-65B108DF.pdf', 2, '2025-11-12 21:38:39.400957', NULL, 1346.64, 2073.83, 'COMPLETADO', 11222.00, 11949.19, 0, NULL, NULL, NULL, 0.00),
+	('POS-6B0D8096', '2025-11-15 00:57:54.260839', 'EFECTIVO_ARS', '', '', '', 'comprobantes/comprobante_POS-6B0D8096.pdf', 2, '2025-11-15 00:57:54.544811', NULL, 0.00, 444150.00, 'COMPLETADO', 2115000.00, 2559150.00, 0, NULL, NULL, NULL, 0.00),
 	('POS-6B100E8F', '2025-11-13 18:27:06.712040', 'EFECTIVO_ARS', '', '2665032890', 'Sosa Raul emanuel', 'comprobantes/comprobante_POS-6B100E8F.pdf', 2, '2025-11-13 18:27:06.991148', 1, 0.00, 0.00, 'COMPLETADO', 1799181.74, 1799181.74, 0, NULL, NULL, NULL, 0.00),
 	('POS-762454C2', '2025-11-13 19:44:22.118175', 'EFECTIVO_ARS', '', '', '', 'comprobantes/comprobante_POS-762454C2.pdf', 2, '2025-11-13 19:44:22.399872', NULL, 0.00, 0.00, 'COMPLETADO', 4990.00, 4990.00, 0, NULL, NULL, NULL, 0.00),
 	('POS-796712CB', '2025-11-12 20:53:08.464769', 'EFECTIVO_ARS', '', '', '', 'comprobantes/comprobante_POS-796712CB.pdf', 2, '2025-11-12 20:53:08.597025', NULL, 0.00, 0.00, 'COMPLETADO', 1999.00, 1999.00, 0, NULL, NULL, NULL, 0.00),
