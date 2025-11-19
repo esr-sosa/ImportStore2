@@ -3,14 +3,39 @@
 from django.db import migrations, models
 
 
+def check_column_exists(connection, table_name, column_name):
+    """Check if a column exists in a table."""
+    vendor = connection.vendor
+    with connection.cursor() as cursor:
+        if vendor == 'sqlite':
+            cursor.execute("PRAGMA table_info(%s)" % table_name)
+            columns = [row[1] for row in cursor.fetchall()]
+            return column_name in columns
+        else:
+            cursor.execute(
+                """
+                SELECT COUNT(*) FROM information_schema.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                AND TABLE_NAME = %s 
+                AND COLUMN_NAME = %s
+                """,
+                [table_name, column_name]
+            )
+            return cursor.fetchone()[0] > 0
+
+
 def ensure_estado_column_has_default(apps, schema_editor):
     """Asegura que la columna estado tenga valores por defecto si están vacíos."""
-    from django.db import connection
-    with connection.cursor() as cursor:
-        # Actualizar registros existentes que tengan estado NULL o vacío
-        cursor.execute(
-            "UPDATE inventario_producto SET estado = 'ACTIVO' WHERE estado IS NULL OR estado = ''"
-        )
+    connection = schema_editor.connection
+    table_name = "inventario_producto"
+    
+    # Solo actualizar si la columna existe
+    if check_column_exists(connection, table_name, "estado"):
+        with connection.cursor() as cursor:
+            # Actualizar registros existentes que tengan estado NULL o vacío
+            cursor.execute(
+                "UPDATE inventario_producto SET estado = 'ACTIVO' WHERE estado IS NULL OR estado = ''"
+            )
 
 
 class Migration(migrations.Migration):

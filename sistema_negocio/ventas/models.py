@@ -18,9 +18,18 @@ class Venta(models.Model):
     class Status(models.TextChoices):
         PENDIENTE_PAGO = "PENDIENTE_PAGO", "Pendiente de pago"
         PAGADO = "PAGADO", "Pagado"
-        PENDIENTE_ENVIO = "PENDIENTE_ENVIO", "Pendiente de envío"
+        PENDIENTE_ARMADO = "PENDIENTE_ARMADO", "Pendiente de armado"
+        LISTO_RETIRAR = "LISTO_RETIRAR", "Listo para retirar"
+        EN_CAMINO = "EN_CAMINO", "En camino / Enviado"
         COMPLETADO = "COMPLETADO", "Completado"
         CANCELADO = "CANCELADO", "Cancelado"
+        DEVUELTO = "DEVUELTO", "Devuelto"
+        # Mantener compatibilidad con estados antiguos
+        PENDIENTE_ENVIO = "PENDIENTE_ENVIO", "Pendiente de envío"  # Deprecated, usar PENDIENTE_ARMADO
+    
+    class Origen(models.TextChoices):
+        POS = "POS", "POS"
+        WEB = "WEB", "Web"
 
     id = models.CharField(
         primary_key=True,
@@ -48,6 +57,17 @@ class Venta(models.Model):
     )
     comprobante_pdf = models.FileField(upload_to="comprobantes/", blank=True, null=True)
     actualizado = models.DateTimeField(auto_now=True)
+    origen = models.CharField(
+        max_length=10,
+        choices=Origen.choices,
+        default=Origen.POS,
+        help_text="Origen de la venta: POS o Web"
+    )
+    motivo_cancelacion = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Motivo de cancelación o devolución si aplica"
+    )
     
     # Campos para pago mixto
     es_pago_mixto = models.BooleanField(default=False, help_text="Indica si la venta tiene múltiples métodos de pago")
@@ -131,3 +151,53 @@ class SolicitudImpresion(models.Model):
     
     def __str__(self) -> str:
         return f"Impresión {self.venta.id} - {self.get_estado_display()}"
+
+
+class HistorialEstadoVenta(models.Model):
+    """
+    Historial de cambios de estado de una venta
+    """
+    venta = models.ForeignKey(
+        Venta,
+        on_delete=models.CASCADE,
+        related_name="historial_estados",
+        verbose_name="Venta"
+    )
+    estado_anterior = models.CharField(
+        max_length=20,
+        choices=Venta.Status.choices,
+        blank=True,
+        null=True,
+        verbose_name="Estado Anterior"
+    )
+    estado_nuevo = models.CharField(
+        max_length=20,
+        choices=Venta.Status.choices,
+        verbose_name="Estado Nuevo"
+    )
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cambios_estado_venta",
+        verbose_name="Usuario"
+    )
+    nota = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Nota",
+        help_text="Nota adicional sobre el cambio de estado"
+    )
+    creado = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Cambio")
+
+    class Meta:
+        ordering = ["-creado"]
+        verbose_name = "Historial de Estado de Venta"
+        verbose_name_plural = "Historiales de Estado de Venta"
+        indexes = [
+            models.Index(fields=["venta", "-creado"]),
+        ]
+
+    def __str__(self):
+        return f"{self.venta.id} - {self.get_estado_anterior_display() or 'N/A'} → {self.get_estado_nuevo_display()}"

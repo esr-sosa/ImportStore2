@@ -1,5 +1,6 @@
 from django.urls import path, reverse
 from . import views
+from . import views_web
 
 app_name = "ventas"
 
@@ -14,6 +15,11 @@ urlpatterns = [
     path("actualizar-estado/<str:venta_id>/", views.actualizar_estado_venta, name="actualizar_estado"),
     path("voucher/<str:venta_id>/", views.generar_voucher_pdf, name="voucher"),
     path("imprimir/<str:venta_id>/", views.imprimir_voucher, name="imprimir_voucher"),
+    
+    # Ventas Web
+    path("web/", views_web.ventas_web_list, name="ventas_web"),
+    path("web/<str:venta_id>/", views_web.venta_web_detalle, name="venta_web_detalle"),
+    path("web/<str:venta_id>/cambiar-estado/", views_web.cambiar_estado_venta_web, name="cambiar_estado_venta_web"),
     path("api/solicitar-impresion/", views.solicitar_impresion_remota_api, name="solicitar_impresion_remota_api"),
     path("api/obtener-solicitudes-impresion/", views.obtener_solicitudes_impresion_api, name="obtener_solicitudes_impresion_api"),
     path("api/marcar-impresion-completada/", views.marcar_impresion_completada_api, name="marcar_impresion_completada_api"),

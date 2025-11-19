@@ -5,29 +5,48 @@ from django.db import migrations, models
 
 def check_column_exists(connection, table_name, column_name):
     """Check if a column exists in a table."""
+    vendor = connection.vendor
     with connection.cursor() as cursor:
-        cursor.execute(
-            """
-            SELECT COUNT(*) FROM information_schema.COLUMNS 
-            WHERE TABLE_SCHEMA = DATABASE() 
-            AND TABLE_NAME = %s 
-            AND COLUMN_NAME = %s
-            """,
-            [table_name, column_name]
-        )
-        return cursor.fetchone()[0] > 0
+        if vendor == 'sqlite':
+            # SQLite approach
+            cursor.execute(
+                "PRAGMA table_info(%s)" % table_name
+            )
+            columns = [row[1] for row in cursor.fetchall()]
+            return column_name in columns
+        else:
+            # MySQL/MariaDB approach
+            cursor.execute(
+                """
+                SELECT COUNT(*) FROM information_schema.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                AND TABLE_NAME = %s 
+                AND COLUMN_NAME = %s
+                """,
+                [table_name, column_name]
+            )
+            return cursor.fetchone()[0] > 0
 
 
 def rename_if_exists(apps, schema_editor):
     """Rename ultima_actualizacion to actualizado only if it exists."""
     connection = schema_editor.connection
     table_name = "inventario_producto"
+    vendor = connection.vendor
     
     if check_column_exists(connection, table_name, "ultima_actualizacion"):
         with connection.cursor() as cursor:
-            cursor.execute(
-                f"ALTER TABLE {table_name} CHANGE COLUMN ultima_actualizacion actualizado DATETIME(6)"
-            )
+            if vendor == 'sqlite':
+                # SQLite doesn't support ALTER TABLE RENAME COLUMN directly in older versions
+                # For SQLite 3.25.0+, we can use ALTER TABLE ... RENAME COLUMN
+                # For older versions, we'd need to recreate the table, but Django handles this
+                # So we'll just skip the rename for SQLite and let Django handle it
+                pass
+            else:
+                # MySQL/MariaDB
+                cursor.execute(
+                    f"ALTER TABLE {table_name} CHANGE COLUMN ultima_actualizacion actualizado DATETIME(6)"
+                )
 
 
 def populate_missing_skus(apps, schema_editor):

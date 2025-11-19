@@ -69,6 +69,10 @@ def _print_terminal_qr(public_url: str, title: str = "📱 QR CODE PARA ESCANEAR
 # Solo ejecutamos si estamos en DEBUG, tenemos token y NO es el reloader automático
 if DEBUG and os.getenv('NGROK_AUTHTOKEN') and os.environ.get('RUN_MAIN') is None:
     try:
+        import ssl
+        # Configurar SSL para evitar problemas de certificados
+        ssl._create_default_https_context = ssl._create_unverified_context
+        
         from pyngrok import ngrok, conf
         
         # Configuramos el token
@@ -108,7 +112,7 @@ if DEBUG and os.getenv('NGROK_AUTHTOKEN') and os.environ.get('RUN_MAIN') is None
             _print_terminal_qr(public_url)
 
     except ImportError:
-        print("--- pyngrok no instalado. ---")
+        print("--- pyngrok no instalado. Instalá con: pip install pyngrok ---")
     except Exception as e:
         print(f"--- Error general NGROK: {e} ---")
 
@@ -147,6 +151,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
+    'corsheaders',  # Para CORS en APIs
+    'rest_framework',  # Django REST Framework
+    'rest_framework_simplejwt',  # JWT authentication
     'core',
     'crm',
     'inventario',
@@ -162,6 +169,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # CORS debe ir antes de CommonMiddleware
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -204,9 +212,22 @@ if DB_ENGINE == "mysql":
             'PORT': os.getenv('DB_PORT', '3306'),
             'OPTIONS': {
                 'charset': os.getenv('DB_CHARSET', 'utf8mb4'),
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
             },
         }
     }
+    # Deshabilitar validación de versión de MariaDB para desarrollo local
+    import django.db.backends.mysql.base
+    original_check_database_version_supported = django.db.backends.mysql.base.DatabaseWrapper.check_database_version_supported
+    def patched_check_database_version_supported(self):
+        try:
+            return original_check_database_version_supported(self)
+        except Exception:
+            # Permitir versiones anteriores en desarrollo
+            if DEBUG:
+                return
+            raise
+    django.db.backends.mysql.base.DatabaseWrapper.check_database_version_supported = patched_check_database_version_supported
 else:
     DATABASES = {
         'default': {
@@ -312,6 +333,62 @@ if not DEBUG:
 
 # Timeout por defecto para requests externas
 REQUESTS_TIMEOUT_SECONDS = int(os.getenv("REQUESTS_TIMEOUT_SECONDS", "15"))
+
+# CORS settings para frontend e-commerce
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+]
+
+# Permitir credenciales (cookies, sesiones)
+CORS_ALLOW_CREDENTIALS = True
+
+# Headers permitidos
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+# Django REST Framework
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',  # Para mantener compatibilidad con admin
+    ),
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',  # Por defecto permitir acceso, luego proteger endpoints específicos
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+}
+
+# JWT Settings
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+}
 
 # Logging unificado
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")

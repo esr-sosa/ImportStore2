@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from datetime import timedelta
 from decimal import Decimal
 
@@ -547,6 +548,9 @@ def dashboard_view(request):
     if table_exists("historial_registrohistorial"):
         recent_activity = list(RegistroHistorial.objects.select_related("usuario").order_by("-fecha")[:6])
 
+    # URL del frontend (configurable desde .env o default)
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    
     quick_actions = [
         {
             "title": "Nuevo producto",
@@ -565,6 +569,13 @@ def dashboard_view(request):
             "description": "Gestioná conversaciones pendientes y vencidas por SLA.",
             "url": reverse("crm:panel_chat"),
             "accent": "bg-indigo-500/15 text-indigo-600",
+        },
+        {
+            "title": "Ir a la Web",
+            "description": "Abrí la tienda online en una nueva pestaña.",
+            "url": frontend_url,
+            "accent": "bg-purple-500/15 text-purple-600",
+            "external": True,  # Marca que es un link externo
         },
         {
             "title": "Vista previa web",

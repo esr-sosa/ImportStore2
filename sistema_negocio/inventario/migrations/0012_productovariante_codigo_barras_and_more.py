@@ -5,41 +5,63 @@ from django.db import migrations, models
 
 def check_column_exists(connection, table_name, column_name):
     """Check if a column exists in a table."""
+    vendor = connection.vendor
     with connection.cursor() as cursor:
-        cursor.execute(
-            """
-            SELECT COUNT(*) FROM information_schema.COLUMNS 
-            WHERE TABLE_SCHEMA = DATABASE() 
-            AND TABLE_NAME = %s 
-            AND COLUMN_NAME = %s
-            """,
-            [table_name, column_name]
-        )
-        return cursor.fetchone()[0] > 0
+        if vendor == 'sqlite':
+            # SQLite approach
+            cursor.execute(
+                "PRAGMA table_info(%s)" % table_name
+            )
+            columns = [row[1] for row in cursor.fetchall()]
+            return column_name in columns
+        else:
+            # MySQL/MariaDB approach
+            cursor.execute(
+                """
+                SELECT COUNT(*) FROM information_schema.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                AND TABLE_NAME = %s 
+                AND COLUMN_NAME = %s
+                """,
+                [table_name, column_name]
+            )
+            return cursor.fetchone()[0] > 0
 
 
 def add_codigo_barras_if_missing(apps, schema_editor):
     """Add codigo_barras column only if it doesn't exist."""
     connection = schema_editor.connection
     table_name = "inventario_productovariante"
+    vendor = connection.vendor
     
     if not check_column_exists(connection, table_name, "codigo_barras"):
         with connection.cursor() as cursor:
-            cursor.execute(
-                f"ALTER TABLE {table_name} ADD COLUMN codigo_barras VARCHAR(64) NULL"
-            )
+            if vendor == 'sqlite':
+                cursor.execute(
+                    f"ALTER TABLE {table_name} ADD COLUMN codigo_barras VARCHAR(64) NULL"
+                )
+            else:
+                cursor.execute(
+                    f"ALTER TABLE {table_name} ADD COLUMN codigo_barras VARCHAR(64) NULL"
+                )
 
 
 def add_qr_code_if_missing(apps, schema_editor):
     """Add qr_code column only if it doesn't exist."""
     connection = schema_editor.connection
     table_name = "inventario_productovariante"
+    vendor = connection.vendor
     
     if not check_column_exists(connection, table_name, "qr_code"):
         with connection.cursor() as cursor:
-            cursor.execute(
-                f"ALTER TABLE {table_name} ADD COLUMN qr_code VARCHAR(255) NULL"
-            )
+            if vendor == 'sqlite':
+                cursor.execute(
+                    f"ALTER TABLE {table_name} ADD COLUMN qr_code VARCHAR(255) NULL"
+                )
+            else:
+                cursor.execute(
+                    f"ALTER TABLE {table_name} ADD COLUMN qr_code VARCHAR(255) NULL"
+                )
 
 
 class Migration(migrations.Migration):
