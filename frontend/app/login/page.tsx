@@ -28,6 +28,7 @@ export default function LoginPage() {
     first_name: '',
     last_name: '',
     telefono: '',
+    dni: '',  // DNI obligatorio
   });
   
   const [isLoading, setIsLoading] = useState(false);
@@ -248,6 +249,20 @@ export default function LoginPage() {
                       className="w-full pl-10 pr-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    DNI *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={registroData.dni}
+                    onChange={(e) => setRegistroData((prev) => ({ ...prev, dni: e.target.value }))}
+                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    placeholder="12345678"
+                  />
                 </div>
 
                 <div>

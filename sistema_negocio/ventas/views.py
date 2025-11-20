@@ -1245,7 +1245,8 @@ def listado_ventas(request):
     metodo_pago = request.GET.get("metodo_pago", "")
     q = request.GET.get("q", "").strip()
 
-    ventas_qs = Venta.objects.select_related("vendedor", "cliente").prefetch_related("detalles")
+    # Filtrar solo ventas POS (no web)
+    ventas_qs = Venta.objects.filter(origen=Venta.Origen.POS).select_related("vendedor", "cliente").prefetch_related("detalles")
 
     if fecha_desde:
         try:
@@ -1378,14 +1379,32 @@ def actualizar_estado_venta(request, venta_id: str):
         return JsonResponse({"error": "Estado inválido"}, status=400)
     
     estado_anterior = venta.status
-    venta.status = nuevo_estado
-    venta.save(update_fields=["status"])
+    nota = request.POST.get("nota", "").strip()
+    motivo = request.POST.get("motivo", "").strip()
     
-    # Registrar en historial
+    venta.status = nuevo_estado
+    
+    # Si se cancela o devuelve, guardar motivo
+    if nuevo_estado in [Venta.Status.CANCELADO, Venta.Status.DEVUELTO]:
+        venta.motivo_cancelacion = motivo or nota
+    
+    venta.save(update_fields=["status", "motivo_cancelacion"])
+    
+    # Registrar en historial de estados
+    from ventas.models import HistorialEstadoVenta
+    HistorialEstadoVenta.objects.create(
+        venta=venta,
+        estado_anterior=estado_anterior,
+        estado_nuevo=nuevo_estado,
+        usuario=request.user,
+        nota=nota
+    )
+    
+    # También registrar en historial general
     RegistroHistorial.objects.create(
         usuario=request.user,
         tipo_accion=RegistroHistorial.TipoAccion.CAMBIO_ESTADO,
-        descripcion=f"Estado de venta {venta.id} cambiado de {venta.Status(estado_anterior).label} a {venta.get_status_display()}",
+        descripcion=f"Estado de venta {venta.id} cambiado de {Venta.Status(estado_anterior).label} a {venta.get_status_display()}",
     )
     
     messages.success(request, f"Estado de la venta {venta.id} actualizado a {venta.get_status_display()}.")

@@ -53,9 +53,12 @@ urlpatterns = [
     
     # Nuevas funcionalidades
     path('api/direcciones/', jwt_views.api_direcciones, name='api_direcciones'),
+    path('api/direcciones/<int:direccion_id>/', jwt_views.api_direcciones_detail, name='api_direcciones_detail'),
     path('api/favoritos/', jwt_views.api_favoritos, name='api_favoritos'),
     path('api/favoritos/<int:producto_id>/', jwt_views.api_favoritos, name='api_favoritos_detail'),
     path('api/historial/', jwt_views.api_historial_pedidos, name='api_historial_pedidos'),
+    path('api/pedidos/<str:pedido_id>/', jwt_views.api_pedido_detalle, name='api_pedido_detalle'),
+    path('api/pedidos/<str:pedido_id>/pdf/', jwt_views.api_pedido_pdf, name='api_pedido_pdf'),
     path('api/solicitar-mayorista/', jwt_views.api_solicitar_mayorista, name='api_solicitar_mayorista'),
 ]
 

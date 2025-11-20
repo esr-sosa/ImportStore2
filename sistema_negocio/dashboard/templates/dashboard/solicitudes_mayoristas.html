@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}Solicitudes Mayoristas{% endblock %}
+
+{% block content %}
+<div class="min-h-screen w-full px-2 sm:px-4 py-4 sm:py-8 lg:px-10">
+    <div class="mx-auto max-w-7xl">
+        <header class="mb-4 sm:mb-8">
+            <div class="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-4">
+                <div>
+                    <p class="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Clientes</p>
+                    <h1 class="mt-1 sm:mt-2 text-xl sm:text-2xl lg:text-3xl font-bold text-slate-100">Solicitudes Mayoristas</h1>
+                </div>
+            </div>
+        </header>
+
+        <!-- Estadísticas -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="glass-card rounded-2xl p-4">
+                <p class="text-xs text-slate-400 mb-1">Pendientes</p>
+                <p class="text-2xl font-bold text-yellow-400">{{ total_pendientes }}</p>
+            </div>
+            <div class="glass-card rounded-2xl p-4">
+                <p class="text-xs text-slate-400 mb-1">Aprobadas</p>
+                <p class="text-2xl font-bold text-green-400">{{ total_aprobadas }}</p>
+            </div>
+            <div class="glass-card rounded-2xl p-4">
+                <p class="text-xs text-slate-400 mb-1">Rechazadas</p>
+                <p class="text-2xl font-bold text-red-400">{{ total_rechazadas }}</p>
+            </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="glass-card rounded-2xl p-4 mb-6">
+            <form method="get" class="flex flex-wrap gap-4">
+                <select name="estado" class="glass-card rounded-xl px-4 py-2 text-sm text-slate-100 bg-white/5 border border-white/10">
+                    <option value="">Todos los estados</option>
+                    <option value="PENDIENTE" {% if estado_filter == 'PENDIENTE' %}selected{% endif %}>Pendiente</option>
+                    <option value="APROBADA" {% if estado_filter == 'APROBADA' %}selected{% endif %}>Aprobada</option>
+                    <option value="RECHAZADA" {% if estado_filter == 'RECHAZADA' %}selected{% endif %}>Rechazada</option>
+                </select>
+                <button type="submit" class="glass-card rounded-xl px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-white/10 transition">
+                    Filtrar
+                </button>
+            </form>
+        </div>
+
+        <!-- Lista de Solicitudes -->
+        <div class="glass-card rounded-3xl overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-white/10">
+                    <thead class="bg-white/5">
+                        <tr>
+                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Nombre</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Email</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">DNI</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Comercio</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Fecha</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Estado</th>
+                            <th class="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider text-slate-400">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-white/10">
+                        {% for solicitud in solicitudes %}
+                        <tr class="hover:bg-white/5 transition">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-slate-100">{{ solicitud.nombre }} {{ solicitud.apellido }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-slate-300">{{ solicitud.email }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-slate-300">{{ solicitud.dni }}</div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="text-sm text-slate-300">{{ solicitud.nombre_comercio|default:"-" }}</div>
+                                {% if solicitud.rubro %}
+                                <div class="text-xs text-slate-500">{{ solicitud.rubro }}</div>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-slate-300">{{ solicitud.creado|date:"d/m/Y H:i" }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if solicitud.estado == 'PENDIENTE' %}
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-500/20 text-yellow-400">Pendiente</span>
+                                {% elif solicitud.estado == 'APROBADA' %}
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-500/20 text-green-400">Aprobada</span>
+                                {% else %}
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-500/20 text-red-400">Rechazada</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-center">
+                                {% if solicitud.estado == 'PENDIENTE' %}
+                                <div class="flex items-center justify-center space-x-2">
+                                    <a href="{% url 'dashboard:aprobar_solicitud_mayorista' solicitud.id %}" 
+                                       class="px-3 py-1.5 bg-green-500/20 text-green-400 rounded-lg text-xs font-semibold hover:bg-green-500/30 transition"
+                                       onclick="return confirm('¿Aprobar esta solicitud? El usuario será convertido a mayorista.');">
+                                        Aprobar
+                                    </a>
+                                    <a href="{% url 'dashboard:rechazar_solicitud_mayorista' solicitud.id %}" 
+                                       class="px-3 py-1.5 bg-red-500/20 text-red-400 rounded-lg text-xs font-semibold hover:bg-red-500/30 transition">
+                                        Rechazar
+                                    </a>
+                                </div>
+                                {% else %}
+                                <span class="text-xs text-slate-500">
+                                    {% if solicitud.revisado_por %}
+                                    Revisado por {{ solicitud.revisado_por.username }}
+                                    {% endif %}
+                                </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="px-6 py-12 text-center text-slate-400">
+                                No hay solicitudes
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

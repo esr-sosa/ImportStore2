@@ -182,6 +182,10 @@ export interface Usuario {
   last_name: string;
   tipo_usuario: 'MINORISTA' | 'MAYORISTA';
   is_staff: boolean;
+  documento?: string;  // DNI
+  telefono?: string;
+  direccion?: string;
+  ciudad?: string;
 }
 
 export interface DireccionEnvio {
@@ -210,8 +214,13 @@ export interface Pedido {
   cliente_nombre: string;
   total_ars: number;
   status: string;
+  status_display?: string;
   metodo_pago: string;
+  metodo_pago_display?: string;
   items_count: number;
+  origen?: string;
+  origen_display?: string;
+  motivo_cancelacion?: string;
 }
 
 // Funciones API
@@ -304,10 +313,10 @@ export const api = {
     email: string;
     password: string;
     password_confirm: string;
-    tipo_usuario: 'MINORISTA' | 'MAYORISTA';
     first_name?: string;
     last_name?: string;
     telefono?: string;
+    dni: string;  // DNI obligatorio
   }): Promise<{ user: Usuario; tokens: { access: string; refresh: string } }> {
     const response = await apiClient.post('/api/auth/registro/', data);
     
@@ -420,9 +429,14 @@ export const api = {
   },
 
   // Historial
-  async getHistorialPedidos(): Promise<Pedido[]> {
+  async getPedidos(): Promise<{ pedidos: Pedido[] }> {
     const { data } = await apiClient.get('/api/historial/');
-    return data.pedidos;
+    return { pedidos: data.pedidos || [] };
+  },
+
+  async getPedido(id: string): Promise<Pedido> {
+    const { data } = await apiClient.get(`/api/pedidos/${id}/`);
+    return data;
   },
 };
 

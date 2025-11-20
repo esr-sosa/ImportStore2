@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}Detalle Venta Web - {{ venta.id }}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen w-full px-2 sm:px-4 py-4 sm:py-8 lg:px-10">
+    <div class="mx-auto max-w-6xl">
+        <header class="mb-6">
+            <a href="{% url 'ventas:ventas_web' %}" class="text-slate-400 hover:text-slate-100 mb-4 inline-block">
+                ← Volver a ventas web
+            </a>
+            <h1 class="text-2xl font-bold text-slate-100">Venta {{ venta.id }}</h1>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Información Principal -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Estado Actual -->
+                <div class="glass-card rounded-3xl p-6">
+                    <h2 class="text-lg font-semibold text-slate-100 mb-4">Estado Actual</h2>
+                    <div class="mb-4">
+                        <select
+                            id="estado-select"
+                            class="glass-card rounded-lg px-4 py-2 text-sm font-semibold text-slate-100 bg-white/5 border border-white/10 w-full"
+                        >
+                            {% for estado_code, estado_label in venta.Status.choices %}
+                            <option value="{{ estado_code }}" {% if venta.status == estado_code %}selected{% endif %}>
+                                {{ estado_label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button
+                        onclick="cambiarEstado()"
+                        class="px-4 py-2 bg-blue-500/20 text-blue-400 rounded-lg text-sm font-semibold hover:bg-blue-500/30 transition"
+                    >
+                        Actualizar Estado
+                    </button>
+                </div>
+
+                <!-- Productos -->
+                <div class="glass-card rounded-3xl p-6">
+                    <h2 class="text-lg font-semibold text-slate-100 mb-4">Productos</h2>
+                    <div class="space-y-3">
+                        {% for detalle in venta.detalles.all %}
+                        <div class="flex items-start justify-between py-3 border-b border-white/10 last:border-0">
+                            <div class="flex-1">
+                                <p class="font-semibold text-slate-100">{{ detalle.descripcion }}</p>
+                                <p class="text-sm text-slate-400">SKU: {{ detalle.sku }}</p>
+                                <p class="text-sm text-slate-300 mt-1">
+                                    Cantidad: {{ detalle.cantidad }} × ${{ detalle.precio_unitario_ars_congelado|floatformat:2|intcomma }}
+                                </p>
+                            </div>
+                            <div class="text-right ml-4">
+                                <p class="font-semibold text-slate-100">
+                                    ${{ detalle.subtotal_ars|floatformat:2|intcomma }}
+                                </p>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Historial de Estados -->
+                {% if historial %}
+                <div class="glass-card rounded-3xl p-6">
+                    <h2 class="text-lg font-semibold text-slate-100 mb-4">Historial de Cambios</h2>
+                    <div class="space-y-4">
+                        {% for cambio in historial %}
+                        <div class="flex items-start space-x-3 pb-4 border-b border-white/10 last:border-0 last:pb-0">
+                            <div class="flex-shrink-0 w-2 h-2 bg-blue-500 rounded-full mt-2" />
+                            <div class="flex-1">
+                                <div class="flex items-center space-x-2 mb-1">
+                                    <span class="font-semibold text-slate-100">
+                                        {{ cambio.get_estado_anterior_display|default:"Nuevo" }} → {{ cambio.get_estado_nuevo_display }}
+                                    </span>
+                                </div>
+                                <p class="text-sm text-slate-400">
+                                    {{ cambio.creado|date:"d/m/Y H:i" }}
+                                </p>
+                                {% if cambio.usuario %}
+                                <p class="text-xs text-slate-500 mt-1">Por: {{ cambio.usuario.username }}</p>
+                                {% endif %}
+                                {% if cambio.nota %}
+                                <p class="text-sm text-slate-300 mt-2">{{ cambio.nota }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Resumen -->
+            <div class="lg:col-span-1">
+                <div class="glass-card rounded-3xl p-6 sticky top-24">
+                    <h2 class="text-lg font-semibold text-slate-100 mb-4">Resumen</h2>
+                    
+                    <div class="space-y-3 mb-6">
+                        <div class="flex justify-between text-sm text-slate-300">
+                            <span>Subtotal</span>
+                            <span class="font-semibold text-slate-100">
+                                ${{ venta.subtotal_ars|floatformat:2|intcomma }}
+                            </span>
+                        </div>
+                        {% if venta.descuento_total_ars > 0 %}
+                        <div class="flex justify-between text-sm text-slate-300">
+                            <span>Descuento</span>
+                            <span class="font-semibold text-red-400">
+                                -${{ venta.descuento_total_ars|floatformat:2|intcomma }}
+                            </span>
+                        </div>
+                        {% endif %}
+                        {% if venta.impuestos_ars > 0 %}
+                        <div class="flex justify-between text-sm text-slate-300">
+                            <span>Impuestos</span>
+                            <span class="font-semibold text-slate-100">
+                                ${{ venta.impuestos_ars|floatformat:2|intcomma }}
+                            </span>
+                        </div>
+                        {% endif %}
+                        <div class="border-t border-white/10 pt-3">
+                            <div class="flex justify-between text-lg font-bold text-slate-100">
+                                <span>Total</span>
+                                <span>${{ venta.total_ars|floatformat:2|intcomma }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-3 text-sm">
+                        <div>
+                            <span class="text-slate-400">Fecha:</span>
+                            <p class="text-slate-100 font-semibold">{{ venta.fecha|date:"d/m/Y H:i" }}</p>
+                        </div>
+                        <div>
+                            <span class="text-slate-400">Método de pago:</span>
+                            <p class="text-slate-100 font-semibold">{{ venta.get_metodo_pago_display }}</p>
+                        </div>
+                        {% if venta.cliente_documento %}
+                        <div>
+                            <span class="text-slate-400">DNI:</span>
+                            <p class="text-slate-100 font-semibold">{{ venta.cliente_documento }}</p>
+                        </div>
+                        {% endif %}
+                        {% if venta.motivo_cancelacion %}
+                        <div class="mt-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
+                            <p class="text-xs text-red-400 font-semibold mb-1">Motivo de cancelación:</p>
+                            <p class="text-sm text-red-300">{{ venta.motivo_cancelacion }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <a
+                        href="{% url 'ventas:voucher' venta.id %}"
+                        class="block w-full mt-6 px-4 py-3 bg-blue-500/20 text-blue-400 rounded-xl font-semibold text-center hover:bg-blue-500/30 transition"
+                    >
+                        Descargar Comprobante PDF
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function cambiarEstado() {
+    const select = document.getElementById('estado-select');
+    const nuevoEstado = select.value;
+    const nota = prompt('Nota adicional (opcional):') || '';
+    const motivo = prompt('Motivo (si es cancelación/devolución):') || '';
+    
+    if (!confirm('¿Cambiar el estado de esta venta?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/ventas/web/{{ venta.id }}/cambiar-estado/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            body: JSON.stringify({
+                estado: nuevoEstado,
+                nota: nota,
+                motivo: motivo
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('Estado actualizado correctamente');
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Error desconocido'));
+        }
+    } catch (error) {
+        alert('Error al cambiar el estado');
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}
+

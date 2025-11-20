@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { FiPackage, FiCalendar, FiDollarSign, FiCheckCircle, FiClock } from 'react-icons/fi';
 import { api, Pedido } from '@/lib/api';
@@ -29,7 +30,7 @@ function HistorialContent() {
   const loadHistorial = async () => {
     setIsLoading(true);
     try {
-      const pedidosData = await api.getHistorialPedidos();
+      const { pedidos: pedidosData } = await api.getPedidos();
       setPedidos(pedidosData);
     } catch (error: any) {
       toast.error(error.message || 'Error al cargar historial');
@@ -99,11 +100,16 @@ function HistorialContent() {
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center space-x-4 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900">{pedido.id}</h3>
+                      <Link href={`/pedidos/${pedido.id}`} className="text-lg font-semibold text-gray-900 hover:text-blue-600 transition-colors">
+                        {pedido.id}
+                      </Link>
                       <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(pedido.status)}`}>
                         {getStatusIcon(pedido.status)}
-                        <span className="ml-1">{pedido.status.replace('_', ' ')}</span>
+                        <span className="ml-1">{pedido.status_display || pedido.status.replace('_', ' ')}</span>
                       </span>
+                      {pedido.origen_display && (
+                        <span className="text-xs text-gray-500">({pedido.origen_display})</span>
+                      )}
                     </div>
                     <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
                       <div className="flex items-center">
@@ -136,6 +142,7 @@ function HistorialContent() {
                   </div>
                 </div>
               </motion.div>
+              </Link>
             ))}
           </div>
         ) : (
