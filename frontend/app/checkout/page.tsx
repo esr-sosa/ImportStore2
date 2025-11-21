@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { FiCheckCircle, FiArrowLeft } from 'react-icons/fi';
+import { FiCheckCircle, FiArrowLeft, FiX, FiTag } from 'react-icons/fi';
 import { useCartStore } from '@/stores/cartStore';
 import { useAuthStore } from '@/stores/authStore';
 import { api } from '@/lib/api';
@@ -23,18 +23,62 @@ function CheckoutContent() {
   const { items, total_ars, loadCarrito, limpiarCarrito } = useCartStore();
   const { user } = useAuthStore();
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Estados para cupones
+  const [codigoCupon, setCodigoCupon] = useState('');
+  const [cuponAplicado, setCuponAplicado] = useState<{
+    codigo: string;
+    descuento: number;
+    monto_final: number;
+  } | null>(null);
+  const [isValidandoCupon, setIsValidandoCupon] = useState(false);
+  
+  // Inicializar formData con datos del usuario si existen
   const [formData, setFormData] = useState({
     cliente_nombre: user?.first_name && user?.last_name 
       ? `${user.first_name} ${user.last_name}`.trim() 
       : user?.username || '',
-    cliente_documento: '',
+    cliente_documento: user?.documento || '',
     metodo_pago: 'EFECTIVO_ARS',
     nota: '',
   });
 
   useEffect(() => {
     loadCarrito();
-  }, [loadCarrito]);
+    // Actualizar documento si el usuario se carga después
+    if (user?.documento && !formData.cliente_documento) {
+      setFormData(prev => ({ ...prev, cliente_documento: user.documento || '' }));
+    }
+  }, [loadCarrito, user]);
+
+  const handleValidarCupon = async () => {
+    if (!codigoCupon.trim()) {
+      toast.error('Ingresa un código de cupón');
+      return;
+    }
+
+    setIsValidandoCupon(true);
+    try {
+      const resultado = await api.validarCupon(codigoCupon.trim().toUpperCase(), total_ars);
+      setCuponAplicado({
+        codigo: resultado.cupon.codigo,
+        descuento: resultado.descuento,
+        monto_final: resultado.monto_final,
+      });
+      toast.success(`Cupón aplicado: ${resultado.descuento > 0 ? `-$${resultado.descuento.toLocaleString('es-AR')}` : 'Válido'}`);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || error.message || 'Cupón inválido');
+      setCuponAplicado(null);
+    } finally {
+      setIsValidandoCupon(false);
+    }
+  };
+
+  const handleRemoverCupon = () => {
+    setCuponAplicado(null);
+    setCodigoCupon('');
+    toast.success('Cupón removido');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,16 +90,36 @@ function CheckoutContent() {
 
     setIsProcessing(true);
     try {
-      const resultado = await api.crearPedido(formData);
+      // Si el usuario tiene documento, usarlo automáticamente si no se proporciona
+      const pedidoData = {
+        ...formData,
+        cliente_documento: formData.cliente_documento || user?.documento || '',
+        codigo_cupon: cuponAplicado?.codigo || null,
+      };
+      
+      const resultado = await api.crearPedido(pedidoData);
       await limpiarCarrito();
       toast.success('Pedido creado exitosamente');
       router.push(`/pedido-confirmado?venta_id=${resultado.venta_id}`);
     } catch (error: any) {
-      toast.error(error.message || 'Error al crear el pedido');
+      console.error('Error al crear pedido:', error);
+      toast.error(error.response?.data?.error || error.message || 'Error al crear el pedido');
     } finally {
       setIsProcessing(false);
     }
   };
+
+  // Calcular descuentos por escalas
+  const descuentoEscalas = items.reduce((sum, item) => {
+    if (item.descuento_aplicado) {
+      return sum + (item.descuento_aplicado * item.cantidad);
+    }
+    return sum;
+  }, 0);
+  
+  // Calcular total con descuentos
+  const subtotalConDescuentos = total_ars - descuentoEscalas;
+  const totalConDescuento = cuponAplicado ? cuponAplicado.monto_final : subtotalConDescuentos;
 
   if (items.length === 0) {
     return (
@@ -63,12 +127,14 @@ function CheckoutContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-white rounded-2xl p-12 text-center">
             <p className="text-gray-500 text-lg mb-4">El carrito está vacío</p>
-            <button
+            <motion.button
               onClick={() => router.push('/productos')}
-              className="text-blue-600 hover:text-blue-700 font-semibold"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-6 py-3 bg-blue-600 text-white rounded-full font-semibold hover:bg-blue-700 transition-all shadow-md hover:shadow-lg"
             >
               Volver a productos
-            </button>
+            </motion.button>
           </div>
         </div>
       </div>
@@ -78,13 +144,14 @@ function CheckoutContent() {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <button
+        <motion.button
           onClick={() => router.back()}
-          className="flex items-center text-gray-600 hover:text-gray-900 mb-6"
+          whileHover={{ x: -4 }}
+          className="flex items-center text-gray-700 hover:text-gray-900 mb-6 font-medium transition-colors"
         >
           <FiArrowLeft className="mr-2" />
           Volver
-        </button>
+        </motion.button>
 
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Checkout</h1>
 
@@ -110,19 +177,22 @@ function CheckoutContent() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Documento (opcional)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.cliente_documento}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, cliente_documento: e.target.value }))
-                    }
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
+                {/* Solo mostrar campo de documento si el usuario no tiene documento cargado */}
+                {!user?.documento && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Documento (opcional)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.cliente_documento}
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, cliente_documento: e.target.value }))
+                      }
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -141,6 +211,65 @@ function CheckoutContent() {
                     <option value="TRANSFERENCIA">Transferencia</option>
                     <option value="TARJETA">Tarjeta</option>
                   </select>
+                </div>
+
+                {/* Campo de Cupón */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Cupón de Descuento
+                  </label>
+                  {cuponAplicado ? (
+                    <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <FiCheckCircle className="text-green-600" />
+                      <span className="flex-1 text-sm text-green-800">
+                        Cupón <strong>{cuponAplicado.codigo}</strong> aplicado
+                        {cuponAplicado.descuento > 0 && (
+                          <span className="ml-2">(-${cuponAplicado.descuento.toLocaleString('es-AR')})</span>
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleRemoverCupon}
+                        className="p-1 text-green-600 hover:text-green-800 transition-colors"
+                      >
+                        <FiX className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={codigoCupon}
+                        onChange={(e) => setCodigoCupon(e.target.value.toUpperCase())}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleValidarCupon();
+                          }
+                        }}
+                        placeholder="Ingresa el código del cupón"
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleValidarCupon}
+                        disabled={isValidandoCupon || !codigoCupon.trim()}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        {isValidandoCupon ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            Validando...
+                          </>
+                        ) : (
+                          <>
+                            <FiTag className="w-4 h-4" />
+                            Aplicar
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -166,32 +295,70 @@ function CheckoutContent() {
 
               <div className="space-y-3 mb-6">
                 {items.map((item, index) => (
-                  <div key={index} className="flex justify-between text-sm">
-                    <span className="text-gray-600">
-                      {item.nombre} x{item.cantidad}
-                    </span>
-                    <span className="font-semibold">
-                      ${(item.precio_unitario_ars * item.cantidad).toLocaleString('es-AR', {
-                        maximumFractionDigits: 0,
-                      })}
-                    </span>
+                  <div key={index} className="text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">
+                        {item.nombre} x{item.cantidad}
+                      </span>
+                      <div className="text-right">
+                        {item.descuento_aplicado && item.precio_base ? (
+                          <div>
+                            <span className="font-semibold text-gray-900">
+                              ${(item.precio_unitario_ars * item.cantidad).toLocaleString('es-AR', {
+                                maximumFractionDigits: 0,
+                              })}
+                            </span>
+                            <div className="text-xs text-gray-500 line-through">
+                              ${(item.precio_base * item.cantidad).toLocaleString('es-AR', {
+                                maximumFractionDigits: 0,
+                              })}
+                            </div>
+                            <div className="text-xs text-green-600 font-semibold mt-0.5">
+                              -{item.porcentaje_descuento?.toFixed(1)}% desc.
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="font-semibold">
+                            ${(item.precio_unitario_ars * item.cantidad).toLocaleString('es-AR', {
+                              maximumFractionDigits: 0,
+                            })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
 
-              <div className="border-t border-gray-200 pt-4 mb-6">
-                <div className="flex justify-between text-lg font-bold text-gray-900">
-                  <span>Total</span>
+              <div className="border-t border-gray-200 pt-4 space-y-2 mb-6">
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>Subtotal</span>
                   <span>${total_ars.toLocaleString('es-AR', { maximumFractionDigits: 0 })}</span>
+                </div>
+                {descuentoEscalas > 0 && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Descuento por cantidad</span>
+                    <span>-${descuentoEscalas.toLocaleString('es-AR', { maximumFractionDigits: 0 })}</span>
+                  </div>
+                )}
+                {cuponAplicado && cuponAplicado.descuento > 0 && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Descuento ({cuponAplicado.codigo})</span>
+                    <span>-${cuponAplicado.descuento.toLocaleString('es-AR', { maximumFractionDigits: 0 })}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-lg font-bold text-gray-900 pt-2 border-t border-gray-200">
+                  <span>Total</span>
+                  <span>${totalConDescuento.toLocaleString('es-AR', { maximumFractionDigits: 0 })}</span>
                 </div>
               </div>
 
               <motion.button
                 type="submit"
                 disabled={isProcessing}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="w-full px-6 py-4 bg-blue-600 text-white rounded-full font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                whileHover={{ scale: isProcessing ? 1 : 1.02 }}
+                whileTap={{ scale: isProcessing ? 1 : 0.98 }}
+                className="w-full px-6 py-4 bg-blue-600 text-white rounded-full font-semibold hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
               >
                 {isProcessing ? 'Procesando...' : 'Confirmar Pedido'}
               </motion.button>
@@ -202,4 +369,3 @@ function CheckoutContent() {
     </div>
   );
 }
-

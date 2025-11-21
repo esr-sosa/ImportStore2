@@ -22,13 +22,15 @@ export default function ErrorDisplay({ message, onRetry, className = '' }: Error
         {message || 'Ocurrió un error al cargar los datos. Por favor, intenta nuevamente.'}
       </p>
       {onRetry && (
-        <button
+        <motion.button
           onClick={onRetry}
-          className="inline-flex items-center px-6 py-3 bg-black text-white rounded-full font-semibold hover:bg-gray-800 transition-colors"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="inline-flex items-center px-6 py-3 bg-black text-white rounded-full font-semibold hover:bg-gray-800 transition-all shadow-lg hover:shadow-xl"
         >
           <FiRefreshCw className="mr-2" />
           Reintentar
-        </button>
+        </motion.button>
       )}
     </motion.div>
   );

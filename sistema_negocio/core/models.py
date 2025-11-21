@@ -178,6 +178,7 @@ class SolicitudMayorista(models.Model):
     nombre = models.CharField(max_length=100, verbose_name='Nombre')
     apellido = models.CharField(max_length=100, verbose_name='Apellido')
     dni = models.CharField(max_length=20, verbose_name='DNI')
+    cuit_cuil = models.CharField(max_length=20, blank=True, null=True, verbose_name='CUIT/CUIL')
     nombre_comercio = models.CharField(max_length=200, verbose_name='Nombre del Comercio')
     rubro = models.CharField(max_length=100, verbose_name='Rubro')
     email = models.EmailField(verbose_name='Email')
@@ -209,4 +210,64 @@ class SolicitudMayorista(models.Model):
 
     def __str__(self):
         return f"{self.nombre_comercio} - {self.get_estado_display()}"
+
+
+class NotificacionInterna(models.Model):
+    """
+    Sistema de notificaciones internas para alertas del sistema
+    """
+    class Tipo(models.TextChoices):
+        VENTA_WEB = "VENTA_WEB", "Nueva Venta Web"
+        SOLICITUD_MAYORISTA = "SOLICITUD_MAYORISTA", "Nueva Solicitud Mayorista"
+        ERROR_PAGO = "ERROR_PAGO", "Error de Pago"
+        STOCK_BAJO = "STOCK_BAJO", "Stock Bajo"
+        STOCK_REPOSICION = "STOCK_REPOSICION", "Stock Repuesto"
+        PEDIDO_PENDIENTE = "PEDIDO_PENDIENTE", "Pedido Pendiente de Pago"
+        OTRO = "OTRO", "Otro"
+    
+    class Prioridad(models.TextChoices):
+        BAJA = "BAJA", "Baja"
+        MEDIA = "MEDIA", "Media"
+        ALTA = "ALTA", "Alta"
+        URGENTE = "URGENTE", "Urgente"
+    
+    tipo = models.CharField(max_length=30, choices=Tipo.choices, verbose_name="Tipo")
+    prioridad = models.CharField(max_length=20, choices=Prioridad.choices, default=Prioridad.MEDIA, verbose_name="Prioridad")
+    titulo = models.CharField(max_length=200, verbose_name="Título")
+    mensaje = models.TextField(verbose_name="Mensaje")
+    url_relacionada = models.CharField(max_length=500, blank=True, null=True, verbose_name="URL Relacionada")
+    leida = models.BooleanField(default=False, verbose_name="Leída")
+    creada = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
+    leida_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='notificaciones_leidas',
+        verbose_name="Leída por"
+    )
+    fecha_lectura = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de Lectura")
+    
+    # Datos adicionales en JSON para flexibilidad
+    datos_adicionales = models.JSONField(default=dict, blank=True, verbose_name="Datos Adicionales")
+    
+    class Meta:
+        verbose_name = "Notificación Interna"
+        verbose_name_plural = "Notificaciones Internas"
+        ordering = ['-creada']
+        indexes = [
+            models.Index(fields=['leida', '-creada']),
+            models.Index(fields=['tipo', '-creada']),
+        ]
+    
+    def __str__(self):
+        return f"{self.get_tipo_display()}: {self.titulo}"
+    
+    def marcar_como_leida(self, usuario):
+        """Marca la notificación como leída"""
+        from django.utils import timezone
+        self.leida = True
+        self.leida_por = usuario
+        self.fecha_lectura = timezone.now()
+        self.save(update_fields=['leida', 'leida_por', 'fecha_lectura'])
 

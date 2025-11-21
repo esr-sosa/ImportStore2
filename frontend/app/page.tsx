@@ -57,8 +57,7 @@ export default function HomePage() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
                 href="/productos"
-                className="inline-flex items-center justify-center px-8 py-4 rounded-full text-white font-semibold transition-all hover:scale-105 shadow-lg"
-                style={{ backgroundColor: colorPrimary }}
+                className="inline-flex items-center justify-center px-8 py-4 rounded-full font-semibold transition-all shadow-lg hover:shadow-xl bg-blue-600 text-white hover:bg-blue-700"
               >
                 Ver Productos
                 <FiArrowRight className="ml-2" />
@@ -165,8 +164,7 @@ export default function HomePage() {
             </p>
             <Link
               href="/productos"
-              className="inline-flex items-center justify-center px-8 py-4 rounded-full text-white font-semibold transition-all hover:scale-105 shadow-lg"
-              style={{ backgroundColor: colorPrimary }}
+              className="inline-flex items-center justify-center px-8 py-4 rounded-full font-semibold transition-all shadow-lg hover:shadow-xl bg-blue-600 text-white hover:bg-blue-700"
             >
               Explorar Catálogo
               <FiArrowRight className="ml-2" />

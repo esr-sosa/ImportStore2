@@ -12,9 +12,10 @@ export default function CarritoPage() {
   const { items, total_items, total_ars, loadCarrito, eliminarItem, actualizarCantidad, isLoading } =
     useCartStore();
 
+  // Cargar carrito solo una vez al montar, luego las actualizaciones son optimistas
   useEffect(() => {
     loadCarrito();
-  }, [loadCarrito]);
+  }, []); // Solo al montar, no en cada cambio
 
   const handleEliminar = async (index: number) => {
     try {
@@ -32,8 +33,9 @@ export default function CarritoPage() {
     }
     try {
       await actualizarCantidad(index, cantidad);
+      // No mostrar toast de éxito para no ser molesto
     } catch (error: any) {
-      toast.error(error.message || 'Error al actualizar cantidad');
+      toast.error(error.message || 'Error al actualizar cantidad', { duration: 3000 });
     }
   };
 
@@ -62,13 +64,15 @@ export default function CarritoPage() {
             <FiShoppingBag className="w-24 h-24 mx-auto text-gray-300 mb-4" />
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Tu carrito está vacío</h2>
             <p className="text-gray-600 mb-8">Agregá productos para comenzar</p>
-            <Link
-              href="/productos"
-              className="inline-flex items-center px-6 py-3 bg-black text-white rounded-full font-semibold hover:bg-gray-800 transition-colors"
-            >
-              Explorar Productos
-              <FiArrowRight className="ml-2" />
-            </Link>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Link
+                href="/productos"
+                className="inline-flex items-center px-6 py-3 bg-black text-white rounded-full font-semibold hover:bg-gray-800 transition-all shadow-lg hover:shadow-xl"
+              >
+                Explorar Productos
+                <FiArrowRight className="ml-2" />
+              </Link>
+            </motion.div>
           </div>
         </div>
       </div>
@@ -102,43 +106,73 @@ export default function CarritoPage() {
                     <div className="flex items-center space-x-6 flex-wrap">
                       {/* Cantidad */}
                       <div className="flex items-center space-x-2">
-                        <button
+                        <motion.button
                           onClick={() => handleActualizarCantidad(index, item.cantidad - 1)}
-                          className="w-10 h-10 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center text-gray-700 font-semibold"
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          className="w-10 h-10 border-2 border-gray-300 rounded-lg hover:bg-gray-100 hover:border-gray-400 transition-all flex items-center justify-center text-gray-900 font-semibold shadow-sm hover:shadow-md"
                         >
                           <FiMinus className="w-4 h-4" />
-                        </button>
+                        </motion.button>
                         <span className="w-12 text-center font-semibold text-gray-900">{item.cantidad}</span>
-                        <button
+                        <motion.button
                           onClick={() => handleActualizarCantidad(index, item.cantidad + 1)}
-                          className="w-10 h-10 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center text-gray-700 font-semibold"
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          className="w-10 h-10 border-2 border-gray-300 rounded-lg hover:bg-gray-100 hover:border-gray-400 transition-all flex items-center justify-center text-gray-900 font-semibold shadow-sm hover:shadow-md"
                         >
                           <FiPlus className="w-4 h-4" />
-                        </button>
+                        </motion.button>
                       </div>
 
                       {/* Precio */}
                       <div>
-                        <PriceTag
-                          precio={item.precio_unitario_ars * item.cantidad}
-                          moneda="ARS"
-                          size="md"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          ${item.precio_unitario_ars.toLocaleString('es-AR')} c/u
-                        </p>
+                        {item.descuento_aplicado && item.precio_base ? (
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <PriceTag
+                                precio={item.precio_unitario_ars * item.cantidad}
+                                precioOriginal={item.precio_base * item.cantidad}
+                                moneda="ARS"
+                                size="md"
+                                showDiscount={true}
+                              />
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-xs text-green-600 font-semibold">
+                                -{item.porcentaje_descuento?.toFixed(1)}% desc.
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                ${item.precio_unitario_ars.toLocaleString('es-AR')} c/u
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <PriceTag
+                              precio={item.precio_unitario_ars * item.cantidad}
+                              moneda="ARS"
+                              size="md"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                              ${item.precio_unitario_ars.toLocaleString('es-AR')} c/u
+                            </p>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
 
                   {/* Eliminar */}
-                  <button
+                  <motion.button
                     onClick={() => handleEliminar(index)}
-                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    className="p-2 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-all flex-shrink-0 shadow-sm hover:shadow-md"
                     aria-label="Eliminar producto"
                   >
                     <FiTrash2 className="w-5 h-5" />
-                  </button>
+                  </motion.button>
                 </div>
               </motion.div>
             ))}
@@ -164,13 +198,15 @@ export default function CarritoPage() {
                 </div>
               </div>
 
-              <Link
-                href="/checkout"
-                className="block w-full px-6 py-4 bg-black text-white rounded-full font-semibold text-center hover:bg-gray-800 transition-colors"
-              >
-                Proceder al Checkout
-                <FiArrowRight className="inline ml-2" />
-              </Link>
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <Link
+                  href="/checkout"
+                  className="block w-full px-6 py-4 bg-black text-white rounded-full font-semibold text-center hover:bg-gray-800 transition-all shadow-lg hover:shadow-xl"
+                >
+                  Proceder al Checkout
+                  <FiArrowRight className="inline ml-2" />
+                </Link>
+              </motion.div>
 
               <Link
                 href="/productos"

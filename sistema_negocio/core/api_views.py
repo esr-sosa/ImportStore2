@@ -16,7 +16,7 @@ from django.views.decorators.http import require_http_methods
 
 from configuracion.models import ConfiguracionSistema, ConfiguracionTienda
 from inventario.models import Categoria, Producto, ProductoImagen, ProductoVariante, Precio
-from ventas.models import CarritoRemoto, Venta, DetalleVenta
+from ventas.models import CarritoRemoto, Venta, DetalleVenta, Cupon
 from crm.models import Cliente
 from core.utils import obtener_valor_dolar_blue
 
@@ -34,8 +34,18 @@ def _formatear_imagen(imagen, request):
     return f"{base_url}{imagen.url}"
 
 
-def _formatear_variante_publica(variante, request, tipo_precio="MINORISTA"):
-    """Formatea una variante para la API pública"""
+def _formatear_variante_publica(variante, request, tipo_precio="MINORISTA", cantidad=1):
+    """Formatea una variante para la API pública
+    
+    Args:
+        variante: ProductoVariante
+        request: HttpRequest
+        tipo_precio: "MINORISTA" o "MAYORISTA"
+        cantidad: Cantidad del producto (para aplicar escalas de descuento)
+    """
+    from configuracion.models import ConfiguracionSistema
+    from decimal import Decimal
+    
     precios_activos = variante.precios.filter(activo=True)
     
     # Obtener precios según tipo
@@ -50,14 +60,33 @@ def _formatear_variante_publica(variante, request, tipo_precio="MINORISTA"):
     precio_final_ars = None
     precio_final_usd = None
     precio_original_usd = None
+    precio_base_mayorista = None
     
     if tipo_precio == "MAYORISTA":
         if precio_mayorista_ars:
-            precio_final_ars = float(precio_mayorista_ars.precio)
+            precio_base_mayorista = Decimal(str(precio_mayorista_ars.precio))
+            precio_final_ars = float(precio_base_mayorista)
         elif precio_mayorista_usd and dolar_blue:
             precio_original_usd = float(precio_mayorista_usd.precio)
-            precio_final_ars = precio_original_usd * float(dolar_blue)
+            precio_base_mayorista = Decimal(str(precio_original_usd)) * Decimal(str(dolar_blue))
+            precio_final_ars = float(precio_base_mayorista)
             precio_final_usd = precio_original_usd
+        
+        # Aplicar escalas de descuento si están activas
+        descuento_aplicado = None
+        porcentaje_descuento = None
+        if precio_base_mayorista is not None:
+            try:
+                config = ConfiguracionSistema.obtener_unica()
+                precio_con_escala = config.obtener_precio_con_escala(precio_base_mayorista, cantidad)
+                precio_final_ars = float(precio_con_escala)
+                
+                # Calcular descuento aplicado
+                if precio_con_escala < precio_base_mayorista:
+                    descuento_aplicado = float(precio_base_mayorista - precio_con_escala)
+                    porcentaje_descuento = float((descuento_aplicado / float(precio_base_mayorista)) * 100)
+            except:
+                pass  # Si hay error, usar precio sin escala
     else:  # MINORISTA
         if precio_minorista_ars:
             precio_final_ars = float(precio_minorista_ars.precio)
@@ -105,6 +134,11 @@ def _formatear_variante_publica(variante, request, tipo_precio="MINORISTA"):
                 "usd": precio_final_usd,
                 "tipo": tipo_precio.lower(),
             },
+            "descuento": {
+                "aplicado": descuento_aplicado,
+                "porcentaje": porcentaje_descuento,
+                "precio_base": float(precio_base_mayorista) if precio_base_mayorista else None,
+            } if descuento_aplicado else None,
         },
         "imagenes": imagenes,
         "codigo_barras": variante.codigo_barras or "",
@@ -118,7 +152,7 @@ def _formatear_variante_publica(variante, request, tipo_precio="MINORISTA"):
 def api_configuraciones(request):
     """API para obtener configuraciones de la tienda"""
     try:
-        config = ConfiguracionSistema.carga()
+        config = ConfiguracionSistema.obtener_unica()
         tienda = ConfiguracionTienda.obtener_unica()
         
         base_url = _get_base_url(request)
@@ -150,6 +184,20 @@ def api_configuraciones(request):
                 "efectivo": config.pago_efectivo_local,
                 "transferencia": config.pago_transferencia,
                 "tarjeta": config.pago_tarjeta,
+            },
+            "mayorista": {
+                "precios_escala_activos": config.precios_escala_activos,
+                "monto_minimo": float(config.monto_minimo_mayorista) if config.monto_minimo_mayorista else 0,
+                "cantidad_minima": config.cantidad_minima_mayorista or 0,
+                "escalas": [
+                    {
+                        "cantidad_minima": escala.cantidad_minima,
+                        "cantidad_maxima": escala.cantidad_maxima,
+                        "porcentaje_descuento": float(escala.porcentaje_descuento),
+                        "activo": escala.activo,
+                    }
+                    for escala in config.escalas_precio.filter(activo=True).order_by('orden', 'cantidad_minima')
+                ] if config.precios_escala_activos else [],
             },
         })
     except Exception as e:
@@ -527,7 +575,7 @@ def api_carrito(request):
                     "error": f"Stock insuficiente. Disponible: {variante.stock_actual}"
                 }, status=400)
             
-            # Obtener precio
+            # Obtener precio base
             precio_ars = variante.precios.filter(
                 tipo=tipo_precio,
                 moneda=Precio.Moneda.ARS,
@@ -541,15 +589,33 @@ def api_carrito(request):
             ).first()
             
             dolar_blue = obtener_valor_dolar_blue()
+            precio_base_ars = None
             precio_ars_valor = None
+            descuento_aplicado = None
+            porcentaje_descuento = None
             
             if precio_ars:
-                precio_ars_valor = float(precio_ars.precio)
+                precio_base_ars = Decimal(str(precio_ars.precio))
+                precio_ars_valor = float(precio_base_ars)
             elif precio_usd and dolar_blue:
-                precio_ars_valor = float(precio_usd.precio) * float(dolar_blue)
+                precio_base_ars = Decimal(str(precio_usd.precio)) * Decimal(str(dolar_blue))
+                precio_ars_valor = float(precio_base_ars)
             
             if precio_ars_valor is None:
                 return JsonResponse({"error": "Producto sin precio"}, status=400)
+            
+            # Aplicar descuentos por escala si es mayorista
+            if tipo_precio == "MAYORISTA" and precio_base_ars:
+                try:
+                    config = ConfiguracionSistema.obtener_unica()
+                    precio_con_escala = config.obtener_precio_con_escala(precio_base_ars, cantidad)
+                    precio_ars_valor = float(precio_con_escala)
+                    
+                    if precio_con_escala < precio_base_ars:
+                        descuento_aplicado = float(precio_base_ars - precio_con_escala)
+                        porcentaje_descuento = float((descuento_aplicado / float(precio_base_ars)) * 100)
+                except:
+                    pass
             
             # Obtener o crear carrito
             carrito_obj, _ = CarritoRemoto.objects.get_or_create(
@@ -572,8 +638,27 @@ def api_carrito(request):
                         "error": f"Stock insuficiente. Disponible: {variante.stock_actual}"
                     }, status=400)
                 item_existente["cantidad"] = nueva_cantidad
+                
+                # Recalcular descuento con nueva cantidad
+                if tipo_precio == "MAYORISTA" and precio_base_ars:
+                    try:
+                        config = ConfiguracionSistema.obtener_unica()
+                        precio_con_escala = config.obtener_precio_con_escala(precio_base_ars, nueva_cantidad)
+                        nuevo_precio = float(precio_con_escala)
+                        item_existente["precio_unitario_ars"] = nuevo_precio
+                        
+                        if precio_con_escala < precio_base_ars:
+                            item_existente["descuento_aplicado"] = float(precio_base_ars - precio_con_escala)
+                            item_existente["porcentaje_descuento"] = float((item_existente["descuento_aplicado"] / float(precio_base_ars)) * 100)
+                            item_existente["precio_base"] = float(precio_base_ars)
+                        else:
+                            item_existente.pop("descuento_aplicado", None)
+                            item_existente.pop("porcentaje_descuento", None)
+                            item_existente.pop("precio_base", None)
+                    except:
+                        pass
             else:
-                carrito.append({
+                item_nuevo = {
                     "variante_id": variante_id,
                     "sku": variante.sku,
                     "nombre": variante.producto.nombre,
@@ -581,7 +666,12 @@ def api_carrito(request):
                     "cantidad": cantidad,
                     "precio_unitario_ars": precio_ars_valor,
                     "stock_actual": variante.stock_actual or 0,
-                })
+                }
+                if descuento_aplicado:
+                    item_nuevo["descuento_aplicado"] = descuento_aplicado
+                    item_nuevo["porcentaje_descuento"] = porcentaje_descuento
+                    item_nuevo["precio_base"] = float(precio_base_ars)
+                carrito.append(item_nuevo)
             
             carrito_obj.items = carrito
             carrito_obj.save(update_fields=["items", "actualizado"])
@@ -699,44 +789,192 @@ def api_pedido_crear(request):
         cliente_documento = data.get("cliente_documento", "")
         metodo_pago = data.get("metodo_pago", "EFECTIVO_ARS")
         nota = data.get("nota", "")
+        codigo_cupon = data.get("codigo_cupon", "").strip().upper() if data.get("codigo_cupon") else None
         
-        # Crear venta
-        from django.utils import timezone
-        venta_id = f"WEB-{timezone.now().strftime('%Y%m%d%H%M%S')}"
+        # Si el usuario tiene documento en su perfil, usarlo si no se proporciona
+        if not cliente_documento:
+            try:
+                perfil = request.user.perfilusuario
+                if perfil and perfil.documento:
+                    cliente_documento = perfil.documento
+            except:
+                pass
         
-        venta = Venta.objects.create(
-            id=venta_id,
-            cliente_nombre=cliente_nombre,
-            cliente_documento=cliente_documento,
-            metodo_pago=metodo_pago,
-            status=Venta.Status.PENDIENTE_PAGO,
-            nota=nota,
-            vendedor=request.user,
-            origen=Venta.Origen.WEB,  # Marcar como venta web
-        )
+        # Buscar o crear cliente automáticamente
+        cliente_obj = None
+        if cliente_documento:
+            try:
+                cliente_obj = Cliente.objects.get(documento=cliente_documento)
+            except Cliente.DoesNotExist:
+                # Crear cliente si no existe
+                cliente_obj = Cliente.objects.create(
+                    nombre=cliente_nombre or "Cliente Web",
+                    documento=cliente_documento,
+                    email=request.user.email if request.user.is_authenticated else "",
+                )
+        elif request.user.is_authenticated:
+            # Intentar obtener cliente del perfil del usuario
+            try:
+                from core.models import PerfilUsuario
+                perfil = getattr(request.user, 'perfil', None)
+                if not perfil:
+                    try:
+                        perfil = PerfilUsuario.objects.get(usuario=request.user)
+                    except PerfilUsuario.DoesNotExist:
+                        perfil = None
+                if perfil and perfil.documento:
+                    try:
+                        cliente_obj = Cliente.objects.get(documento=perfil.documento)
+                    except Cliente.DoesNotExist:
+                        cliente_obj = Cliente.objects.create(
+                            nombre=f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username,
+                            documento=perfil.documento,
+                            email=request.user.email or "",
+                        )
+            except:
+                pass
         
-        # Crear registro inicial en historial
-        from ventas.models import HistorialEstadoVenta
-        HistorialEstadoVenta.objects.create(
-            venta=venta,
-            estado_nuevo=Venta.Status.PENDIENTE_PAGO,
-            usuario=request.user,
-            nota="Pedido creado desde la web"
-        )
-        
-        # Crear detalles
-        total_ars = Decimal("0")
+        # Verificar stock de todos los items ANTES de crear la venta
+        items_validos = []
         for item in carrito:
             if not isinstance(item, dict):
                 continue
             
             variante_id = item.get("variante_id")
             cantidad = int(item.get("cantidad", 1))
-            precio_unitario = Decimal(str(item.get("precio_unitario_ars", 0)))
-            subtotal = precio_unitario * cantidad
             
             try:
                 variante = ProductoVariante.objects.get(pk=variante_id)
+                stock_disponible = variante.stock_actual or 0
+                
+                if stock_disponible < cantidad:
+                    return JsonResponse({
+                        "error": f"Stock insuficiente para {variante.producto.nombre} ({variante.sku}). Disponible: {stock_disponible}, Solicitado: {cantidad}"
+                    }, status=400)
+                
+                items_validos.append(item)
+            except ProductoVariante.DoesNotExist:
+                return JsonResponse({
+                    "error": f"Producto no encontrado (ID: {variante_id})"
+                }, status=400)
+        
+        if not items_validos:
+            return JsonResponse({"error": "No hay items válidos en el carrito"}, status=400)
+        
+        # Validar compra mínima mayorista si el usuario es mayorista
+        try:
+            from core.models import PerfilUsuario
+            from configuracion.models import ConfiguracionSistema
+            from decimal import Decimal
+            
+            perfil = getattr(request.user, 'perfil', None)
+            if not perfil:
+                try:
+                    perfil = PerfilUsuario.objects.get(usuario=request.user)
+                except PerfilUsuario.DoesNotExist:
+                    perfil = None
+            
+            if perfil and perfil.tipo_usuario == 'MAYORISTA':
+                config = ConfiguracionSistema.obtener_unica()
+                
+                # Calcular totales del carrito
+                total_cantidad = sum(int(item.get("cantidad", 1)) for item in items_validos)
+                total_monto = Decimal("0")
+                
+                for item in items_validos:
+                    cantidad = int(item.get("cantidad", 1))
+                    precio_ars = Decimal(str(item.get("precio_unitario_ars", 0)))
+                    total_monto += precio_ars * Decimal(str(cantidad))
+                
+                # Validar monto mínimo
+                if config.monto_minimo_mayorista and config.monto_minimo_mayorista > 0:
+                    if total_monto < config.monto_minimo_mayorista:
+                        return JsonResponse({
+                            "error": f"Compra mínima mayorista: ${config.monto_minimo_mayorista:,.2f}. Tu carrito: ${total_monto:,.2f}"
+                        }, status=400)
+                
+                # Validar cantidad mínima
+                if config.cantidad_minima_mayorista and config.cantidad_minima_mayorista > 0:
+                    if total_cantidad < config.cantidad_minima_mayorista:
+                        return JsonResponse({
+                            "error": f"Cantidad mínima mayorista: {config.cantidad_minima_mayorista} unidades. Tu carrito: {total_cantidad} unidades"
+                        }, status=400)
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Error validando compra mínima mayorista: {e}")
+            # Continuar sin validación si hay error
+        
+        # Crear venta con los nuevos campos (dentro de transacción)
+        from django.utils import timezone
+        from django.db import transaction
+        import random
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # Generar ID corto para venta web (máximo 20 caracteres)
+        # Formato: WEB-YYMMDDHHMMSS-XXX (ej: WEB-251121130030-123)
+        timestamp = timezone.now().strftime('%y%m%d%H%M%S')  # Año de 2 dígitos
+        random_suffix = random.randint(100, 999)  # 3 dígitos en lugar de 4
+        venta_id = f"WEB-{timestamp}-{random_suffix}"
+        
+        # Normalizar método de pago
+        metodo_pago_normalizado = metodo_pago.lower()
+        if metodo_pago_normalizado not in [choice[0] for choice in Venta.MetodoPago.choices]:
+            # Si viene un valor antiguo, normalizarlo
+            if "EFECTIVO" in metodo_pago.upper():
+                metodo_pago_normalizado = "efectivo"
+            elif "TRANSFERENCIA" in metodo_pago.upper():
+                metodo_pago_normalizado = "transferencia"
+            elif "MERCADOPAGO" in metodo_pago.upper() or "MP" in metodo_pago.upper():
+                metodo_pago_normalizado = "mercadopago_link"
+            else:
+                metodo_pago_normalizado = "transferencia"  # Default
+        
+        # Crear venta y detalles dentro de una transacción atómica
+        with transaction.atomic():
+            venta = Venta.objects.create(
+                id=venta_id,
+                cliente=cliente_obj,
+                cliente_nombre=cliente_nombre or (cliente_obj.nombre if cliente_obj else ""),
+                cliente_documento=cliente_documento or (cliente_obj.documento if cliente_obj else ""),
+                metodo_pago=metodo_pago_normalizado,
+                origen=Venta.Origen.WEB,
+                estado_pago=Venta.EstadoPago.PENDIENTE,
+                estado_entrega=Venta.EstadoEntrega.PENDIENTE,
+                nota=nota,
+                observaciones=nota,  # Usar nota también como observaciones
+                vendedor=request.user if request.user.is_authenticated else None,
+                fecha=timezone.now(),  # Hora exacta
+            )
+            
+            # Crear registro inicial en historial
+            from ventas.models import HistorialEstadoVenta
+            historial = HistorialEstadoVenta(
+                venta=venta,
+                estado_nuevo=Venta.Status.PENDIENTE_PAGO,  # Mantener compatibilidad con status antiguo
+                usuario=request.user if request.user.is_authenticated else None,
+                nota="Pedido creado desde la web"
+            )
+            historial.save()
+            
+            # Crear detalles y descontar stock (con select_for_update para evitar condiciones de carrera)
+            total_ars = Decimal("0")
+            for item in items_validos:
+                variante_id = item.get("variante_id")
+                cantidad = int(item.get("cantidad", 1))
+                precio_unitario = Decimal(str(item.get("precio_unitario_ars", 0)))
+                subtotal = precio_unitario * cantidad
+                
+                # Bloquear la variante para actualización (evita condiciones de carrera)
+                variante = ProductoVariante.objects.select_for_update().get(pk=variante_id)
+                
+                # Verificar stock nuevamente (por si cambió entre la verificación inicial y ahora)
+                stock_disponible = variante.stock_actual or 0
+                if stock_disponible < cantidad:
+                    raise ValueError(f"Stock insuficiente para {variante.sku}: disponible={stock_disponible}, solicitado={cantidad}")
+                
+                # Crear detalle de venta
                 DetalleVenta.objects.create(
                     venta=venta,
                     variante=variante,
@@ -746,13 +984,51 @@ def api_pedido_crear(request):
                     precio_unitario_ars_congelado=precio_unitario,
                     subtotal_ars=subtotal,
                 )
+                
+                # Descontar stock
+                variante.stock_actual = max(0, stock_disponible - cantidad)
+                variante.save(update_fields=['stock_actual', 'actualizado'])
+                
                 total_ars += subtotal
-            except ProductoVariante.DoesNotExist:
-                continue
+                logger.info(f"Stock descontado: {variante.sku} - {cantidad} unidades (nuevo stock: {variante.stock_actual})")
+        
+        # Aplicar cupón si existe
+        descuento_cupon = Decimal("0")
+        cupon_obj = None
+        if codigo_cupon:
+            try:
+                cupon_obj = Cupon.objects.get(codigo=codigo_cupon)
+                es_valido, mensaje = cupon_obj.es_valido(total_ars, request.user if request.user.is_authenticated else None)
+                if es_valido:
+                    descuento_cupon = cupon_obj.calcular_descuento(total_ars)
+                    # Incrementar usos del cupón
+                    cupon_obj.usos_actuales += 1
+                    cupon_obj.save(update_fields=['usos_actuales'])
+                else:
+                    # Si el cupón no es válido, no aplicarlo pero continuar con la venta
+                    cupon_obj = None
+            except Cupon.DoesNotExist:
+                pass  # Si el cupón no existe, continuar sin descuento
         
         venta.subtotal_ars = total_ars
-        venta.total_ars = total_ars
+        venta.descuento_cupon_ars = descuento_cupon
+        venta.total_ars = total_ars - descuento_cupon
+        if cupon_obj:
+            venta.cupon = cupon_obj
         venta.save()
+        
+        # Crear notificación de nueva venta web
+        try:
+            from core.notificaciones import notificar_venta_web
+            notificar_venta_web(
+                venta_id=venta_id,
+                cliente_nombre=cliente_nombre or (cliente_obj.nombre if cliente_obj else "Cliente"),
+                total=float(total_ars - descuento_cupon)
+            )
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"No se pudo crear notificación de venta web: {e}")
         
         # Limpiar carrito
         carrito_obj.items = []
@@ -761,10 +1037,75 @@ def api_pedido_crear(request):
         return JsonResponse({
             "success": True,
             "venta_id": venta_id,
-            "total": float(total_ars),
+            "total": float(total_ars - descuento_cupon),
+            "descuento_cupon": float(descuento_cupon),
         })
     except json.JSONDecodeError:
         return JsonResponse({"error": "Payload inválido"}, status=400)
     except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_validar_cupon(request):
+    """API para validar un cupón de descuento"""
+    from rest_framework_simplejwt.authentication import JWTAuthentication
+    from rest_framework.exceptions import AuthenticationFailed
+    
+    jwt_auth = JWTAuthentication()
+    try:
+        user, token = jwt_auth.authenticate(request)
+        if user:
+            request.user = user
+    except (AuthenticationFailed, TypeError, AttributeError):
+        if not request.user.is_authenticated:
+            request.user = None  # Permitir validación sin autenticación
+    
+    try:
+        data = json.loads(request.body)
+        codigo_cupon = data.get("codigo", "").strip().upper()
+        monto_total = Decimal(str(data.get("monto_total", 0)))
+        
+        if not codigo_cupon:
+            return JsonResponse({"error": "Código de cupón requerido"}, status=400)
+        
+        try:
+            cupon = Cupon.objects.get(codigo=codigo_cupon)
+        except Cupon.DoesNotExist:
+            return JsonResponse({"error": "Cupón no encontrado"}, status=404)
+        
+        # Validar cupón
+        es_valido, mensaje = cupon.es_valido(monto_total, request.user if request.user.is_authenticated else None)
+        
+        if not es_valido:
+            return JsonResponse({"error": mensaje}, status=400)
+        
+        # Calcular descuento
+        descuento = cupon.calcular_descuento(monto_total)
+        monto_final = monto_total - descuento
+        
+        return JsonResponse({
+            "success": True,
+            "cupon": {
+                "id": cupon.id,
+                "codigo": cupon.codigo,
+                "descripcion": cupon.descripcion,
+                "tipo_descuento": cupon.tipo_descuento,
+                "valor_descuento": float(cupon.valor_descuento),
+            },
+            "descuento": float(descuento),
+            "monto_original": float(monto_total),
+            "monto_final": float(monto_final),
+        })
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Payload inválido"}, status=400)
+    except Cupon.DoesNotExist:
+        return JsonResponse({"error": "Cupón no encontrado"}, status=404)
+    except Exception as e:
+        import traceback
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error al validar cupón: {e}", exc_info=True)
         return JsonResponse({"error": str(e)}, status=500)
 

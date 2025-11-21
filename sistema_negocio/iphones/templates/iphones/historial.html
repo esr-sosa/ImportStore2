@@ -45,23 +45,39 @@
             <tr class="hover:bg-slate-800/60 transition-colors">
               <td class="px-5 py-4">
                 <div class="flex flex-col gap-1">
-                  <span class="font-semibold text-slate-100">{{ item.variante.producto.nombre }}</span>
-                  <span class="text-xs text-slate-400">{{ item.variante.atributos_display }}</span>
-                  <span class="text-[10px] font-mono text-slate-500">SKU: {{ item.variante.sku }}</span>
+                  {% if item.variante and item.variante.producto %}
+                    <span class="font-semibold text-slate-100">{{ item.variante.producto.nombre }}</span>
+                    <span class="text-xs text-slate-400">{{ item.variante.atributos_display }}</span>
+                    <span class="text-[10px] font-mono text-slate-500">SKU: {{ item.variante.sku }}</span>
+                  {% else %}
+                    <span class="font-semibold text-slate-100">{{ item.descripcion|default:"iPhone (eliminado)" }}</span>
+                    <span class="text-[10px] font-mono text-slate-500">SKU: {{ item.sku|default:"N/D" }}</span>
+                    <span class="text-xs text-amber-400">⚠️ Variante eliminada del inventario</span>
+                  {% endif %}
                 </div>
               </td>
               <td class="px-5 py-4">
-                <span class="font-mono text-slate-100">{{ item.detalle_iphone.imei|default:"N/D" }}</span>
+                <span class="font-mono text-slate-100">
+                  {% if item.detalle_iphone and item.detalle_iphone.imei %}
+                    {{ item.detalle_iphone.imei }}
+                  {% else %}
+                    N/D
+                  {% endif %}
+                </span>
               </td>
               <td class="px-5 py-4">
                 <div class="flex flex-col gap-1">
-                  {% if item.detalle_iphone.salud_bateria %}
-                    <span class="text-xs text-emerald-400">Batería {{ item.detalle_iphone.salud_bateria }}%</span>
+                  {% if item.detalle_iphone %}
+                    {% if item.detalle_iphone.salud_bateria %}
+                      <span class="text-xs text-emerald-400">Batería {{ item.detalle_iphone.salud_bateria }}%</span>
+                    {% else %}
+                      <span class="text-xs text-slate-500">Sin datos</span>
+                    {% endif %}
+                    {% if item.detalle_iphone.fallas_detectadas %}
+                      <span class="text-[10px] text-amber-400">{{ item.detalle_iphone.fallas_detectadas|truncatewords:5 }}</span>
+                    {% endif %}
                   {% else %}
-                    <span class="text-xs text-slate-500">Sin datos</span>
-                  {% endif %}
-                  {% if item.detalle_iphone.fallas_detectadas %}
-                    <span class="text-[10px] text-amber-400">{{ item.detalle_iphone.fallas_detectadas|truncatewords:5 }}</span>
+                    <span class="text-xs text-slate-500">Sin datos de detalle</span>
                   {% endif %}
                 </div>
               </td>
@@ -75,6 +91,9 @@
               </td>
               <td class="px-5 py-4 text-right">
                 <span class="font-semibold text-slate-100">${{ item.precio_venta|floatformat:2|intcomma }}</span>
+                {% if item.cantidad > 1 %}
+                  <span class="text-xs text-slate-400 block">(x{{ item.cantidad }})</span>
+                {% endif %}
               </td>
               <td class="px-5 py-4">
                 <span class="text-slate-300">{{ item.fecha_venta|date:"d/m/Y H:i" }}</span>
@@ -96,7 +115,7 @@
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
       </svg>
       <h3 class="mt-4 text-lg font-semibold text-slate-200">No hay iPhones vendidos aún</h3>
-      <p class="mt-2 text-sm text-slate-400">Cuando vendas un iPhone y su stock llegue a 0, aparecerá aquí con toda su información.</p>
+      <p class="mt-2 text-sm text-slate-400">El historial mostrará todos los iPhones vendidos históricamente, incluso si fueron eliminados del inventario.</p>
     </div>
     {% endif %}
   </div>

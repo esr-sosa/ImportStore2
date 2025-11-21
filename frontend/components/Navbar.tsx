@@ -80,9 +80,15 @@ export default function Navbar() {
               {/* Cart */}
               <Link
                 href="/carrito"
+                data-cart-button
                 className="relative p-2 text-gray-700 hover:text-gray-900 transition-colors"
               >
-                <FiShoppingCart className="w-6 h-6" />
+                <motion.div
+                  animate={{}}
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                >
+                  <FiShoppingCart className="w-6 h-6" />
+                </motion.div>
                 {total_items > 0 && (
                   <motion.span
                     initial={{ scale: 0 }}
@@ -124,8 +130,7 @@ export default function Navbar() {
               ) : (
                 <Link
                   href="/login"
-                  className="px-4 py-2 rounded-full text-white font-semibold transition-colors"
-                  style={{ backgroundColor: colorPrimary }}
+                  className="px-4 py-2 rounded-full font-semibold transition-all shadow-md hover:shadow-lg bg-blue-600 text-white hover:bg-blue-700"
                 >
                   Iniciar Sesión
                 </Link>

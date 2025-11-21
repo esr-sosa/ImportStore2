@@ -33,6 +33,7 @@ class Cliente(models.Model):
     nombre = models.CharField(max_length=150, help_text="Nombre y Apellido del cliente")
     telefono = models.CharField(max_length=20, unique=True, help_text="Número de WhatsApp. Debe ser único.")
     email = models.EmailField(max_length=254, blank=True, null=True, help_text="Email del cliente (opcional)")
+    documento = models.CharField(max_length=40, blank=True, null=True, help_text="DNI o documento de identidad (opcional)")
     tipo_cliente = models.CharField(
         max_length=20,
         choices=TIPO_CLIENTE_CHOICES,

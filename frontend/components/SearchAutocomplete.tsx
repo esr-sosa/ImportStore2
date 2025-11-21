@@ -115,17 +115,19 @@ export default function SearchAutocomplete({ onClose }: SearchAutocompleteProps)
             className="w-full pl-12 pr-12 py-3 border border-gray-300 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
           />
           {query && (
-            <button
+            <motion.button
               type="button"
               onClick={() => {
                 setQuery('');
                 setShowSuggestions(false);
                 inputRef.current?.focus();
               }}
-              className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-900 transition-colors"
             >
               <FiX className="w-5 h-5" />
-            </button>
+            </motion.button>
           )}
         </div>
       </form>
@@ -149,9 +151,10 @@ export default function SearchAutocomplete({ onClose }: SearchAutocompleteProps)
                   {suggestions.map((product) => {
                     const imagen = product.imagenes?.[0] || '/placeholder-product.jpg';
                     return (
-                      <button
+                      <motion.button
                         key={product.id}
                         onClick={() => handleSelectProduct(product)}
+                        whileHover={{ backgroundColor: '#f9fafb' }}
                         className="w-full p-4 hover:bg-gray-50 transition-colors text-left flex items-center gap-4"
                       >
                         <div className="relative w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
@@ -179,18 +182,20 @@ export default function SearchAutocomplete({ onClose }: SearchAutocompleteProps)
                             </p>
                           )}
                         </div>
-                      </button>
+                      </motion.button>
                     );
                   })}
                 </div>
                 {query && (
                   <div className="p-3 border-t border-gray-100">
-                    <button
+                    <motion.button
                       onClick={handleSearch}
-                      className="w-full text-center text-blue-600 hover:text-blue-700 font-semibold text-sm py-2"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="w-full text-center text-blue-600 hover:text-blue-700 font-semibold text-sm py-2 transition-colors"
                     >
                       Ver más resultados para "{query}"
-                    </button>
+                    </motion.button>
                   </div>
                 )}
               </>

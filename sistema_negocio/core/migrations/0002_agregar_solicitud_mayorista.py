@@ -5,6 +5,51 @@ from django.conf import settings
 from django.db import migrations, models
 
 
+def check_table_exists(connection, table_name):
+    """Verifica si una tabla existe"""
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM information_schema.TABLES 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = %s
+        """, [table_name])
+        return cursor.fetchone()[0] > 0
+
+
+def create_solicitud_mayorista_if_not_exists(apps, schema_editor):
+    """Crea la tabla SolicitudMayorista solo si no existe"""
+    connection = schema_editor.connection
+    if not check_table_exists(connection, 'core_solicitudmayorista'):
+        # Crear la tabla manualmente con SQL
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                CREATE TABLE core_solicitudmayorista (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    nombre VARCHAR(100) NOT NULL,
+                    apellido VARCHAR(100) NOT NULL,
+                    dni VARCHAR(20) NOT NULL,
+                    nombre_comercio VARCHAR(200) NOT NULL,
+                    rubro VARCHAR(100) NOT NULL,
+                    email VARCHAR(254) NOT NULL,
+                    telefono VARCHAR(20) NOT NULL,
+                    mensaje LONGTEXT NULL,
+                    estado VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE',
+                    creado DATETIME(6) NOT NULL,
+                    actualizado DATETIME(6) NOT NULL,
+                    fecha_revision DATETIME(6) NULL,
+                    notas LONGTEXT NULL,
+                    revisado_por_id INT NULL,
+                    FOREIGN KEY (revisado_por_id) REFERENCES auth_user(id) ON DELETE SET NULL
+                )
+            """)
+
+
+def remove_solicitud_mayorista_if_exists(apps, schema_editor):
+    """Función reversa"""
+    pass
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -13,29 +58,37 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.CreateModel(
-            name='SolicitudMayorista',
-            fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('nombre', models.CharField(max_length=100, verbose_name='Nombre')),
-                ('apellido', models.CharField(max_length=100, verbose_name='Apellido')),
-                ('dni', models.CharField(max_length=20, verbose_name='DNI')),
-                ('nombre_comercio', models.CharField(max_length=200, verbose_name='Nombre del Comercio')),
-                ('rubro', models.CharField(max_length=100, verbose_name='Rubro')),
-                ('email', models.EmailField(max_length=254, verbose_name='Email')),
-                ('telefono', models.CharField(max_length=20, verbose_name='Teléfono')),
-                ('mensaje', models.TextField(blank=True, null=True, verbose_name='Mensaje')),
-                ('estado', models.CharField(choices=[('PENDIENTE', 'Pendiente'), ('APROBADA', 'Aprobada'), ('RECHAZADA', 'Rechazada')], default='PENDIENTE', max_length=20, verbose_name='Estado')),
-                ('creado', models.DateTimeField(auto_now_add=True)),
-                ('actualizado', models.DateTimeField(auto_now=True)),
-                ('fecha_revision', models.DateTimeField(blank=True, null=True, verbose_name='Fecha de Revisión')),
-                ('notas', models.TextField(blank=True, null=True, verbose_name='Notas de Revisión')),
-                ('revisado_por', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='solicitudes_revisadas', to=settings.AUTH_USER_MODEL, verbose_name='Revisado por')),
+        # Crear tabla con SQL si no existe
+        migrations.RunPython(create_solicitud_mayorista_if_not_exists, remove_solicitud_mayorista_if_exists),
+        # Actualizar estado de Django para que reconozca el modelo
+        migrations.SeparateDatabaseAndState(
+            database_operations=[],  # No hacer nada en BD, ya se hizo con RunPython
+            state_operations=[
+                migrations.CreateModel(
+                    name='SolicitudMayorista',
+                    fields=[
+                        ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                        ('nombre', models.CharField(max_length=100, verbose_name='Nombre')),
+                        ('apellido', models.CharField(max_length=100, verbose_name='Apellido')),
+                        ('dni', models.CharField(max_length=20, verbose_name='DNI')),
+                        ('nombre_comercio', models.CharField(max_length=200, verbose_name='Nombre del Comercio')),
+                        ('rubro', models.CharField(max_length=100, verbose_name='Rubro')),
+                        ('email', models.EmailField(max_length=254, verbose_name='Email')),
+                        ('telefono', models.CharField(max_length=20, verbose_name='Teléfono')),
+                        ('mensaje', models.TextField(blank=True, null=True, verbose_name='Mensaje')),
+                        ('estado', models.CharField(choices=[('PENDIENTE', 'Pendiente'), ('APROBADA', 'Aprobada'), ('RECHAZADA', 'Rechazada')], default='PENDIENTE', max_length=20, verbose_name='Estado')),
+                        ('creado', models.DateTimeField(auto_now_add=True)),
+                        ('actualizado', models.DateTimeField(auto_now=True)),
+                        ('fecha_revision', models.DateTimeField(blank=True, null=True, verbose_name='Fecha de Revisión')),
+                        ('notas', models.TextField(blank=True, null=True, verbose_name='Notas de Revisión')),
+                        ('revisado_por', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='solicitudes_revisadas', to=settings.AUTH_USER_MODEL, verbose_name='Revisado por')),
+                    ],
+                    options={
+                        'verbose_name': 'Solicitud Mayorista',
+                        'verbose_name_plural': 'Solicitudes Mayoristas',
+                        'ordering': ['-creado'],
+                    },
+                ),
             ],
-            options={
-                'verbose_name': 'Solicitud Mayorista',
-                'verbose_name_plural': 'Solicitudes Mayoristas',
-                'ordering': ['-creado'],
-            },
         ),
     ]

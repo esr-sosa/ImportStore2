@@ -139,14 +139,15 @@ def cambiar_estado_venta_web(request, venta_id):
         
         venta.save()
         
-        # Registrar en historial
-        HistorialEstadoVenta.objects.create(
+        # Registrar en historial (usar save() para evitar RETURNING en MariaDB 10.4)
+        historial = HistorialEstadoVenta(
             venta=venta,
             estado_anterior=estado_anterior,
             estado_nuevo=nuevo_estado,
             usuario=request.user,
             nota=nota
         )
+        historial.save()
         
         return JsonResponse({
             'success': True,

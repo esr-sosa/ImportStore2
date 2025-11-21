@@ -82,7 +82,7 @@ def generar_comprobante_pdf(venta) -> ContentFile:
         ) from _reportlab_import_error
 
     config_tienda = ConfiguracionTienda.obtener_unica()
-    config_sistema = ConfiguracionSistema.carga()
+    config_sistema = ConfiguracionSistema.obtener_unica()
     locales = list(Local.objects.order_by("nombre"))
 
     buffer = BytesIO()
@@ -411,10 +411,12 @@ def generar_comprobante_pdf(venta) -> ContentFile:
         tiene_descuento = descuento_linea > Decimal("0.01")
         
         # Si tiene conversión USD -> ARS, mostrar información
-        if detalle.precio_unitario_usd_original and detalle.tipo_cambio_usado:
+        precio_usd_original = getattr(detalle, 'precio_unitario_usd_original', None)
+        tipo_cambio = getattr(detalle, 'tipo_cambio_usado', None)
+        if precio_usd_original and tipo_cambio:
             # Calcular el precio convertido correctamente
-            precio_convertido = detalle.precio_unitario_usd_original * detalle.tipo_cambio_usado
-            conversion_text = f"US${detalle.precio_unitario_usd_original:.2f} × {detalle.tipo_cambio_usado:.2f} = ${precio_convertido:,.2f}"
+            precio_convertido = precio_usd_original * tipo_cambio
+            conversion_text = f"US${precio_usd_original:.2f} × {tipo_cambio:.2f} = ${precio_convertido:,.2f}"
             c.setFont("Helvetica", 7)
             c.setFillColor(colors.grey)
             c.drawString(margin, y - 20, conversion_text)
@@ -423,7 +425,10 @@ def generar_comprobante_pdf(venta) -> ContentFile:
         # Mostrar descuento si existe
         if tiene_descuento:
             porcentaje_desc = (descuento_linea / precio_bruto) * 100 if precio_bruto > 0 else 0
-            descuento_text = f"Descuento: -${descuento_linea:.2f} ({porcentaje_desc:.1f}%)"
+            # Verificar si el descuento viene de escalas (comparando con observaciones)
+            es_descuento_escala = venta.observaciones and "Descuento por cantidad" in venta.observaciones
+            tipo_descuento = "Descuento por cantidad" if es_descuento_escala else "Descuento"
+            descuento_text = f"{tipo_descuento}: -${descuento_linea:.2f} ({porcentaje_desc:.1f}%)"
             c.setFillColor(colors.darkgreen)
             c.drawString(margin, y - 20, descuento_text)
             y -= 10
@@ -435,8 +440,8 @@ def generar_comprobante_pdf(venta) -> ContentFile:
         c.drawRightString(margin + content_width * 0.65, y, str(detalle.cantidad))
         
         # Mostrar precio unitario: USD si tiene conversión, ARS si no
-        if detalle.precio_unitario_usd_original and detalle.tipo_cambio_usado:
-            precio_unitario_text = f"US${detalle.precio_unitario_usd_original:.2f}"
+        if precio_usd_original and tipo_cambio:
+            precio_unitario_text = f"US${precio_usd_original:.2f}"
         else:
             precio_unitario_text = f"${detalle.precio_unitario_ars_congelado:,.2f}"
         c.drawRightString(margin + content_width * 0.80, y, precio_unitario_text)
@@ -450,7 +455,7 @@ def generar_comprobante_pdf(venta) -> ContentFile:
         
         # Ajustar espacio según si hay conversión o descuento
         espacio_extra = 0
-        if detalle.precio_unitario_usd_original and detalle.tipo_cambio_usado:
+        if precio_usd_original and tipo_cambio:
             espacio_extra += 10
         if tiene_descuento:
             espacio_extra += 10
@@ -473,7 +478,12 @@ def generar_comprobante_pdf(venta) -> ContentFile:
         otros_descuentos = Decimal("0")
     if otros_descuentos > 0:
         c.setFillColor(colors.darkgreen)
-        c.drawRightString(width - margin, y, f"Descuentos aplicados: -${otros_descuentos:,.2f}")
+        # Verificar si hay descuentos por escalas en observaciones
+        tiene_descuento_escala = venta.observaciones and "Descuento por cantidad" in venta.observaciones
+        if tiene_descuento_escala:
+            c.drawRightString(width - margin, y, f"Descuento por cantidad: -${otros_descuentos:,.2f}")
+        else:
+            c.drawRightString(width - margin, y, f"Descuentos aplicados: -${otros_descuentos:,.2f}")
         c.setFillColor(colors.black)
         y -= 14
 
@@ -516,13 +526,14 @@ def generar_comprobante_pdf(venta) -> ContentFile:
         c.drawString(margin, y, f"Método de pago: {metodo_pago_display}")
     y -= 20
     
-    # Nota interna (si existe)
-    if venta.nota:
+    # Observaciones / Nota (si existe) - Incluye descuentos aplicados
+    texto_observaciones = venta.observaciones or venta.nota
+    if texto_observaciones:
         c.setFont("Helvetica-Oblique", 9)
         c.setFillColor(colors.grey)
-        # Dividir la nota en líneas si es muy larga
-        nota_lines = []
-        words = venta.nota.split()
+        # Dividir el texto en líneas si es muy largo
+        observaciones_lines = []
+        words = texto_observaciones.split()
         current_line = ""
         for word in words:
             test_line = current_line + (" " if current_line else "") + word
@@ -530,14 +541,21 @@ def generar_comprobante_pdf(venta) -> ContentFile:
                 current_line = test_line
             else:
                 if current_line:
-                    nota_lines.append(current_line)
+                    observaciones_lines.append(current_line)
                 current_line = word
         if current_line:
-            nota_lines.append(current_line)
+            observaciones_lines.append(current_line)
         
-        c.drawString(margin, y, "Nota interna:")
+        # Título según si tiene descuentos o es solo nota
+        titulo = "Descuentos y observaciones:" if "Descuento por cantidad" in texto_observaciones else "Nota:"
+        c.drawString(margin, y, titulo)
         y -= 12
-        for line in nota_lines[:5]:  # Máximo 5 líneas
+        for line in observaciones_lines[:8]:  # Máximo 8 líneas para incluir descuentos
+            # Resaltar líneas de descuentos
+            if "Descuento por cantidad" in line or line.strip().startswith("-"):
+                c.setFillColor(colors.darkgreen)
+            else:
+                c.setFillColor(colors.grey)
             c.drawString(margin + 10, y, line)
             y -= 12
         c.setFillColor(colors.black)

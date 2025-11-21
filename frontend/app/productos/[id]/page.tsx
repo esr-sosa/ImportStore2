@@ -46,8 +46,14 @@ export default function ProductoDetallePage() {
   const handleAgregarAlCarrito = async () => {
     if (!producto) return;
     
-    if (!producto.stock.disponible) {
-      toast.error('Producto no disponible');
+    // Validar stock antes de intentar agregar
+    if (!producto.stock.disponible || producto.stock.actual <= 0) {
+      toast.error('Producto sin stock disponible', { duration: 3000 });
+      return;
+    }
+    
+    if (cantidad > producto.stock.actual) {
+      toast.error(`Stock insuficiente. Disponible: ${producto.stock.actual}`, { duration: 3000 });
       return;
     }
 
@@ -58,12 +64,10 @@ export default function ProductoDetallePage() {
         icon: '🛒',
         duration: 2000,
       });
+      setCantidad(1); // Resetear cantidad
     } catch (error: any) {
-      if (error.response?.status === 401) {
-        toast.error('Debes iniciar sesión para agregar al carrito');
-      } else {
-        toast.error(error.message || 'Error al agregar al carrito');
-      }
+      // El error ya viene con el mensaje correcto del store
+      toast.error(error.message || 'Error al agregar al carrito', { duration: 3000 });
     } finally {
       setIsAddingToCart(false);
     }
@@ -234,12 +238,14 @@ export default function ProductoDetallePage() {
                   <div className="flex items-center space-x-4">
                     <label className="font-semibold text-gray-900">Cantidad:</label>
                     <div className="flex items-center space-x-2">
-                      <button
+                      <motion.button
                         onClick={() => setCantidad(Math.max(1, cantidad - 1))}
-                        className="w-10 h-10 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 font-semibold"
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        className="w-10 h-10 border-2 border-gray-300 rounded-lg hover:bg-gray-100 hover:border-gray-400 transition-all text-gray-900 font-semibold shadow-sm hover:shadow-md"
                       >
                         -
-                      </button>
+                      </motion.button>
                       <input
                         type="number"
                         value={cantidad}
@@ -247,24 +253,26 @@ export default function ProductoDetallePage() {
                           const val = parseInt(e.target.value) || 1;
                           setCantidad(Math.max(1, val));
                         }}
-                        className="w-20 text-center border-2 border-gray-300 rounded-lg py-2 text-gray-900 font-semibold"
+                        className="w-20 text-center border-2 border-gray-300 rounded-lg py-2 text-gray-900 font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         min="1"
                       />
-                      <button
+                      <motion.button
                         onClick={() => setCantidad(cantidad + 1)}
-                        className="w-10 h-10 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 font-semibold"
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        className="w-10 h-10 border-2 border-gray-300 rounded-lg hover:bg-gray-100 hover:border-gray-400 transition-all text-gray-900 font-semibold shadow-sm hover:shadow-md"
                       >
                         +
-                      </button>
+                      </motion.button>
                     </div>
                   </div>
 
                   <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                    whileHover={{ scale: isAddingToCart ? 1 : 1.02 }}
+                    whileTap={{ scale: isAddingToCart ? 1 : 0.98 }}
                     onClick={handleAgregarAlCarrito}
                     disabled={isAddingToCart}
-                    className="w-full px-6 py-4 bg-black text-white rounded-full font-semibold flex items-center justify-center space-x-2 hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full px-6 py-4 bg-black text-white rounded-full font-semibold flex items-center justify-center space-x-2 hover:bg-gray-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
                   >
                     {isAddingToCart ? (
                       <>

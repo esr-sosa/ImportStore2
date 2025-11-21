@@ -438,6 +438,12 @@
                 <span id="dolar-value" class="value" data-value="{{ dolar_blue|default:"0" }}">${{ dolar_blue|default:"0"|floatformat:2 }}</span>
             </div>
             <div class="flex flex-wrap gap-2 sm:gap-3 text-xs font-semibold">
+                <button id="toggle-precio-mode" class="pos-pill pos-pill--outline" data-modo-actual="{{ modo_precio|default:'MINORISTA' }}">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span id="precio-mode-text">PRECIO: {{ modo_precio|default:'Minorista' }}</span>
+                </button>
                 <a href="{% url 'ventas:pos_remoto' %}" target="_blank" class="pos-pill pos-pill--outline">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
@@ -654,10 +660,19 @@
                         <input type="hidden" id="customer-id" value="">
                         <input id="customer-name" type="hidden" value="">
                         <input id="customer-document" type="hidden" value="">
+                        <input id="customer-email" type="hidden" value="">
+                        <input id="customer-telefono" type="hidden" value="">
                         <div id="selected-customer" class="mt-2 hidden rounded-xl border-2 border-emerald-300 bg-emerald-50 px-3 py-2 text-sm">
-                            <div class="flex items-center justify-between">
-                                <span class="font-semibold text-emerald-900"></span>
-                                <button type="button" id="clear-customer" class="text-xs font-semibold text-slate-600 hover:text-rose-600 underline">Quitar</button>
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="flex-1">
+                                    <div class="font-semibold text-emerald-900" id="selected-customer-name"></div>
+                                    <div class="mt-1 text-xs text-emerald-700 space-y-0.5">
+                                        <div id="selected-customer-email"></div>
+                                        <div id="selected-customer-dni"></div>
+                                        <div id="selected-customer-telefono"></div>
+                                    </div>
+                                </div>
+                                <button type="button" id="clear-customer" class="text-xs font-semibold text-slate-600 hover:text-rose-600 underline whitespace-nowrap">Quitar</button>
                             </div>
                         </div>
                     </div>
@@ -812,6 +827,8 @@
     const customerId = document.getElementById('customer-id');
     const customerName = document.getElementById('customer-name');
     const customerDocument = document.getElementById('customer-document');
+    const customerEmail = document.getElementById('customer-email');
+    const customerTelefono = document.getElementById('customer-telefono');
     const selectedCustomer = document.getElementById('selected-customer');
     const clearCustomer = document.getElementById('clear-customer');
     const lastSaleLink = document.getElementById('last-sale-link');
@@ -829,8 +846,16 @@
     const toggleQuickScanBtn = document.getElementById('toggle-quick-scan');
     const closeQuickScanBtn = document.getElementById('close-quick-scan');
     const cartFeedbackContainer = document.getElementById('cart-feedback-container');
+    const togglePrecioMode = document.getElementById('toggle-precio-mode');
+    const precioModeText = document.getElementById('precio-mode-text');
+    
+    // Variable global para el modo de precio actual
+    let modoPrecioActual = '{{ modo_precio|default:"MINORISTA" }}';
 
     let lastPdfUrl = null;
+    
+    // Variable global para el modo de precio actual
+    let modoPrecioActual = '{{ modo_precio|default:"MINORISTA" }}';
 
     let cart = [];
     let quickScanInstance = null;
@@ -1163,10 +1188,19 @@
         results.forEach(cliente => {
             const option = document.createElement('button');
             option.type = 'button';
-            option.className = 'flex w-full flex-col items-start gap-1 border-b border-slate-100 px-5 py-3 text-left text-sm hover:bg-slate-50';
+            option.className = 'flex w-full flex-col items-start gap-1 border-b border-slate-100 px-5 py-3 text-left text-sm hover:bg-slate-50 transition-colors';
+            
+            // Construir información del cliente
+            const infoParts = [];
+            if (cliente.email) infoParts.push(`📧 ${cliente.email}`);
+            if (cliente.documento) infoParts.push(`🆔 DNI: ${cliente.documento}`);
+            if (cliente.telefono) infoParts.push(`📱 ${cliente.telefono}`);
+            
             option.innerHTML = `
                 <span class="font-semibold text-slate-900">${cliente.nombre}</span>
-                <span class="text-xs text-slate-500">${cliente.telefono}${cliente.email ? ' · ' + cliente.email : ''}</span>
+                <div class="text-xs text-slate-600 space-y-0.5 mt-1">
+                    ${infoParts.map(part => `<div>${part}</div>`).join('')}
+                </div>
             `;
             option.addEventListener('click', () => {
                 selectCustomer(cliente);
@@ -1179,10 +1213,40 @@
     function selectCustomer(cliente) {
         customerId.value = cliente.id;
         customerName.value = cliente.nombre;
-        customerDocument.value = cliente.telefono;
+        customerDocument.value = cliente.documento || '';
+        customerEmail.value = cliente.email || '';
+        customerTelefono.value = cliente.telefono || '';
         customerSearch.value = cliente.nombre;
         customerDropdown.classList.add('hidden');
-        selectedCustomer.querySelector('span').textContent = `${cliente.nombre} (${cliente.telefono})`;
+        
+        // Mostrar información completa del cliente seleccionado
+        document.getElementById('selected-customer-name').textContent = cliente.nombre;
+        
+        const emailDiv = document.getElementById('selected-customer-email');
+        const dniDiv = document.getElementById('selected-customer-dni');
+        const telefonoDiv = document.getElementById('selected-customer-telefono');
+        
+        if (cliente.email) {
+            emailDiv.textContent = `📧 ${cliente.email}`;
+            emailDiv.style.display = 'block';
+        } else {
+            emailDiv.style.display = 'none';
+        }
+        
+        if (cliente.documento) {
+            dniDiv.textContent = `🆔 DNI: ${cliente.documento}`;
+            dniDiv.style.display = 'block';
+        } else {
+            dniDiv.style.display = 'none';
+        }
+        
+        if (cliente.telefono) {
+            telefonoDiv.textContent = `📱 ${cliente.telefono}`;
+            telefonoDiv.style.display = 'block';
+        } else {
+            telefonoDiv.style.display = 'none';
+        }
+        
         selectedCustomer.classList.remove('hidden');
     }
     
@@ -1190,6 +1254,8 @@
         customerId.value = '';
         customerName.value = '';
         customerDocument.value = '';
+        customerEmail.value = '';
+        customerTelefono.value = '';
         customerSearch.value = '';
         selectedCustomer.classList.add('hidden');
     });
@@ -1228,6 +1294,47 @@
         const data = await response.json();
         renderSearchResults(data.results || []);
     });
+    
+    // Manejar cambio de modo de precio
+    if (togglePrecioMode) {
+        togglePrecioMode.addEventListener('click', async () => {
+            const nuevoModo = modoPrecioActual === 'MINORISTA' ? 'MAYORISTA' : 'MINORISTA';
+            
+            try {
+                const response = await fetch('{% url "ventas:cambiar_modo_precio_api" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({ modo: nuevoModo })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    modoPrecioActual = nuevoModo;
+                    if (precioModeText) {
+                        precioModeText.textContent = `PRECIO: ${data.modo_display}`;
+                    }
+                    
+                    // Recargar resultados de búsqueda si hay una búsqueda activa
+                    if (searchInput.value.trim().length >= 2) {
+                        searchInput.dispatchEvent(new Event('input'));
+                    }
+                    
+                    // Recargar carrito para actualizar precios
+                    renderCart();
+                    
+                    showCartFeedback(`Modo de precio cambiado a ${data.modo_display}`, 'success');
+                } else {
+                    alert('Error al cambiar el modo de precio: ' + (data.error || 'Error desconocido'));
+                }
+            } catch (error) {
+                console.error('Error al cambiar modo de precio:', error);
+                alert('Error al cambiar el modo de precio');
+            }
+        });
+    }
 
     function renderSearchResults(results) {
         if (!results.length) {
@@ -1261,9 +1368,14 @@
             const precioMinoristaArs = item.precios?.minorista_ars ? parseFloat(item.precios.minorista_ars) : null;
             const precioMayoristaArs = item.precios?.mayorista_ars ? parseFloat(item.precios.mayorista_ars) : null;
             const precioMinoristaUsd = item.precios?.minorista_usd ? parseFloat(item.precios.minorista_usd) : null;
+            const precioMayoristaUsd = item.precios?.mayorista_usd ? parseFloat(item.precios.mayorista_usd) : null;
 
-            const precioPrincipal = formatCurrency(precioMinoristaArs || precioMayoristaArs, 'ARS');
-            const precioSecundario = formatCurrency(precioMinoristaUsd, 'USD');
+            // Usar el precio según el modo actual
+            const precioArsActual = modoPrecioActual === 'MAYORISTA' ? (precioMayoristaArs || precioMinoristaArs) : (precioMinoristaArs || precioMayoristaArs);
+            const precioUsdActual = modoPrecioActual === 'MAYORISTA' ? (precioMayoristaUsd || precioMinoristaUsd) : (precioMinoristaUsd || precioMayoristaUsd);
+
+            const precioPrincipal = formatCurrency(precioArsActual, 'ARS');
+            const precioSecundario = formatCurrency(precioUsdActual, 'USD');
 
             const atributos = (item.descripcion && item.descripcion !== item.nombre)
                 ? item.descripcion.replace(item.nombre, '').trim()
@@ -1277,7 +1389,7 @@
                     </div>
                     <div class="text-right space-y-1">
                         ${precioPrincipal ? `<div class="inline-flex items-center gap-1 rounded-full bg-slate-900/90 px-2.5 py-0.5 text-[11px] font-semibold text-white shadow-sm">${precioPrincipal}</div>` : ''}
-                        ${precioSecundario ? `<div class="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-600">USD ${Number(precioMinoristaUsd).toFixed(2)}</div>` : ''}
+                        ${precioSecundario ? `<div class="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-600">USD ${Number(precioUsdActual).toFixed(2)}</div>` : ''}
                     </div>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
@@ -1357,9 +1469,13 @@
                 descripcion = nombre; // Usar el nombre ingresado como descripción
                 sku = item.sku;
             } else {
-                // Producto del catálogo
-                const precioArs = parseFloat(item.precios?.minorista_ars || 0);
-                const precioUsd = parseFloat(item.precios?.minorista_usd || 0);
+                // Producto del catálogo - usar precio según modo actual
+                const precioArs = modoPrecioActual === 'MAYORISTA' 
+                    ? parseFloat(item.precios?.mayorista_ars || item.precios?.minorista_ars || 0)
+                    : parseFloat(item.precios?.minorista_ars || item.precios?.mayorista_ars || 0);
+                const precioUsd = modoPrecioActual === 'MAYORISTA'
+                    ? parseFloat(item.precios?.mayorista_usd || item.precios?.minorista_usd || 0)
+                    : parseFloat(item.precios?.minorista_usd || item.precios?.mayorista_usd || 0);
                 
                 // Verificar si es iPhone (categoría Celulares o nombre contiene "iphone")
                 esIphone = (item.producto && item.producto.toLowerCase().includes('iphone')) || 
@@ -1888,9 +2004,10 @@
             nota: saleNote.value,
             status: saleStatus.value,
             cliente_id: customerId.value || null,
-            cliente_nombre: customerSearch.value.trim() || customerName.value || '',
-            cliente_telefono: customerDocument.value || customerSearch.value.trim() || '',
+            cliente_nombre: customerName.value || customerSearch.value.trim() || '',
+            cliente_telefono: customerTelefono.value || '',
             cliente_documento: customerDocument.value || '',
+            cliente_email: customerEmail.value || '',
             ...metodoPagoData,
         };
 
@@ -1979,18 +2096,21 @@
                 if (descuentoMetodoPago2Container) descuentoMetodoPago2Container.classList.add('hidden');
             }
             updateSummary();
-            lastPdfUrl = data.venta.pdf;
-            if (lastPdfUrl) {
-                exportCart.disabled = false;
-                lastSaleLink.classList.remove('hidden');
-                lastSaleLink.href = lastPdfUrl;
-            }
+            
+            // Generar URL del PDF usando el ID de la venta
+            const ventaId = data.venta.id;
+            lastPdfUrl = `{% url 'ventas:voucher' 'VENTA_ID' %}`.replace('VENTA_ID', ventaId);
+            
+            exportCart.disabled = false;
+            lastSaleLink.classList.remove('hidden');
+            lastSaleLink.href = lastPdfUrl;
+            
             // Mostrar modal de confirmación
             if (window.showSaleModal) {
-                window.showSaleModal(data.venta.id, data.venta.total_ars, lastPdfUrl);
+                window.showSaleModal(ventaId, data.venta.total_ars, lastPdfUrl);
             } else {
                 // Fallback si el modal no está disponible
-                alert(`Venta ${data.venta.id} registrada. Total: $${data.venta.total_ars}`);
+                alert(`Venta ${ventaId} registrada. Total: $${data.venta.total_ars}`);
             }
         } else {
             alert(data.error || 'No se pudo registrar la venta');
@@ -2002,8 +2122,11 @@
         try {
             const response = await fetch('{% url "ventas:ultima_venta_api" %}');
             const data = await response.json();
-            if (response.ok && data.venta && data.venta.pdf) {
-                window.open(data.venta.pdf, '_blank');
+            if (response.ok && data.venta && data.venta.id) {
+                // Generar URL del PDF usando el ID de la venta
+                const ventaId = data.venta.id;
+                const pdfUrl = `{% url 'ventas:voucher' 'VENTA_ID' %}`.replace('VENTA_ID', ventaId);
+                window.open(pdfUrl, '_blank');
             } else {
                 alert('No se encontró ninguna venta reciente.');
             }
@@ -2037,11 +2160,19 @@
         
         if (saleModalVentaId) saleModalVentaId.textContent = ventaId;
         if (saleModalTotal) saleModalTotal.textContent = `$${parseFloat(total).toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-        if (saleModalView) saleModalView.href = pdfUrl || '#';
-        // Usar la URL de impresión en lugar de la URL del PDF directo
+        
+        // Generar URL del PDF para ver comprobante
+        const viewUrl = pdfUrl || `{% url 'ventas:voucher' 'VENTA_ID' %}`.replace('VENTA_ID', ventaId);
+        if (saleModalView) {
+            saleModalView.href = viewUrl;
+            saleModalView.target = '_blank';
+        }
+        
+        // Generar URL de impresión
         if (saleModalPrint) {
             const printUrl = `{% url 'ventas:imprimir_voucher' 'VENTA_ID' %}`.replace('VENTA_ID', ventaId);
             saleModalPrint.href = printUrl;
+            saleModalPrint.target = '_blank';
         }
         saleModal.classList.add('show');
     };

@@ -33,4 +33,5 @@ urlpatterns = [
     path("api/crear/", views.crear_venta_api, name="crear_venta_api"),
     path("api/ultima-venta/", views.ultima_venta_api, name="ultima_venta_api"),
     path("api/actualizar-stock-variante/", views.actualizar_stock_variante_api, name="actualizar_stock_variante_api"),
+    path("api/cambiar-modo-precio/", views.cambiar_modo_precio_api, name="cambiar_modo_precio_api"),
 ]

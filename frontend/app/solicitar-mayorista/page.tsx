@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { FiUser, FiMail, FiPhone, FiFileText, FiBuilding, FiMessageSquare, FiCheckCircle } from 'react-icons/fi';
+import { FiUser, FiMail, FiPhone, FiFileText, FiBriefcase, FiMessageSquare, FiCheckCircle } from 'react-icons/fi';
 import { useConfigStore } from '@/stores/configStore';
 import toast from 'react-hot-toast';
 
@@ -17,6 +17,7 @@ export default function SolicitarMayoristaPage() {
     nombre: '',
     apellido: '',
     dni: '',
+    cuit_cuil: '',
     nombre_comercio: '',
     rubro: '',
     email: '',
@@ -72,8 +73,7 @@ export default function SolicitarMayoristaPage() {
           </p>
           <button
             onClick={() => router.push('/')}
-            className="px-6 py-3 rounded-full text-white font-semibold transition-colors"
-            style={{ backgroundColor: colorPrimary }}
+            className="px-6 py-3 rounded-full font-semibold transition-all shadow-lg hover:shadow-xl bg-blue-600 text-white hover:bg-blue-700"
           >
             Volver al Inicio
           </button>
@@ -144,20 +144,39 @@ export default function SolicitarMayoristaPage() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                DNI *
-              </label>
-              <div className="relative">
-                <FiFileText className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  required
-                  value={formData.dni}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, dni: e.target.value }))}
-                  className="w-full pl-10 pr-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                  placeholder="12345678"
-                />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  DNI *
+                </label>
+                <div className="relative">
+                  <FiFileText className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    required
+                    value={formData.dni}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, dni: e.target.value }))}
+                    className="w-full pl-10 pr-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    placeholder="12345678"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  CUIT/CUIL *
+                </label>
+                <div className="relative">
+                  <FiFileText className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    required
+                    value={formData.cuit_cuil}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, cuit_cuil: e.target.value }))}
+                    className="w-full pl-10 pr-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    placeholder="20-12345678-9"
+                  />
+                </div>
               </div>
             </div>
 
@@ -166,7 +185,7 @@ export default function SolicitarMayoristaPage() {
                 Nombre del Comercio *
               </label>
               <div className="relative">
-                <FiBuilding className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <FiBriefcase className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
                   required
@@ -239,16 +258,13 @@ export default function SolicitarMayoristaPage() {
               </div>
             </div>
 
-            <motion.button
+            <button
               type="submit"
               disabled={isLoading}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full px-6 py-3 rounded-full text-white font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ backgroundColor: colorPrimary }}
+              className="w-full px-6 py-3 rounded-full font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl bg-blue-600 text-white hover:bg-blue-700"
             >
               {isLoading ? 'Enviando solicitud...' : 'Enviar Solicitud'}
-            </motion.button>
+            </button>
           </form>
         </motion.div>
       </div>

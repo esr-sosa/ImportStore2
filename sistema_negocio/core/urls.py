@@ -44,6 +44,7 @@ urlpatterns = [
     path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/auth/usuario/', jwt_views.api_usuario_actual_jwt, name='api_usuario_actual_jwt'),
     path('api/auth/perfil/', jwt_views.api_actualizar_perfil, name='api_actualizar_perfil'),
+    path('api/auth/cambiar-contraseña/', jwt_views.api_cambiar_contraseña, name='api_cambiar_contraseña'),
     
     # Carrito (actualizado para JWT)
     path('api/carrito/', api_views.api_carrito, name='api_carrito'),
@@ -60,6 +61,8 @@ urlpatterns = [
     path('api/pedidos/<str:pedido_id>/', jwt_views.api_pedido_detalle, name='api_pedido_detalle'),
     path('api/pedidos/<str:pedido_id>/pdf/', jwt_views.api_pedido_pdf, name='api_pedido_pdf'),
     path('api/solicitar-mayorista/', jwt_views.api_solicitar_mayorista, name='api_solicitar_mayorista'),
+    path('api/cupones/validar/', api_views.api_validar_cupon, name='api_validar_cupon'),
+    path('api/chat/', jwt_views.api_chat_cliente, name='api_chat_cliente'),
 ]
 
 if settings.DEBUG:

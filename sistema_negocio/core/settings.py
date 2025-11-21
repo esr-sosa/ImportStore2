@@ -29,7 +29,7 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 def _print_terminal_qr(public_url: str, title: str = "📱 QR CODE PARA ESCANEAR") -> None:
-    """Renderiza un QR compacto y bien proporcionado en la terminal."""
+    """Renderiza un QR grande y bien visible en la terminal."""
     try:
         import qrcode
     except ImportError:
@@ -37,32 +37,54 @@ def _print_terminal_qr(public_url: str, title: str = "📱 QR CODE PARA ESCANEAR
         return
 
     try:
+        # Configurar QR con tamaño más grande para mejor legibilidad
         qr = qrcode.QRCode(
-            version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_L,
-            box_size=1,
-            border=1,
+            version=None,  # Auto-detect version
+            error_correction=qrcode.constants.ERROR_CORRECT_M,  # Mejor corrección de errores
+            box_size=2,  # Cajas más grandes
+            border=2,  # Borde más visible
         )
         qr.add_data(public_url)
         qr.make(fit=True)
 
         matrix = qr.get_matrix()
-        # Usar dos caracteres horizontales por celda para compensar el aspecto rectangular de los caracteres
-        ascii_lines = ["".join("██" if cell else "  " for cell in row) for row in matrix]
         
-        # Calcular ancho del QR (cada celda = 2 caracteres)
+        # Usar caracteres Unicode más visibles y compatibles
+        # ██ para celdas negras, espacios para blancas
+        # Con box_size=2, cada celda se renderiza con 2 caracteres de ancho
+        ascii_lines = []
+        for row in matrix:
+            line = ""
+            for cell in row:
+                line += "██" if cell else "  "
+            ascii_lines.append(line)
+        
+        # Calcular ancho del QR
         qr_width = len(ascii_lines[0]) if ascii_lines else 0
-        border_width = max(40, qr_width + 2)
+        border_width = max(60, qr_width + 4)
 
-        print("\n" + "=" * border_width)
-        print(f" {title.center(border_width - 2)}")
-        print("=" * border_width)
-        print(f"URL: {public_url}\n")
+        # Imprimir con formato mejorado
+        print("\n" + "═" * border_width)
+        print(" " + title.center(border_width - 2) + " ")
+        print("═" * border_width)
+        print(f"\n🔗 URL: {public_url}\n")
+        
+        # Espacio antes del QR
+        print(" " * ((border_width - qr_width) // 2) + "┌" + "─" * qr_width + "┐")
+        
+        # Imprimir cada línea del QR con bordes
         for line in ascii_lines:
-            print(line)
-        print("\n" + "=" * border_width + "\n")
+            print(" " * ((border_width - qr_width) // 2) + "│" + line + "│")
+        
+        # Espacio después del QR
+        print(" " * ((border_width - qr_width) // 2) + "└" + "─" * qr_width + "┘")
+        
+        print("\n" + "═" * border_width)
+        print("💡 Escaneá el código QR con tu celular para acceder\n")
+        print("═" * border_width + "\n")
     except Exception as exc:
         print(f"--- Error al generar QR: {exc} ---")
+        print(f"URL directa: {public_url}")
 
 
 # 2. Bloque NGROK "Anti-Bloqueo"
@@ -80,36 +102,90 @@ if DEBUG and os.getenv('NGROK_AUTHTOKEN') and os.environ.get('RUN_MAIN') is None
         
         # Intentamos obtener túneles existentes primero
         tunnels = ngrok.get_tunnels()
-        public_url = None
+        backend_url = None
+        frontend_url = None
 
-        if tunnels:
-            # Si ya hay uno abierto (quizás quedó de una sesión anterior), lo usamos
-            public_url = tunnels[0].public_url
-            print(f"--- NGROK (Existente detectado): {public_url} ---")
-        else:
-            # Si no hay, creamos uno nuevo
-            try:
-                # Matamos cualquier proceso ngrok zombie del sistema antes de arrancar
-                ngrok.kill()
-                
-                http_tunnel = ngrok.connect(8000)
-                public_url = http_tunnel.public_url
-                print(f"--- NGROK (Nuevo túnel): {public_url} ---")
-            except Exception as e:
+        # Buscar túneles existentes por puerto
+        for tunnel in tunnels:
+            addr = str(tunnel.config.get('addr', ''))
+            if '8000' in addr or tunnel.public_url and '8000' in str(tunnel.config):
+                backend_url = tunnel.public_url
+            elif '3000' in addr or tunnel.public_url and '3000' in str(tunnel.config):
+                frontend_url = tunnel.public_url
+
+        # Si no hay túneles, crear nuevos
+        try:
+            # Matamos cualquier proceso ngrok zombie del sistema antes de arrancar
+            if not backend_url and not frontend_url:
+                try:
+                    ngrok.kill()
+                except:
+                    pass  # Ignorar si no hay procesos ngrok para matar
+            
+            # Crear túnel para backend (puerto 8000) - SIEMPRE necesario
+            if not backend_url:
+                try:
+                    backend_tunnel = ngrok.connect(8000)
+                    backend_url = backend_tunnel.public_url
+                    print(f"--- NGROK Backend (Nuevo túnel): {backend_url} ---")
+                except Exception as backend_error:
+                    error_msg = str(backend_error)
+                    if "limited to" in error_msg or "simultaneous" in error_msg.lower():
+                        print("--- NGROK: Ya hay una sesión activa. El servidor funcionará sin ngrok. ---")
+                        print("--- Si necesitás ngrok, cerrá otras sesiones o usá 'ngrok start --all' ---")
+                    else:
+                        print(f"--- Error al crear túnel NGROK Backend: {backend_error} ---")
+                    backend_url = None
+            else:
+                print(f"--- NGROK Backend (Existente): {backend_url} ---")
+            
+            # Crear túnel para frontend (puerto 3000) - Opcional si el frontend está corriendo
+            if not frontend_url:
+                try:
+                    frontend_tunnel = ngrok.connect(3000)
+                    frontend_url = frontend_tunnel.public_url
+                    print(f"--- NGROK Frontend (Nuevo túnel): {frontend_url} ---")
+                except Exception as frontend_error:
+                    error_msg = str(frontend_error)
+                    if "limited to" not in error_msg and "simultaneous" not in error_msg.lower():
+                        print(f"--- NGROK Frontend: No se pudo crear túnel (¿Frontend corriendo en puerto 3000?): {frontend_error} ---")
+                        print("--- Iniciá el frontend con 'npm run dev' y reiniciá Django para crear el túnel ---")
+            else:
+                print(f"--- NGROK Frontend (Existente): {frontend_url} ---")
+        except Exception as e:
+            error_msg = str(e)
+            if "limited to" in error_msg or "simultaneous" in error_msg.lower():
+                print("--- NGROK: Ya hay una sesión activa. El servidor funcionará sin ngrok. ---")
+                print("--- Si necesitás ngrok, cerrá otras sesiones o usá 'ngrok start --all' ---")
+            else:
                 print(f"--- Error al crear túnel NGROK: {e} ---")
 
         # Actualizamos las listas de Django (esto es lo que te permite entrar)
-        if public_url:
-            ngrok_host = public_url.replace("https://", "").replace("http://", "")
+        if backend_url:
+            ngrok_host = backend_url.replace("https://", "").replace("http://", "")
             if ngrok_host not in ALLOWED_HOSTS:
                 ALLOWED_HOSTS.append(ngrok_host)
-            if public_url not in CSRF_TRUSTED_ORIGINS:
-                CSRF_TRUSTED_ORIGINS.append(public_url)
+            if backend_url not in CSRF_TRUSTED_ORIGINS:
+                CSRF_TRUSTED_ORIGINS.append(backend_url)
                 
             # Guardamos la URL en una variable de entorno para que el reloader la vea
-            os.environ["DJANGO_NGROK_URL"] = public_url
+            os.environ["DJANGO_NGROK_URL"] = backend_url
+            os.environ["FRONTEND_NGROK_URL"] = frontend_url or ""
 
-            _print_terminal_qr(public_url)
+            # Mostrar QR para backend
+            print("\n" + "=" * 60)
+            print("🔧 BACKEND (Django)")
+            print("=" * 60)
+            _print_terminal_qr(backend_url, "📱 BACKEND QR")
+            
+            # Mostrar QR para frontend si existe
+            if frontend_url:
+                print("\n" + "=" * 60)
+                print("🌐 FRONTEND (Next.js)")
+                print("=" * 60)
+                _print_terminal_qr(frontend_url, "📱 FRONTEND QR")
+                print(f"\n💡 Actualizá tu .env.local del frontend con:")
+                print(f"   NEXT_PUBLIC_API_URL={backend_url}")
 
     except ImportError:
         print("--- pyngrok no instalado. Instalá con: pip install pyngrok ---")
@@ -118,15 +194,16 @@ if DEBUG and os.getenv('NGROK_AUTHTOKEN') and os.environ.get('RUN_MAIN') is None
 
 # 3. Truco para el Reloader: Si el proceso principal ya consiguió URL, la usamos
 if os.environ.get("DJANGO_NGROK_URL"):
-    public_url = os.environ["DJANGO_NGROK_URL"]
-    ngrok_host = public_url.replace("https://", "").replace("http://", "")
+    backend_url = os.environ["DJANGO_NGROK_URL"]
+    frontend_url = os.environ.get("FRONTEND_NGROK_URL", "")
+    ngrok_host = backend_url.replace("https://", "").replace("http://", "")
     if ngrok_host not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append(ngrok_host)
-    if public_url not in CSRF_TRUSTED_ORIGINS:
-        CSRF_TRUSTED_ORIGINS.append(public_url)
-    print(f"--- NGROK (Heredado en Reloader): {public_url} ---")
-    
-    _print_terminal_qr(public_url)
+    if backend_url not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(backend_url)
+    print(f"--- NGROK Backend (Heredado en Reloader): {backend_url} ---")
+    if frontend_url:
+        print(f"--- NGROK Frontend (Heredado en Reloader): {frontend_url} ---")
 
 # ... resto de tu settings.py ...
 

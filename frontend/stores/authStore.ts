@@ -109,8 +109,10 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   actualizarPerfil: async (data) => {
     try {
-      const user = await api.actualizarPerfil(data);
-      set({ user });
+      const response = await api.actualizarPerfil(data);
+      if (response.success && response.user) {
+        set({ user: response.user });
+      }
     } catch (error) {
       throw error;
     }

@@ -16,6 +16,7 @@ from django.utils import timezone
 
 from core.db_inspector import column_exists, table_exists
 from core.utils import obtener_valor_dolar_blue
+from core.models import NotificacionInterna
 from configuracion.models import ConfiguracionSistema, ConfiguracionTienda
 from crm.models import Cliente, Conversacion
 from historial.models import RegistroHistorial
@@ -585,6 +586,10 @@ def dashboard_view(request):
         },
     ]
 
+    # Obtener notificaciones no leídas
+    notificaciones_no_leidas = NotificacionInterna.objects.filter(leida=False).order_by('-creada')[:10]
+    total_notificaciones_no_leidas = NotificacionInterna.objects.filter(leida=False).count()
+    
     context = {
         "schema_warnings": schema_warnings,
         "inventario_metrics": inventario_metrics,
@@ -601,6 +606,8 @@ def dashboard_view(request):
         "margenes_por_metodo": margenes_por_metodo,
         "analisis_mayorista": analisis_mayorista,
         "margenes_mayorista_por_metodo": margenes_mayorista_por_metodo,
+        "notificaciones_no_leidas": notificaciones_no_leidas,
+        "total_notificaciones_no_leidas": total_notificaciones_no_leidas,
     }
 
     return render(request, "dashboard/main.html", context)

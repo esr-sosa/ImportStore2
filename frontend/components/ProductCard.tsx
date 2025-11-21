@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -9,6 +9,7 @@ import { Producto, api } from '@/lib/api';
 import PriceTag from './PriceTag';
 import { useAuthStore } from '@/stores/authStore';
 import { useCartStore } from '@/stores/cartStore';
+import CartAnimation, { useCartPosition } from './CartAnimation';
 import toast from 'react-hot-toast';
 
 interface ProductCardProps {
@@ -24,10 +25,18 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
   const [isHovering, setIsHovering] = useState(false);
   
   const { isAuthenticated } = useAuthStore();
-  const { agregarItem, total_items } = useCartStore();
+  const { agregarItem, actualizarCantidad, eliminarItem, items } = useCartStore();
   const [isFavorito, setIsFavorito] = useState(false);
   const [isLoadingFav, setIsLoadingFav] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [isUpdatingQuantity, setIsUpdatingQuantity] = useState(false);
+  const [showCartAnimation, setShowCartAnimation] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const cartPosition = useCartPosition();
+  
+  // Verificar si el producto está en el carrito
+  const cartItem = items.find(item => item.variante_id === product.id);
+  const cantidadEnCarrito = cartItem?.cantidad || 0;
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -84,12 +93,26 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
     e.preventDefault();
     e.stopPropagation();
     
-    if (!product.stock.disponible) {
-      toast.error('Producto no disponible');
+    // Validar stock antes de intentar agregar
+    if (!product.stock.disponible || product.stock.actual <= 0) {
+      toast.error('Producto sin stock disponible', { duration: 3000 });
       return;
     }
 
     setIsAddingToCart(true);
+    
+    // Activar animación 3D
+    setShowCartAnimation(true);
+    
+    // Animar el carrito en el navbar
+    const cartButton = document.querySelector('[data-cart-button]');
+    if (cartButton) {
+      cartButton.classList.add('animate-cart-bounce');
+      setTimeout(() => {
+        cartButton.classList.remove('animate-cart-bounce');
+      }, 400);
+    }
+    
     try {
       await agregarItem(product.id, 1);
       toast.success('Producto agregado al carrito', {
@@ -97,13 +120,62 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
         duration: 2000,
       });
     } catch (error: any) {
-      if (error.response?.status === 401) {
-        toast.error('Debes iniciar sesión para agregar al carrito');
-      } else {
-        toast.error(error.message || 'Error al agregar al carrito');
-      }
+      // El error ya viene con el mensaje correcto del store
+      toast.error(error.message || 'Error al agregar al carrito', { duration: 3000 });
+      setShowCartAnimation(false);
     } finally {
       setIsAddingToCart(false);
+    }
+  };
+
+  const handleIncrementar = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!cartItem) return;
+    
+    // Verificar stock en tiempo real
+    const stockDisponible = cartItem.stock_actual || product.stock.actual;
+    if (cantidadEnCarrito >= stockDisponible) {
+      toast.error(`Stock insuficiente. Disponible: ${stockDisponible}`, { duration: 3000 });
+      return;
+    }
+
+    setIsUpdatingQuantity(true);
+    try {
+      const itemIndex = items.findIndex(item => item.variante_id === product.id);
+      if (itemIndex !== -1) {
+        await actualizarCantidad(itemIndex, cantidadEnCarrito + 1);
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Error al actualizar cantidad', { duration: 3000 });
+    } finally {
+      setIsUpdatingQuantity(false);
+    }
+  };
+
+  const handleDecrementar = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!cartItem || cantidadEnCarrito <= 0) return;
+
+    setIsUpdatingQuantity(true);
+    try {
+      const itemIndex = items.findIndex(item => item.variante_id === product.id);
+      if (itemIndex !== -1) {
+        if (cantidadEnCarrito === 1) {
+          // Si es 1, eliminar del carrito
+          await eliminarItem(itemIndex);
+        } else {
+          // Si es más de 1, decrementar
+          await actualizarCantidad(itemIndex, cantidadEnCarrito - 1);
+        }
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Error al actualizar cantidad', { duration: 3000 });
+    } finally {
+      setIsUpdatingQuantity(false);
     }
   };
 
@@ -122,14 +194,27 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
                     product.nombre.toLowerCase().includes('celular');
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.05 }}
-      className="group"
-      onMouseEnter={() => setIsHovering(true)}
-      onMouseLeave={() => setIsHovering(false)}
-    >
+    <>
+      <AnimatePresence>
+        {showCartAnimation && (
+          <CartAnimation
+            productImage={imagenPrincipal}
+            productName={product.nombre}
+            cartPosition={cartPosition}
+            onComplete={() => setShowCartAnimation(false)}
+          />
+        )}
+      </AnimatePresence>
+      
+      <motion.div
+        ref={cardRef}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: index * 0.05 }}
+        className="group card-3d"
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
+      >
       <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 h-full flex flex-col">
         <Link href={`/productos/${product.id}`} className="flex-1 flex flex-col">
           {/* Imagen con hover swap */}
@@ -157,18 +242,20 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
             <div className="absolute top-2 left-2 flex flex-col gap-2 z-10">
               {/* Botón de favoritos */}
               {isAuthenticated && (
-                <button
+                <motion.button
                   onClick={handleToggleFavorito}
                   disabled={isLoadingFav}
-                  className="p-2 bg-white/90 backdrop-blur-sm rounded-full hover:bg-white transition-colors disabled:opacity-50 shadow-sm"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  className="p-2 bg-white/90 backdrop-blur-sm rounded-full hover:bg-white transition-all disabled:opacity-50 shadow-md hover:shadow-lg"
                   aria-label="Agregar a favoritos"
                 >
                   <FiHeart
                     className={`w-4 h-4 transition-colors ${
-                      isFavorito ? 'text-red-500 fill-current' : 'text-gray-700'
+                      isFavorito ? 'text-red-600 fill-current' : 'text-gray-700'
                     }`}
                   />
-                </button>
+                </motion.button>
               )}
             </div>
           </div>
@@ -216,31 +303,72 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
           </div>
         </Link>
 
-        {/* Botón agregar al carrito - siempre visible */}
+        {/* Botón agregar al carrito o controles de cantidad */}
         {product.stock.disponible && (
           <div className="p-4 pt-0 border-t border-gray-100">
-            <motion.button
-              onClick={handleAgregarAlCarrito}
-              disabled={isAddingToCart}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full px-4 py-2.5 bg-black text-white rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isAddingToCart ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Agregando...</span>
-                </>
-              ) : (
-                <>
-                  <FiShoppingCart className="w-4 h-4" />
-                  <span>Agregar al Carrito</span>
-                </>
-              )}
-            </motion.button>
+            {cartItem && cantidadEnCarrito > 0 ? (
+              // Controles de cantidad cuando el producto está en el carrito
+              <div className="flex items-center justify-center gap-3">
+                <motion.button
+                  onClick={handleDecrementar}
+                  disabled={isUpdatingQuantity || cantidadEnCarrito <= 0}
+                  whileHover={{ scale: isUpdatingQuantity ? 1 : 1.1 }}
+                  whileTap={{ scale: isUpdatingQuantity ? 1 : 0.9 }}
+                  className="w-10 h-10 flex items-center justify-center bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-bold text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Disminuir cantidad"
+                >
+                  {isUpdatingQuantity ? (
+                    <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    '−'
+                  )}
+                </motion.button>
+                
+                <span className="text-lg font-semibold text-gray-900 min-w-[2rem] text-center">
+                  {cantidadEnCarrito}
+                </span>
+                
+                <motion.button
+                  onClick={handleIncrementar}
+                  disabled={isUpdatingQuantity || cantidadEnCarrito >= (cartItem.stock_actual || product.stock.actual)}
+                  whileHover={{ scale: isUpdatingQuantity ? 1 : 1.1 }}
+                  whileTap={{ scale: isUpdatingQuantity ? 1 : 0.9 }}
+                  className="w-10 h-10 flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Aumentar cantidad"
+                >
+                  {isUpdatingQuantity ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    '+'
+                  )}
+                </motion.button>
+              </div>
+            ) : (
+              // Botón agregar al carrito cuando no está en el carrito
+              <motion.button
+                onClick={handleAgregarAlCarrito}
+                disabled={isAddingToCart}
+                whileHover={{ scale: isAddingToCart ? 1 : 1.02 }}
+                whileTap={{ scale: isAddingToCart ? 1 : 0.98 }}
+                className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
+              >
+                {isAddingToCart ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Agregando...</span>
+                  </>
+                ) : (
+                  <>
+                    <FiShoppingCart className="w-4 h-4" />
+                    <span>Agregar al Carrito</span>
+                  </>
+                )}
+              </motion.button>
+            )}
           </div>
         )}
       </div>
-    </motion.div>
+      </motion.div>
+    </>
   );
 }

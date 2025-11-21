@@ -124,6 +124,303 @@
             </div>
           </div>
 
+          <div class="mt-6 rounded-2xl border-2 border-purple-500/30 bg-gradient-to-br from-purple-500/10 to-indigo-500/10 p-6">
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+              <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Configuración Mayorista
+            </h3>
+            <div class="grid gap-5 md:grid-cols-2">
+              <div class="flex items-center gap-3 pt-2">
+                {{ form.precios_escala_activos }}
+                <div>
+                  <span class="text-sm text-slate-100 font-medium">Activar descuentos por cantidad</span>
+                  <p class="text-xs text-muted mt-0.5">Aplica descuentos automáticos según la cantidad comprada</p>
+                </div>
+              </div>
+              <div>
+                <label class="text-xs font-semibold uppercase tracking-wide text-muted">Monto mínimo mayorista</label>
+                {{ form.monto_minimo_mayorista }}
+                {{ form.monto_minimo_mayorista.errors }}
+                <p class="text-xs text-muted mt-1">Monto mínimo de compra para usuarios mayoristas (0 = sin límite)</p>
+              </div>
+              <div>
+                <label class="text-xs font-semibold uppercase tracking-wide text-muted">Cantidad mínima mayorista</label>
+                {{ form.cantidad_minima_mayorista }}
+                {{ form.cantidad_minima_mayorista.errors }}
+                <p class="text-xs text-muted mt-1">Cantidad mínima de unidades para usuarios mayoristas (0 = sin límite)</p>
+              </div>
+            </div>
+            
+            <!-- Lista de Escalas Existentes -->
+            <div class="mt-6">
+              <div class="flex items-center justify-between mb-4">
+                <h4 class="text-sm font-semibold text-slate-100">Escalas de Descuento por Cantidad</h4>
+                <button 
+                  type="button"
+                  onclick="document.getElementById('nueva-escala-form').classList.toggle('hidden')"
+                  class="inline-flex items-center gap-2 rounded-full bg-purple-600 px-4 py-2 text-xs font-semibold text-white shadow-lg transition hover:bg-purple-700"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                  </svg>
+                  Agregar Escala
+                </button>
+              </div>
+
+              <!-- Formulario para Nueva Escala -->
+              <div id="nueva-escala-form" class="hidden mb-4 p-4 bg-slate-800/70 rounded-xl border border-purple-500/30">
+                <form 
+                  id="form-nueva-escala"
+                  hx-post="{% url 'configuracion:escala_crear' %}"
+                  hx-target="#configuracion-panel"
+                  hx-swap="outerHTML"
+                  hx-on::after-request="if(event.detail.successful) { this.reset(); document.getElementById('nueva-escala-form').classList.add('hidden'); }"
+                  hx-on::htmx:after-swap="document.getElementById('nueva-escala-form').classList.add('hidden');"
+                  class="space-y-4"
+                >
+                  {% csrf_token %}
+                  <div class="grid gap-4 md:grid-cols-4">
+                    <div>
+                      <label class="text-xs font-semibold uppercase tracking-wide text-muted mb-1 block">Cantidad Mínima *</label>
+                      <input 
+                        type="number" 
+                        name="cantidad_minima" 
+                        required 
+                        min="1"
+                        class="mt-1 w-full rounded-xl border-2 border-slate-600/40 bg-slate-800/90 px-3 py-2 text-sm font-medium text-slate-100 shadow-lg focus:border-purple-500 focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                        placeholder="1"
+                      />
+                    </div>
+                    <div>
+                      <label class="text-xs font-semibold uppercase tracking-wide text-muted mb-1 block">Cantidad Máxima</label>
+                      <input 
+                        type="number" 
+                        name="cantidad_maxima" 
+                        min="1"
+                        class="mt-1 w-full rounded-xl border-2 border-slate-600/40 bg-slate-800/90 px-3 py-2 text-sm font-medium text-slate-100 shadow-lg focus:border-purple-500 focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                        placeholder="Sin límite"
+                      />
+                      <p class="text-xs text-muted mt-1">Dejar vacío = sin límite</p>
+                    </div>
+                    <div>
+                      <label class="text-xs font-semibold uppercase tracking-wide text-muted mb-1 block">Descuento % *</label>
+                      <input 
+                        type="number" 
+                        name="porcentaje_descuento" 
+                        required 
+                        min="0" 
+                        max="100" 
+                        step="0.01"
+                        class="mt-1 w-full rounded-xl border-2 border-slate-600/40 bg-slate-800/90 px-3 py-2 text-sm font-medium text-slate-100 shadow-lg focus:border-purple-500 focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                        placeholder="5.00"
+                      />
+                    </div>
+                    <div>
+                      <label class="text-xs font-semibold uppercase tracking-wide text-muted mb-1 block">Orden</label>
+                      <input 
+                        type="number" 
+                        name="orden" 
+                        value="0"
+                        min="0"
+                        class="mt-1 w-full rounded-xl border-2 border-slate-600/40 bg-slate-800/90 px-3 py-2 text-sm font-medium text-slate-100 shadow-lg focus:border-purple-500 focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                      />
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-4">
+                    <label class="flex items-center gap-2 text-sm text-slate-100">
+                      <input 
+                        type="checkbox" 
+                        name="activo" 
+                        checked
+                        class="h-4 w-4 rounded border-slate-500 bg-slate-700 text-purple-600 focus:ring-purple-500"
+                      />
+                      <span>Activa</span>
+                    </label>
+                    <div class="flex gap-2 ml-auto">
+                      <button 
+                        type="button"
+                        onclick="document.getElementById('nueva-escala-form').classList.add('hidden')"
+                        class="px-4 py-2 text-xs font-semibold text-slate-300 hover:text-slate-100 transition"
+                      >
+                        Cancelar
+                      </button>
+                      <button 
+                        type="submit"
+                        class="px-4 py-2 rounded-full bg-purple-600 text-xs font-semibold text-white shadow-lg transition hover:bg-purple-700"
+                      >
+                        Guardar Escala
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+
+              <!-- Lista de Escalas -->
+              <div class="space-y-2">
+                {% for escala in escalas_precio %}
+                  <div id="escala-{{ escala.id }}" class="rounded-xl border border-purple-500/20 bg-slate-800/50 hover:bg-slate-800/70 transition">
+                    <!-- Vista Normal -->
+                    <div id="escala-view-{{ escala.id }}" class="flex items-center justify-between p-4">
+                      <div class="flex-1">
+                        <div class="flex items-center gap-3 flex-wrap">
+                          <span class="text-sm font-semibold text-slate-100">
+                            {% if escala.cantidad_maxima %}
+                              {{ escala.cantidad_minima }} - {{ escala.cantidad_maxima }} unidades
+                            {% else %}
+                              {{ escala.cantidad_minima }}+ unidades
+                            {% endif %}
+                          </span>
+                          <span class="px-2 py-1 rounded-full text-xs font-semibold {% if escala.activo %}bg-green-500/20 text-green-400{% else %}bg-gray-500/20 text-gray-400{% endif %}">
+                            {{ escala.porcentaje_descuento }}% desc.
+                          </span>
+                          {% if not escala.activo %}
+                            <span class="text-xs text-muted">(Inactiva)</span>
+                          {% endif %}
+                        </div>
+                        <p class="text-xs text-muted mt-1">Orden: {{ escala.orden }}</p>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <button 
+                          type="button"
+                          onclick="document.getElementById('escala-view-{{ escala.id }}').classList.add('hidden'); document.getElementById('escala-edit-{{ escala.id }}').classList.remove('hidden');"
+                          class="px-3 py-1 rounded-lg text-xs font-semibold bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition"
+                          title="Editar"
+                        >
+                          Editar
+                        </button>
+                        <form 
+                          hx-post="{% url 'configuracion:escala_editar' escala.id %}"
+                          hx-target="#configuracion-panel"
+                          hx-swap="outerHTML"
+                          class="inline"
+                        >
+                          {% csrf_token %}
+                          <input type="hidden" name="activo" value="toggle" />
+                          <button 
+                            type="submit"
+                            class="px-3 py-1 rounded-lg text-xs font-semibold {% if escala.activo %}bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30{% else %}bg-green-500/20 text-green-400 hover:bg-green-500/30{% endif %} transition"
+                            title="{% if escala.activo %}Desactivar{% else %}Activar{% endif %}"
+                          >
+                            {% if escala.activo %}Desactivar{% else %}Activar{% endif %}
+                          </button>
+                        </form>
+                        <form 
+                          hx-post="{% url 'configuracion:escala_eliminar' escala.id %}"
+                          hx-target="#configuracion-panel"
+                          hx-swap="outerHTML"
+                          hx-confirm="¿Estás seguro de eliminar esta escala?"
+                          class="inline"
+                        >
+                          {% csrf_token %}
+                          <button 
+                            type="submit"
+                            class="px-3 py-1 rounded-lg text-xs font-semibold bg-red-500/20 text-red-400 hover:bg-red-500/30 transition"
+                            title="Eliminar"
+                          >
+                            Eliminar
+                          </button>
+                        </form>
+                      </div>
+                    </div>
+                    
+                    <!-- Vista de Edición -->
+                    <div id="escala-edit-{{ escala.id }}" class="hidden p-4">
+                      <form 
+                        id="form-editar-escala-{{ escala.id }}"
+                        hx-post="{% url 'configuracion:escala_editar' escala.id %}"
+                        hx-target="#configuracion-panel"
+                        hx-swap="outerHTML"
+                        hx-on::after-request="if(event.detail.successful) { document.getElementById('escala-view-{{ escala.id }}').classList.remove('hidden'); document.getElementById('escala-edit-{{ escala.id }}').classList.add('hidden'); }"
+                        class="space-y-4"
+                      >
+                        {% csrf_token %}
+                        <div class="grid gap-4 md:grid-cols-4">
+                          <div>
+                            <label class="text-xs font-semibold uppercase tracking-wide text-muted mb-1 block">Cantidad Mínima *</label>
+                            <input 
+                              type="number" 
+                              name="cantidad_minima" 
+                              value="{{ escala.cantidad_minima }}"
+                              required 
+                              min="1"
+                              class="mt-1 w-full rounded-xl border-2 border-slate-600/40 bg-slate-800/90 px-3 py-2 text-sm font-medium text-slate-100 shadow-lg focus:border-purple-500 focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                            />
+                          </div>
+                          <div>
+                            <label class="text-xs font-semibold uppercase tracking-wide text-muted mb-1 block">Cantidad Máxima</label>
+                            <input 
+                              type="number" 
+                              name="cantidad_maxima" 
+                              value="{{ escala.cantidad_maxima|default:'' }}"
+                              min="1"
+                              class="mt-1 w-full rounded-xl border-2 border-slate-600/40 bg-slate-800/90 px-3 py-2 text-sm font-medium text-slate-100 shadow-lg focus:border-purple-500 focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                              placeholder="Sin límite"
+                            />
+                          </div>
+                          <div>
+                            <label class="text-xs font-semibold uppercase tracking-wide text-muted mb-1 block">Descuento % *</label>
+                            <input 
+                              type="number" 
+                              name="porcentaje_descuento" 
+                              value="{{ escala.porcentaje_descuento }}"
+                              required 
+                              min="0" 
+                              max="100" 
+                              step="0.01"
+                              class="mt-1 w-full rounded-xl border-2 border-slate-600/40 bg-slate-800/90 px-3 py-2 text-sm font-medium text-slate-100 shadow-lg focus:border-purple-500 focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                            />
+                          </div>
+                          <div>
+                            <label class="text-xs font-semibold uppercase tracking-wide text-muted mb-1 block">Orden</label>
+                            <input 
+                              type="number" 
+                              name="orden" 
+                              value="{{ escala.orden }}"
+                              min="0"
+                              class="mt-1 w-full rounded-xl border-2 border-slate-600/40 bg-slate-800/90 px-3 py-2 text-sm font-medium text-slate-100 shadow-lg focus:border-purple-500 focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                            />
+                          </div>
+                        </div>
+                        <div class="flex items-center gap-4">
+                          <label class="flex items-center gap-2 text-sm text-slate-100">
+                            <input 
+                              type="checkbox" 
+                              name="activo" 
+                              {% if escala.activo %}checked{% endif %}
+                              class="h-4 w-4 rounded border-slate-500 bg-slate-700 text-purple-600 focus:ring-purple-500"
+                            />
+                            <span>Activa</span>
+                          </label>
+                          <div class="flex gap-2 ml-auto">
+                            <button 
+                              type="button"
+                              onclick="document.getElementById('escala-view-{{ escala.id }}').classList.remove('hidden'); document.getElementById('escala-edit-{{ escala.id }}').classList.add('hidden');"
+                              class="px-4 py-2 text-xs font-semibold text-slate-300 hover:text-slate-100 transition"
+                            >
+                              Cancelar
+                            </button>
+                            <button 
+                              type="submit"
+                              class="px-4 py-2 rounded-full bg-purple-600 text-xs font-semibold text-white shadow-lg transition hover:bg-purple-700"
+                            >
+                              Guardar Cambios
+                            </button>
+                          </div>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                {% empty %}
+                  <div class="rounded-xl border border-dashed border-purple-500/30 bg-slate-800/30 p-6 text-center">
+                    <p class="text-sm text-muted">No hay escalas configuradas. Agregá una para aplicar descuentos automáticos por cantidad.</p>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+
           <div>
             <label class="text-xs font-semibold uppercase tracking-wide text-muted">Notas internas</label>
             {{ form.notas_sistema }}

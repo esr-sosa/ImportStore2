@@ -54,12 +54,65 @@ class ConfiguracionSistemaForm(forms.ModelForm):
             "domicilio_comercial",
             "notas_sistema",
             "dolar_blue_manual",
+            "precios_escala_activos",
+            "monto_minimo_mayorista",
+            "cantidad_minima_mayorista",
         ]
         widgets = {
             "color_principal": forms.TextInput(attrs={"type": "color", "class": "h-10 w-20"}),
             "notas_sistema": forms.Textarea(attrs={"rows": 4}),
         }
 
+    def clean(self):
+        """Limpiar todos los campos booleanos para asegurar que tengan valores válidos"""
+        cleaned_data = super().clean()
+        
+        # Lista de campos booleanos en el formulario
+        boolean_fields = [
+            'precios_escala_activos',
+            'modo_oscuro_predeterminado',
+            'mostrar_alertas',
+            'acceso_admin_habilitado',
+        ]
+        
+        # Asegurar que todos los campos booleanos tengan valores válidos
+        for field_name in boolean_fields:
+            # Verificar si el campo está en los datos del POST (con el prefijo)
+            prefixed_name = f'{self.prefix}-{field_name}' if self.prefix else field_name
+            field_in_post = prefixed_name in self.data or field_name in self.data
+            
+            if field_name in cleaned_data:
+                value = cleaned_data[field_name]
+                # Si el valor es None, cadena vacía, o no es booleano válido
+                if value is None or value == '':
+                    # Si el campo está en POST, intentar obtener el valor
+                    if field_in_post:
+                        post_value = self.data.get(prefixed_name) or self.data.get(field_name)
+                        if post_value in ('on', 'true', 'True', '1', 1, True):
+                            cleaned_data[field_name] = True
+                        else:
+                            cleaned_data[field_name] = False
+                    else:
+                        # Si no está en POST, el checkbox no estaba marcado
+                        cleaned_data[field_name] = False
+                else:
+                    # El valor ya es válido, asegurarse de que sea booleano
+                    cleaned_data[field_name] = bool(value)
+            else:
+                # Si el campo no está en cleaned_data, verificar si está en POST
+                if field_in_post:
+                    # Si está en POST pero no en cleaned_data, puede ser un valor inválido
+                    post_value = self.data.get(prefixed_name) or self.data.get(field_name)
+                    if post_value in ('on', 'true', 'True', '1', 1, True):
+                        cleaned_data[field_name] = True
+                    else:
+                        cleaned_data[field_name] = False
+                else:
+                    # Si no está en POST, el checkbox no estaba marcado, establecer False
+                    cleaned_data[field_name] = False
+        
+        return cleaned_data
+    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for nombre, campo in self.fields.items():
@@ -86,6 +139,8 @@ class ConfiguracionSistemaForm(forms.ModelForm):
                 continue
             if isinstance(campo.widget, forms.Textarea):
                 campo.widget.attrs.setdefault("class", TEXT_INPUT_BASE + " min-h-[120px]")
+            elif isinstance(campo.widget, forms.NumberInput):
+                campo.widget.attrs.setdefault("class", TEXT_INPUT_BASE)
             else:
                 campo.widget.attrs.setdefault("class", TEXT_INPUT_BASE)
 

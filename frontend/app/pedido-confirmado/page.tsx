@@ -38,20 +38,24 @@ export default function PedidoConfirmadoPage() {
           )}
 
           <div className="space-y-4">
-            <Link
-              href="/productos"
-              className="inline-flex items-center justify-center w-full px-6 py-3 bg-blue-600 text-white rounded-full font-semibold hover:bg-blue-700 transition-colors"
-            >
-              <FiShoppingBag className="mr-2" />
-              Seguir Comprando
-            </Link>
-            <Link
-              href="/"
-              className="inline-flex items-center justify-center w-full px-6 py-3 border border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-50 transition-colors"
-            >
-              <FiHome className="mr-2" />
-              Volver al Inicio
-            </Link>
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <Link
+                href="/productos"
+                className="inline-flex items-center justify-center w-full px-6 py-3 bg-blue-600 text-white rounded-full font-semibold hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl"
+              >
+                <FiShoppingBag className="mr-2" />
+                Seguir Comprando
+              </Link>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <Link
+                href="/"
+                className="inline-flex items-center justify-center w-full px-6 py-3 border-2 border-gray-300 text-gray-900 rounded-full font-semibold hover:bg-gray-100 hover:border-gray-400 transition-all shadow-sm hover:shadow-md"
+              >
+                <FiHome className="mr-2" />
+                Volver al Inicio
+              </Link>
+            </motion.div>
           </div>
         </motion.div>
       </div>

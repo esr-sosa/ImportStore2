@@ -267,12 +267,14 @@ export default function ProductosPage() {
                 </div>
 
                 {/* Limpiar filtros */}
-                <button
+                <motion.button
                   onClick={limpiarFiltros}
-                  className="w-full px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="w-full px-4 py-2 text-sm text-gray-900 hover:text-gray-900 border-2 border-gray-300 rounded-lg hover:bg-gray-100 hover:border-gray-400 transition-all font-medium shadow-sm hover:shadow-md"
                 >
                   Limpiar Filtros
-                </button>
+                </motion.button>
               </div>
             </div>
           </aside>
@@ -299,27 +301,31 @@ export default function ProductosPage() {
                 {/* Paginación */}
                 {paginacion.total_pages > 1 && (
                   <div className="flex justify-center items-center space-x-4">
-                    <button
+                    <motion.button
                       onClick={() =>
                         setPaginacion((prev) => ({ ...prev, page: prev.page - 1 }))
                       }
                       disabled={!paginacion.has_previous}
-                      className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+                      whileHover={{ scale: !paginacion.has_previous ? 1 : 1.05 }}
+                      whileTap={{ scale: !paginacion.has_previous ? 1 : 0.95 }}
+                      className="px-4 py-2 border-2 border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 hover:border-gray-400 transition-all text-gray-900 font-medium shadow-sm hover:shadow-md disabled:shadow-none"
                     >
                       Anterior
-                    </button>
-                    <span className="text-gray-600">
+                    </motion.button>
+                    <span className="text-gray-700 font-medium">
                       Página {paginacion.page} de {paginacion.total_pages}
                     </span>
-                    <button
+                    <motion.button
                       onClick={() =>
                         setPaginacion((prev) => ({ ...prev, page: prev.page + 1 }))
                       }
                       disabled={!paginacion.has_next}
-                      className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+                      whileHover={{ scale: !paginacion.has_next ? 1 : 1.05 }}
+                      whileTap={{ scale: !paginacion.has_next ? 1 : 0.95 }}
+                      className="px-4 py-2 border-2 border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 hover:border-gray-400 transition-all text-gray-900 font-medium shadow-sm hover:shadow-md disabled:shadow-none"
                     >
                       Siguiente
-                    </button>
+                    </motion.button>
                   </div>
                 )}
               </>

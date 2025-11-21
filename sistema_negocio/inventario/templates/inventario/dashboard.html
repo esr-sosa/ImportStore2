@@ -218,7 +218,7 @@
                           data-variante-id="{{ v.id }}"
                           data-current-value="{{ v.stock_actual|default:0 }}"
                           {% if v.stock_minimo %}data-stock-minimo="{{ v.stock_minimo }}"{% endif %}
-                          title="Clic para editar stock"
+                          title="Doble clic para editar stock"
                         >{{ v.stock_actual|default:0 }}</span>
                         {% if v.stock_minimo %}
                           <span class="ml-1 sm:ml-2 text-[10px] sm:text-xs text-slate-500" data-stock-minimo="{{ v.stock_minimo }}">mín. {{ v.stock_minimo }}</span>
@@ -232,7 +232,7 @@
                         data-tipo="MINORISTA"
                         data-moneda="ARS"
                         data-current-value="{{ v.precio_min_ars_cast|default:'0' }}"
-                        title="Clic para editar precio ARS Minorista"
+                        title="Doble clic para editar precio ARS Minorista"
                       >ARS {{ v.precio_min_ars_cast|default:"—" }}</div>
                     </td>
                     <td class="px-2 sm:px-5 py-3 sm:py-4 text-right hidden lg:table-cell">
@@ -242,7 +242,7 @@
                         data-tipo="MAYORISTA"
                         data-moneda="ARS"
                         data-current-value="{{ v.precio_may_ars_cast|default:'0' }}"
-                        title="Clic para editar precio ARS Mayorista"
+                        title="Doble clic para editar precio ARS Mayorista"
                       >ARS {{ v.precio_may_ars_cast|default:"—" }}</div>
                     </td>
                     <td class="px-2 sm:px-5 py-3 sm:py-4 text-center hidden sm:table-cell">
@@ -361,11 +361,15 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Edición rápida de stock
     document.querySelectorAll('.editable-stock').forEach(element => {
-        element.addEventListener('click', function(e) {
+        element.addEventListener('dblclick', function(e) {
             e.stopPropagation();
-            const varianteId = this.dataset.varianteId;
-            const currentValue = this.dataset.currentValue || '0';
-            const originalText = this.textContent.trim();
+            e.preventDefault();
+            
+            // Guardar referencia al elemento original
+            const stockElement = this;
+            const varianteId = stockElement.dataset.varianteId;
+            const currentValue = stockElement.dataset.currentValue || '0';
+            const originalText = stockElement.textContent.trim();
             
             // Crear input
             const input = document.createElement('input');
@@ -376,18 +380,31 @@ document.addEventListener('DOMContentLoaded', function() {
             input.style.minWidth = '60px';
             
             // Reemplazar el span con el input
-            const parent = this.parentElement;
-            const originalDisplay = this.style.display;
-            this.style.display = 'none';
-            parent.insertBefore(input, this);
+            const parent = stockElement.parentElement;
+            const originalDisplay = stockElement.style.display;
+            stockElement.style.display = 'none';
+            parent.insertBefore(input, stockElement);
             input.focus();
             input.select();
             
+            let isSaving = false;
+            let wasEnterPressed = false;
+            
             const saveStock = () => {
-                const newValue = parseInt(input.value) || 0;
-                if (newValue < 0) {
-                    alert('El stock no puede ser negativo');
+                // Prevenir múltiples llamadas
+                if (isSaving) return;
+                isSaving = true;
+                
+                // Leer el valor del input y limpiarlo
+                const inputValue = input.value.trim();
+                const newValue = inputValue === '' ? 0 : parseInt(inputValue);
+                
+                // Validar que sea un número válido
+                if (isNaN(newValue) || newValue < 0) {
+                    alert('El stock debe ser un número entero mayor o igual a 0');
                     input.focus();
+                    input.select();
+                    isSaving = false;
                     return;
                 }
                 
@@ -409,17 +426,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        this.dataset.currentValue = newValue;
-                        this.textContent = newValue;
+                        // Actualizar el elemento original
+                        stockElement.dataset.currentValue = newValue.toString();
+                        stockElement.textContent = newValue.toString();
+                        
                         // Actualizar clase de color si es necesario
-                        const stockMinimo = this.closest('tr').querySelector('[data-stock-minimo]')?.dataset.stockMinimo;
+                        const stockMinimo = stockElement.closest('tr').querySelector('[data-stock-minimo]')?.dataset.stockMinimo;
                         if (newValue === 0 || (stockMinimo && newValue <= parseInt(stockMinimo))) {
-                            this.classList.remove('text-slate-100');
-                            this.classList.add('text-rose-400');
+                            stockElement.classList.remove('text-slate-100');
+                            stockElement.classList.add('text-rose-400');
                         } else {
-                            this.classList.remove('text-rose-400');
-                            this.classList.add('text-slate-100');
+                            stockElement.classList.remove('text-rose-400');
+                            stockElement.classList.add('text-slate-100');
                         }
+                        
                         // Mostrar toast
                         if (window.dispatchEvent) {
                             window.dispatchEvent(new CustomEvent('showToast', {
@@ -429,28 +449,54 @@ document.addEventListener('DOMContentLoaded', function() {
                     } else {
                         alert('Error: ' + (data.error || 'No se pudo actualizar el stock'));
                         input.value = currentValue;
+                        input.disabled = false;
+                        input.focus();
+                        input.select();
+                        isSaving = false;
+                        return;
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
                     alert('Error al actualizar el stock');
                     input.value = currentValue;
+                    input.disabled = false;
+                    input.focus();
+                    input.select();
+                    isSaving = false;
                 })
                 .finally(() => {
-                    input.remove();
-                    this.style.display = originalDisplay;
+                    if (isSaving) {
+                        input.remove();
+                        stockElement.style.display = originalDisplay;
+                    }
                 });
             };
             
             const cancelEdit = () => {
-                input.remove();
-                this.style.display = originalDisplay;
+                if (!isSaving) {
+                    input.remove();
+                    stockElement.style.display = originalDisplay;
+                }
             };
             
-            input.addEventListener('blur', saveStock);
+            // Manejar blur (solo si no se presionó Enter)
+            input.addEventListener('blur', function() {
+                // Pequeño delay para permitir que el Enter se procese primero
+                setTimeout(() => {
+                    if (!wasEnterPressed && !isSaving) {
+                        saveStock();
+                    }
+                    wasEnterPressed = false;
+                }, 100);
+            });
+            
+            // Manejar teclas
             input.addEventListener('keydown', function(e) {
                 if (e.key === 'Enter') {
                     e.preventDefault();
+                    wasEnterPressed = true;
+                    input.blur(); // Esto disparará el saveStock después del delay
                     saveStock();
                 } else if (e.key === 'Escape') {
                     e.preventDefault();
@@ -462,13 +508,17 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Edición rápida de precios
     document.querySelectorAll('.editable-precio').forEach(element => {
-        element.addEventListener('click', function(e) {
+        element.addEventListener('dblclick', function(e) {
             e.stopPropagation();
-            const varianteId = this.dataset.varianteId;
-            const tipo = this.dataset.tipo;
-            const moneda = this.dataset.moneda;
-            const currentValue = this.dataset.currentValue || '0';
-            const originalText = this.textContent.trim();
+            e.preventDefault();
+            
+            // Guardar referencia al elemento original
+            const precioElement = this;
+            const varianteId = precioElement.dataset.varianteId;
+            const tipo = precioElement.dataset.tipo;
+            const moneda = precioElement.dataset.moneda;
+            const currentValue = precioElement.dataset.currentValue || '0';
+            const originalText = precioElement.textContent.trim();
             
             // Extraer el valor numérico del texto (puede tener formato)
             let numericValue = currentValue;
@@ -486,18 +536,31 @@ document.addEventListener('DOMContentLoaded', function() {
             input.style.minWidth = '80px';
             
             // Reemplazar el div con el input
-            const parent = this.parentElement;
-            const originalDisplay = this.style.display;
-            this.style.display = 'none';
-            parent.insertBefore(input, this);
+            const parent = precioElement.parentElement;
+            const originalDisplay = precioElement.style.display;
+            precioElement.style.display = 'none';
+            parent.insertBefore(input, precioElement);
             input.focus();
             input.select();
             
+            let isSaving = false;
+            let wasEnterPressed = false;
+            
             const savePrecio = () => {
-                const newValue = parseFloat(input.value) || 0;
-                if (newValue < 0) {
-                    alert('El precio no puede ser negativo');
+                // Prevenir múltiples llamadas
+                if (isSaving) return;
+                isSaving = true;
+                
+                // Leer el valor del input y limpiarlo
+                const inputValue = input.value.trim();
+                const newValue = inputValue === '' ? 0 : parseFloat(inputValue);
+                
+                // Validar que sea un número válido
+                if (isNaN(newValue) || newValue < 0) {
+                    alert('El precio debe ser un número mayor o igual a 0');
                     input.focus();
+                    input.select();
+                    isSaving = false;
                     return;
                 }
                 
@@ -521,7 +584,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        this.dataset.currentValue = newValue;
+                        // Actualizar el elemento original
+                        precioElement.dataset.currentValue = newValue.toString();
+                        
                         // Formatear el precio
                         let formattedValue;
                         if (newValue > 0) {
@@ -534,7 +599,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         } else {
                             formattedValue = '—';
                         }
-                        this.textContent = `${moneda} ${formattedValue}`;
+                        precioElement.textContent = `${moneda} ${formattedValue}`;
+                        
                         // Mostrar toast
                         if (window.dispatchEvent) {
                             window.dispatchEvent(new CustomEvent('showToast', {
@@ -544,28 +610,54 @@ document.addEventListener('DOMContentLoaded', function() {
                     } else {
                         alert('Error: ' + (data.error || 'No se pudo actualizar el precio'));
                         input.value = numericValue;
+                        input.disabled = false;
+                        input.focus();
+                        input.select();
+                        isSaving = false;
+                        return;
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
                     alert('Error al actualizar el precio');
                     input.value = numericValue;
+                    input.disabled = false;
+                    input.focus();
+                    input.select();
+                    isSaving = false;
                 })
                 .finally(() => {
-                    input.remove();
-                    this.style.display = originalDisplay;
+                    if (isSaving) {
+                        input.remove();
+                        precioElement.style.display = originalDisplay;
+                    }
                 });
             };
             
             const cancelEdit = () => {
-                input.remove();
-                this.style.display = originalDisplay;
+                if (!isSaving) {
+                    input.remove();
+                    precioElement.style.display = originalDisplay;
+                }
             };
             
-            input.addEventListener('blur', savePrecio);
+            // Manejar blur (solo si no se presionó Enter)
+            input.addEventListener('blur', function() {
+                // Pequeño delay para permitir que el Enter se procese primero
+                setTimeout(() => {
+                    if (!wasEnterPressed && !isSaving) {
+                        savePrecio();
+                    }
+                    wasEnterPressed = false;
+                }, 100);
+            });
+            
+            // Manejar teclas
             input.addEventListener('keydown', function(e) {
                 if (e.key === 'Enter') {
                     e.preventDefault();
+                    wasEnterPressed = true;
+                    input.blur(); // Esto disparará el savePrecio después del delay
                     savePrecio();
                 } else if (e.key === 'Escape') {
                     e.preventDefault();

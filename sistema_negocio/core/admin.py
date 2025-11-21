@@ -2,7 +2,7 @@
 Admin para modelos de core
 """
 from django.contrib import admin
-from .models import PerfilUsuario, DireccionEnvio, Favorito, SolicitudMayorista
+from .models import PerfilUsuario, DireccionEnvio, Favorito, SolicitudMayorista, NotificacionInterna
 
 
 @admin.register(PerfilUsuario)
@@ -56,4 +56,31 @@ class SolicitudMayoristaAdmin(admin.ModelAdmin):
             if obj.estado != 'PENDIENTE' and not obj.revisado_por:
                 obj.revisado_por = request.user
         super().save_model(request, obj, form, change)
+
+
+@admin.register(NotificacionInterna)
+class NotificacionInternaAdmin(admin.ModelAdmin):
+    list_display = ('tipo', 'titulo', 'prioridad', 'leida', 'creada', 'leida_por')
+    list_filter = ('tipo', 'prioridad', 'leida', 'creada')
+    search_fields = ('titulo', 'mensaje')
+    readonly_fields = ('creada', 'fecha_lectura', 'leida_por')
+    fieldsets = (
+        ('Información', {
+            'fields': ('tipo', 'prioridad', 'titulo', 'mensaje', 'url_relacionada')
+        }),
+        ('Estado', {
+            'fields': ('leida', 'leida_por', 'fecha_lectura')
+        }),
+        ('Datos Adicionales', {
+            'fields': ('datos_adicionales',),
+            'classes': ('collapse',)
+        }),
+        ('Fechas', {
+            'fields': ('creada',),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('leida_por')
 

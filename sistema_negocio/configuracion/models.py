@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.conf import settings
 from django.db import models
 
@@ -27,6 +28,67 @@ class ConfiguracionTienda(models.Model):
     def obtener_unica(cls) -> "ConfiguracionTienda":
         obj, _ = cls.objects.get_or_create(pk=1, defaults={"nombre_tienda": "ImportStore"})
         return obj
+
+
+class EscalaPrecioMayorista(models.Model):
+    """
+    Define rangos de cantidad y porcentajes de descuento para precios mayoristas
+    """
+    configuracion = models.ForeignKey(
+        'ConfiguracionSistema',
+        on_delete=models.CASCADE,
+        related_name='escalas_precio',
+        null=True,
+        blank=True
+    )
+    cantidad_minima = models.IntegerField(
+        verbose_name="Cantidad Mínima",
+        help_text="Cantidad mínima de unidades para este rango"
+    )
+    cantidad_maxima = models.IntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Cantidad Máxima",
+        help_text="Cantidad máxima de unidades para este rango (null = sin límite)"
+    )
+    porcentaje_descuento = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        verbose_name="Porcentaje de Descuento",
+        help_text="Porcentaje de descuento a aplicar sobre el precio mayorista base (ej: 5.00 = 5%)"
+    )
+    activo = models.BooleanField(default=True, verbose_name="Activo")
+    orden = models.IntegerField(
+        default=0,
+        verbose_name="Orden",
+        help_text="Orden de aplicación (menor = primero)"
+    )
+    
+    class Meta:
+        verbose_name = "Escala de Precio Mayorista"
+        verbose_name_plural = "Escalas de Precio Mayorista"
+        ordering = ['orden', 'cantidad_minima']
+    
+    def __str__(self):
+        if self.cantidad_maxima:
+            return f"{self.cantidad_minima}-{self.cantidad_maxima} unidades: {self.porcentaje_descuento}% desc."
+        return f"{self.cantidad_minima}+ unidades: {self.porcentaje_descuento}% desc."
+    
+    def aplicar_descuento(self, precio_base: Decimal, cantidad: int) -> Decimal:
+        """
+        Aplica el descuento de esta escala al precio base si la cantidad está en el rango
+        """
+        if not self.activo:
+            return precio_base
+        
+        if cantidad < self.cantidad_minima:
+            return precio_base
+        
+        if self.cantidad_maxima and cantidad > self.cantidad_maxima:
+            return precio_base
+        
+        descuento = (precio_base * self.porcentaje_descuento) / Decimal('100')
+        return precio_base - descuento
 
 
 class ConfiguracionSistema(models.Model):
@@ -99,49 +161,17 @@ class ConfiguracionSistema(models.Model):
     ubicacion_mapa = models.CharField(
         max_length=255,
         blank=True,
-        help_text="Descripción breve de la ubicación para mostrar en mapas.",
+        help_text="URL de Google Maps o coordenadas del local.",
     )
-    google_maps_url = models.URLField(
-        blank=True,
-        help_text="URL completa de Google Maps al local.",
-    )
-    telefono_local = models.CharField(
-        max_length=40,
-        blank=True,
-        help_text="Teléfono fijo del local.",
-    )
-    telefono_whatsapp = models.CharField(
-        max_length=40,
-        blank=True,
-        help_text="Número de WhatsApp alternativo (si difiere del principal).",
-    )
-    correo_contacto = models.EmailField(
-        blank=True,
-        help_text="Correo de contacto principal.",
-    )
-    
-    # Horarios
-    horario_lunes_a_viernes = models.CharField(
+    horarios_apertura = models.CharField(
         max_length=100,
         blank=True,
-        help_text="Ej: 9:00 - 18:00",
+        help_text="Horarios de atención (ej: 'Lun-Vie 9-18hs').",
     )
-    horario_sabados = models.CharField(
+    instagram_personal = models.CharField(
         max_length=100,
         blank=True,
-        help_text="Ej: 9:00 - 13:00",
-    )
-    horario_domingos = models.CharField(
-        max_length=100,
-        blank=True,
-        help_text="Ej: Cerrado o 10:00 - 14:00",
-    )
-    
-    # Redes sociales
-    instagram_principal = models.CharField(
-        max_length=100,
-        blank=True,
-        help_text="Usuario de Instagram principal (sin @).",
+        help_text="Usuario de Instagram personal (sin @).",
     )
     instagram_secundario = models.CharField(
         max_length=100,
@@ -219,53 +249,76 @@ class ConfiguracionSistema(models.Model):
     envios_locales = models.CharField(
         max_length=200,
         blank=True,
-        help_text="Ej: moto, cadetería, mensajería",
+        help_text="Zonas de envío local (barrios, ciudades).",
     )
-    envios_nacionales = models.CharField(
-        max_length=200,
-        blank=True,
-        help_text="Ej: correo, expreso",
+    envios_nacionales = models.BooleanField(
+        default=False,
+        help_text="Realiza envíos a todo el país.",
     )
     costo_envio_local = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         blank=True,
         null=True,
-        help_text="Costo de envío local.",
+        help_text="Costo de envío local (opcional).",
     )
     costo_envio_nacional = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         blank=True,
         null=True,
-        help_text="Costo de envío nacional base.",
-    )
-    politica_envio = models.TextField(
-        blank=True,
-        help_text="Política de envíos (texto breve).",
+        help_text="Costo de envío nacional (opcional).",
     )
     
-    ultima_actualizacion = models.DateTimeField(auto_now=True)
+    # Configuración de precios mayoristas por escala
+    precios_escala_activos = models.BooleanField(
+        default=False,
+        verbose_name="Activar Precios por Escala",
+        help_text="Si está activado, se aplicarán descuentos por cantidad a los precios mayoristas"
+    )
+    
+    # Configuración de compra mínima mayorista
+    monto_minimo_mayorista = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0'),
+        verbose_name="Monto Mínimo Mayorista",
+        help_text="Monto mínimo de compra para usuarios mayoristas"
+    )
+    cantidad_minima_mayorista = models.IntegerField(
+        default=0,
+        verbose_name="Cantidad Mínima Mayorista",
+        help_text="Cantidad mínima de unidades para usuarios mayoristas"
+    )
 
     class Meta:
-        verbose_name = "Configuración del sistema"
-        verbose_name_plural = "Configuración del sistema"
-
-    def __str__(self) -> str:
-        return "Configuración"
+        verbose_name = "Configuración del Sistema"
+        verbose_name_plural = "Configuración del Sistema"
 
     def save(self, *args, **kwargs):
-        self.pk = 1  # forzamos singleton
+        self.pk = 1
         super().save(*args, **kwargs)
 
     @classmethod
-    def carga(cls) -> "ConfiguracionSistema":
-        obj, _ = cls.objects.get_or_create(pk=1)
+    def obtener_unica(cls) -> "ConfiguracionSistema":
+        obj, _ = cls.objects.get_or_create(pk=1, defaults={"nombre_comercial": "ImportStore"})
         return obj
-
-    @classmethod
-    def color(cls) -> str:
-        return cls.carga().color_principal
+    
+    def obtener_precio_con_escala(self, precio_base: Decimal, cantidad: int) -> Decimal:
+        """
+        Calcula el precio aplicando las escalas de descuento si están activas
+        """
+        if not self.precios_escala_activos:
+            return precio_base
+        
+        escalas = self.escalas_precio.filter(activo=True).order_by('orden', 'cantidad_minima')
+        
+        for escala in escalas:
+            if cantidad >= escala.cantidad_minima:
+                if escala.cantidad_maxima is None or cantidad <= escala.cantidad_maxima:
+                    return escala.aplicar_descuento(precio_base, cantidad)
+        
+        return precio_base
 
 
 class PreferenciaUsuario(models.Model):
@@ -273,5 +326,5 @@ class PreferenciaUsuario(models.Model):
     usa_modo_oscuro = models.BooleanField(default=False)
     actualizado = models.DateTimeField(auto_now=True)
 
-    def __str__(self) -> str:  # pragma: no cover - presentación
+    def __str__(self) -> str:
         return f"Preferencias de {self.usuario}" if self.usuario_id else "Preferencias"

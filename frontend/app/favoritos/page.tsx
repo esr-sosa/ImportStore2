@@ -95,12 +95,14 @@ function FavoritosContent() {
             {productos.map((producto, index) => (
               <div key={producto.id} className="relative">
                 <ProductCard product={producto} index={index} />
-                <button
+                <motion.button
                   onClick={() => handleEliminarFavorito(producto.id)}
-                  className="absolute top-4 right-4 p-2 bg-white rounded-full shadow-lg hover:bg-red-50 transition-colors"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  className="absolute top-4 right-4 p-2 bg-white rounded-full shadow-lg hover:bg-red-50 transition-all z-10"
                 >
-                  <FiHeart className="w-5 h-5 text-red-500 fill-current" />
-                </button>
+                  <FiHeart className="w-5 h-5 text-red-600 fill-current" />
+                </motion.button>
               </div>
             ))}
           </div>
@@ -109,14 +111,16 @@ function FavoritosContent() {
             <FiHeart className="w-24 h-24 mx-auto text-gray-300 mb-4" />
             <h2 className="text-2xl font-bold text-gray-900 mb-2">No tenés favoritos aún</h2>
             <p className="text-gray-500 mb-8">Agregá productos a tus favoritos para encontrarlos fácilmente</p>
-            <Link
-              href="/productos"
-              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-full font-semibold hover:bg-blue-700 transition-colors"
-            >
-              <FiShoppingBag className="mr-2" />
-              Explorar Productos
-              <FiArrowRight className="ml-2" />
-            </Link>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Link
+                href="/productos"
+                className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-full font-semibold hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl"
+              >
+                <FiShoppingBag className="mr-2" />
+                Explorar Productos
+                <FiArrowRight className="ml-2" />
+              </Link>
+            </motion.div>
           </div>
         )}
       </div>

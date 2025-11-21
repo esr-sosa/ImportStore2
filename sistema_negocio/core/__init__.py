@@ -4,31 +4,115 @@ pymysql.install_as_MySQLdb()
 
 # Parche para deshabilitar RETURNING en MariaDB 10.4 (no soportado)
 # Django 5.2 intenta usar RETURNING que no está disponible en MariaDB 10.4
+
+def _apply_returning_patches():
+    """Aplica parches para evitar el uso de RETURNING en MariaDB 10.4."""
+    try:
+        from django.db.backends.utils import CursorWrapper
+        
+        # Parche 1: Interceptar queries SQL y remover RETURNING
+        if hasattr(CursorWrapper, 'execute'):
+            original_execute = CursorWrapper.execute
+            
+            def patched_execute(self, sql, params=None):
+                # Remover RETURNING de las queries SQL si existe
+                if sql:
+                    sql_str = sql
+                    if isinstance(sql, bytes):
+                        sql_str = sql.decode('utf-8', errors='ignore')
+                    elif not isinstance(sql, str):
+                        sql_str = str(sql)
+                    
+                    if 'RETURNING' in sql_str.upper():
+                        # Encontrar la posición de RETURNING (case-insensitive)
+                        sql_upper = sql_str.upper()
+                        returning_pos = sql_upper.find('RETURNING')
+                        if returning_pos != -1:
+                            # Tomar solo la parte antes de RETURNING
+                            sql_str = sql_str[:returning_pos].rstrip()
+                            # Remover punto y coma final si existe
+                            if sql_str.endswith(';'):
+                                sql_str = sql_str[:-1]
+                            # Mantener el tipo original (str o bytes)
+                            if isinstance(sql, bytes):
+                                sql = sql_str.encode('utf-8')
+                            else:
+                                sql = sql_str
+                return original_execute(self, sql, params)
+            
+            CursorWrapper.execute = patched_execute
+        
+        # Parche 2: Parchear _save_table para manejar cuando results es None
+        from django.db.models.base import Model
+        
+        if hasattr(Model, '_save_table'):
+            original_save_table = Model._save_table
+            
+            def patched_save_table(self, *args, **kwargs):
+                """Versión parcheada de _save_table que maneja RETURNING cuando results es None."""
+                from django.db import connection
+                
+                # SIEMPRE deshabilitar RETURNING antes de guardar para MariaDB 10.4
+                original_can_return = None
+                if hasattr(connection, 'features') and hasattr(connection.features, 'can_return_columns_from_insert'):
+                    original_can_return = connection.features.can_return_columns_from_insert
+                    connection.features.can_return_columns_from_insert = False
+                
+                try:
+                    result = original_save_table(self, *args, **kwargs)
+                    return result
+                except TypeError as e:
+                    # Si el error es "'NoneType' object is not iterable" relacionado con RETURNING
+                    error_str = str(e)
+                    if "'NoneType' object is not iterable" in error_str or "returning_fields" in error_str or "results[0]" in error_str:
+                        # Django intentó usar RETURNING pero MariaDB devolvió None
+                        # Forzar que no use RETURNING y reintentar
+                        if hasattr(connection, 'features') and hasattr(connection.features, 'can_return_columns_from_insert'):
+                            connection.features.can_return_columns_from_insert = False
+                        # Reintentar el guardado sin RETURNING
+                        try:
+                            return original_save_table(self, *args, **kwargs)
+                        except Exception as retry_error:
+                            # Si aún falla, lanzar el error original con más contexto
+                            raise TypeError(f"Error al guardar modelo (RETURNING no soportado en MariaDB 10.4): {error_str}") from retry_error
+                    else:
+                        raise
+                finally:
+                    # Restaurar el valor original si existe
+                    if original_can_return is not None and hasattr(connection, 'features'):
+                        connection.features.can_return_columns_from_insert = original_can_return
+            
+            Model._save_table = patched_save_table
+        
+        # Parche 3: Deshabilitar RETURNING en el backend MySQL/MariaDB a nivel de clase
+        try:
+            from django.db.backends.mysql.features import DatabaseFeatures
+            # Deshabilitar completamente RETURNING para todas las instancias
+            DatabaseFeatures.can_return_columns_from_insert = False
+        except:
+            pass
+        
+        # Parche 4: También deshabilitar en la conexión activa si existe
+        try:
+            from django.db import connections
+            for conn in connections.all():
+                if hasattr(conn, 'features') and hasattr(conn.features, 'can_return_columns_from_insert'):
+                    conn.features.can_return_columns_from_insert = False
+        except:
+            pass
+        
+        return True
+    except Exception as e:
+        # Silenciar errores durante la inicialización
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.debug(f"No se pudo aplicar parche RETURNING completo: {e}")
+        return False
+
+# Aplicar el parche de forma lazy - se ejecutará cuando se importen los módulos
 try:
-    from django.db.backends.mysql.operations import DatabaseOperations
-    
-    # Parchear el método que genera SQL con RETURNING
-    if hasattr(DatabaseOperations, 'sql_insert'):
-        original_sql_insert = DatabaseOperations.sql_insert
-        
-        def patched_sql_insert(self, table, fields, placeholder_rows, returning_fields=None):
-            # Forzar returning_fields a None para MariaDB 10.4
-            return original_sql_insert(self, table, fields, placeholder_rows, returning_fields=None)
-        
-        DatabaseOperations.sql_insert = patched_sql_insert
-    
-    # Parchear también el método que inserta en django_migrations
-    from django.db.backends.base.operations import BaseDatabaseOperations
-    if hasattr(BaseDatabaseOperations, 'execute_sql'):
-        original_execute_sql = BaseDatabaseOperations.execute_sql
-        
-        def patched_execute_sql(self, sql, params=None):
-            # Remover RETURNING de las queries SQL
-            if sql and 'RETURNING' in sql.upper():
-                sql = sql.split('RETURNING')[0].rstrip()
-            return original_execute_sql(self, sql, params)
-        
-        # No parchear directamente, mejor usar otro enfoque
-except (ImportError, AttributeError):
+    _apply_returning_patches()
+except:
     pass
+
 # -*- coding: utf-8 -*-

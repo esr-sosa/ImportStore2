@@ -150,6 +150,11 @@ export interface Producto {
       usd: number | null;
       tipo: string;
     };
+    descuento?: {
+      aplicado: number;
+      porcentaje: number;
+      precio_base: number;
+    } | null;
   };
   imagenes: (string | null)[];
   codigo_barras: string;
@@ -166,6 +171,9 @@ export interface CarritoItem {
   cantidad: number;
   precio_unitario_ars: number;
   stock_actual: number;
+  descuento_aplicado?: number;
+  porcentaje_descuento?: number;
+  precio_base?: number;
 }
 
 export interface Carrito {
@@ -215,6 +223,10 @@ export interface Pedido {
   total_ars: number;
   status: string;
   status_display?: string;
+  estado_pago?: string;
+  estado_pago_display?: string;
+  estado_entrega?: string;
+  estado_entrega_display?: string;
   metodo_pago: string;
   metodo_pago_display?: string;
   items_count: number;
@@ -392,6 +404,7 @@ export const api = {
     cliente_documento?: string;
     metodo_pago: string;
     nota?: string;
+    codigo_cupon?: string | null;
   }): Promise<{ venta_id: string; total: number }> {
     const { data } = await apiClient.post('/api/pedido/', pedido);
     if (data.success) {
@@ -434,9 +447,65 @@ export const api = {
     return { pedidos: data.pedidos || [] };
   },
 
-  async getPedido(id: string): Promise<Pedido> {
+  async getPedido(id: string): Promise<{ pedido: any }> {
     const { data } = await apiClient.get(`/api/pedidos/${id}/`);
+    return { pedido: data.pedido || data };
+  },
+
+  // Cupones
+  async validarCupon(codigo: string, montoTotal: number): Promise<{
+    success: boolean;
+    cupon: {
+      id: number;
+      codigo: string;
+      descripcion: string;
+      tipo_descuento: string;
+      valor_descuento: number;
+    };
+    descuento: number;
+    monto_original: number;
+    monto_final: number;
+  }> {
+    const { data } = await apiClient.post('/api/cupones/validar/', {
+      codigo,
+      monto_total: montoTotal,
+    });
     return data;
+  },
+
+  async chatCliente(mensaje: string, historial: Array<{ tipo: 'usuario' | 'asistente'; mensaje: string }> = []): Promise<{
+    success: boolean;
+    respuesta: string;
+    mensaje: string;
+  }> {
+    const { data } = await apiClient.post('/api/chat/', {
+      mensaje,
+      historial,
+    });
+    return data;
+  },
+
+  // Perfil
+  async actualizarPerfil(data: {
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+    telefono?: string;
+    documento?: string;
+    direccion?: string;
+    ciudad?: string;
+  }): Promise<{ success: boolean; user: Usuario }> {
+    const { data: response } = await apiClient.put('/api/auth/perfil/', data);
+    return response;
+  },
+
+  async cambiarContraseña(data: {
+    contraseña_actual: string;
+    nueva_contraseña: string;
+    confirmar_contraseña: string;
+  }): Promise<{ success: boolean; message: string }> {
+    const { data: response } = await apiClient.post('/api/auth/cambiar-contraseña/', data);
+    return response;
   },
 };
 

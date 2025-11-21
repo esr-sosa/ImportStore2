@@ -5,6 +5,82 @@ from django.conf import settings
 from django.db import migrations, models
 
 
+def check_column_exists(connection, table_name, column_name):
+    """Verifica si una columna existe en una tabla"""
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM information_schema.COLUMNS 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = %s 
+            AND COLUMN_NAME = %s
+        """, [table_name, column_name])
+        return cursor.fetchone()[0] > 0
+
+
+def check_table_exists(connection, table_name):
+    """Verifica si una tabla existe"""
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM information_schema.TABLES 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = %s
+        """, [table_name])
+        return cursor.fetchone()[0] > 0
+
+
+def add_field_if_not_exists(apps, schema_editor):
+    """Agrega campos solo si no existen usando SQL directo"""
+    connection = schema_editor.connection
+    with connection.cursor() as cursor:
+        # Agregar motivo_cancelacion si no existe
+        if not check_column_exists(connection, 'ventas_venta', 'motivo_cancelacion'):
+            cursor.execute("""
+                ALTER TABLE ventas_venta 
+                ADD COLUMN motivo_cancelacion LONGTEXT NULL
+            """)
+        
+        # Agregar origen si no existe
+        if not check_column_exists(connection, 'ventas_venta', 'origen'):
+            cursor.execute("""
+                ALTER TABLE ventas_venta 
+                ADD COLUMN origen VARCHAR(10) NOT NULL DEFAULT 'POS'
+            """)
+
+
+def remove_field_if_exists(apps, schema_editor):
+    """Función reversa (no hace nada si los campos ya existen)"""
+    pass
+
+
+def create_historial_if_not_exists(apps, schema_editor):
+    """Crea la tabla HistorialEstadoVenta solo si no existe"""
+    connection = schema_editor.connection
+    if not check_table_exists(connection, 'ventas_historialestadoventa'):
+        # Crear la tabla manualmente con SQL
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                CREATE TABLE ventas_historialestadoventa (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    estado_anterior VARCHAR(20) NULL,
+                    estado_nuevo VARCHAR(20) NOT NULL,
+                    nota LONGTEXT NULL,
+                    creado DATETIME(6) NOT NULL,
+                    usuario_id INT NULL,
+                    venta_id VARCHAR(50) NOT NULL,
+                    FOREIGN KEY (usuario_id) REFERENCES auth_user(id) ON DELETE SET NULL,
+                    FOREIGN KEY (venta_id) REFERENCES ventas_venta(id) ON DELETE CASCADE,
+                    INDEX ventas_hist_venta_i_65b196_idx (venta_id, creado DESC)
+                )
+            """)
+
+
+def remove_historial_if_exists(apps, schema_editor):
+    """Función reversa"""
+    pass
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -13,37 +89,54 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='venta',
-            name='motivo_cancelacion',
-            field=models.TextField(blank=True, help_text='Motivo de cancelación o devolución si aplica', null=True),
-        ),
-        migrations.AddField(
-            model_name='venta',
-            name='origen',
-            field=models.CharField(choices=[('POS', 'POS'), ('WEB', 'Web')], default='POS', help_text='Origen de la venta: POS o Web', max_length=10),
+        # Operaciones de base de datos (condicionales - solo si no existen)
+        migrations.RunPython(add_field_if_not_exists, remove_field_if_exists),
+        migrations.RunPython(create_historial_if_not_exists, remove_historial_if_exists),
+        # Operaciones de estado (siempre se ejecutan para actualizar el estado de Django)
+        # Usar SeparateDatabaseAndState para que solo actualicen el estado, no la BD
+        migrations.SeparateDatabaseAndState(
+            database_operations=[],  # No hacer nada en BD, ya se hizo con RunPython
+            state_operations=[
+                migrations.AddField(
+                    model_name='venta',
+                    name='motivo_cancelacion',
+                    field=models.TextField(blank=True, help_text='Motivo de cancelación o devolución si aplica', null=True),
+                ),
+                migrations.AddField(
+                    model_name='venta',
+                    name='origen',
+                    field=models.CharField(choices=[('POS', 'POS'), ('WEB', 'Web')], default='POS', help_text='Origen de la venta: POS o Web', max_length=10),
+                ),
+            ],
         ),
         migrations.AlterField(
             model_name='venta',
             name='status',
             field=models.CharField(choices=[('PENDIENTE_PAGO', 'Pendiente de pago'), ('PAGADO', 'Pagado'), ('PENDIENTE_ARMADO', 'Pendiente de armado'), ('LISTO_RETIRAR', 'Listo para retirar'), ('EN_CAMINO', 'En camino / Enviado'), ('COMPLETADO', 'Completado'), ('CANCELADO', 'Cancelado'), ('DEVUELTO', 'Devuelto'), ('PENDIENTE_ENVIO', 'Pendiente de envío')], default='PENDIENTE_PAGO', max_length=20),
         ),
-        migrations.CreateModel(
-            name='HistorialEstadoVenta',
-            fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('estado_anterior', models.CharField(blank=True, choices=[('PENDIENTE_PAGO', 'Pendiente de pago'), ('PAGADO', 'Pagado'), ('PENDIENTE_ARMADO', 'Pendiente de armado'), ('LISTO_RETIRAR', 'Listo para retirar'), ('EN_CAMINO', 'En camino / Enviado'), ('COMPLETADO', 'Completado'), ('CANCELADO', 'Cancelado'), ('DEVUELTO', 'Devuelto'), ('PENDIENTE_ENVIO', 'Pendiente de envío')], max_length=20, null=True, verbose_name='Estado Anterior')),
-                ('estado_nuevo', models.CharField(choices=[('PENDIENTE_PAGO', 'Pendiente de pago'), ('PAGADO', 'Pagado'), ('PENDIENTE_ARMADO', 'Pendiente de armado'), ('LISTO_RETIRAR', 'Listo para retirar'), ('EN_CAMINO', 'En camino / Enviado'), ('COMPLETADO', 'Completado'), ('CANCELADO', 'Cancelado'), ('DEVUELTO', 'Devuelto'), ('PENDIENTE_ENVIO', 'Pendiente de envío')], max_length=20, verbose_name='Estado Nuevo')),
-                ('nota', models.TextField(blank=True, help_text='Nota adicional sobre el cambio de estado', null=True, verbose_name='Nota')),
-                ('creado', models.DateTimeField(auto_now_add=True, verbose_name='Fecha de Cambio')),
-                ('usuario', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='cambios_estado_venta', to=settings.AUTH_USER_MODEL, verbose_name='Usuario')),
-                ('venta', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='historial_estados', to='ventas.venta', verbose_name='Venta')),
+        # Usar SeparateDatabaseAndState para crear el modelo solo en el estado de Django
+        # La tabla ya se creó con SQL si no existía
+        migrations.SeparateDatabaseAndState(
+            database_operations=[],
+            state_operations=[
+                migrations.CreateModel(
+                    name='HistorialEstadoVenta',
+                    fields=[
+                        ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                        ('estado_anterior', models.CharField(blank=True, choices=[('PENDIENTE_PAGO', 'Pendiente de pago'), ('PAGADO', 'Pagado'), ('PENDIENTE_ARMADO', 'Pendiente de armado'), ('LISTO_RETIRAR', 'Listo para retirar'), ('EN_CAMINO', 'En camino / Enviado'), ('COMPLETADO', 'Completado'), ('CANCELADO', 'Cancelado'), ('DEVUELTO', 'Devuelto'), ('PENDIENTE_ENVIO', 'Pendiente de envío')], max_length=20, null=True, verbose_name='Estado Anterior')),
+                        ('estado_nuevo', models.CharField(choices=[('PENDIENTE_PAGO', 'Pendiente de pago'), ('PAGADO', 'Pagado'), ('PENDIENTE_ARMADO', 'Pendiente de armado'), ('LISTO_RETIRAR', 'Listo para retirar'), ('EN_CAMINO', 'En camino / Enviado'), ('COMPLETADO', 'Completado'), ('CANCELADO', 'Cancelado'), ('DEVUELTO', 'Devuelto'), ('PENDIENTE_ENVIO', 'Pendiente de envío')], max_length=20, verbose_name='Estado Nuevo')),
+                        ('nota', models.TextField(blank=True, help_text='Nota adicional sobre el cambio de estado', null=True, verbose_name='Nota')),
+                        ('creado', models.DateTimeField(auto_now_add=True, verbose_name='Fecha de Cambio')),
+                        ('usuario', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='cambios_estado_venta', to=settings.AUTH_USER_MODEL, verbose_name='Usuario')),
+                        ('venta', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='historial_estados', to='ventas.venta', verbose_name='Venta')),
+                    ],
+                    options={
+                        'verbose_name': 'Historial de Estado de Venta',
+                        'verbose_name_plural': 'Historiales de Estado de Venta',
+                        'ordering': ['-creado'],
+                        'indexes': [models.Index(fields=['venta', '-creado'], name='ventas_hist_venta_i_65b196_idx')],
+                    },
+                ),
             ],
-            options={
-                'verbose_name': 'Historial de Estado de Venta',
-                'verbose_name_plural': 'Historiales de Estado de Venta',
-                'ordering': ['-creado'],
-                'indexes': [models.Index(fields=['venta', '-creado'], name='ventas_hist_venta_i_65b196_idx')],
-            },
         ),
     ]

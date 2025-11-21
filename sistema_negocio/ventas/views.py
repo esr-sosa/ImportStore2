@@ -26,8 +26,11 @@ from .pdf import generar_comprobante_pdf
 def pos_view(request):
     # Obtener el precio del dólar blue para mostrar en el POS
     dolar_blue = obtener_valor_dolar_blue()
+    # Obtener modo_precio de la sesión
+    modo_precio = request.session.get("modo_precio", Precio.Tipo.MINORISTA)
     context = {
         'dolar_blue': dolar_blue,
+        'modo_precio': modo_precio,
     }
     return render(request, "ventas/pos.html", context)
 
@@ -44,6 +47,34 @@ def pos_remoto_ping(request):
     carrito, _ = CarritoRemoto.objects.get_or_create(usuario=request.user, defaults={"items": []})
     CarritoRemoto.objects.filter(pk=carrito.pk).update(actualizado=timezone.now())
     return JsonResponse({"status": "ok"})
+
+
+@login_required
+def cambiar_modo_precio_api(request):
+    """API para cambiar el modo de precio (minorista/mayorista) en la sesión."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Método no permitido"}, status=405)
+    
+    try:
+        data = json.loads(request.body or "{}")
+        nuevo_modo = data.get("modo")
+        
+        if nuevo_modo not in [Precio.Tipo.MINORISTA, Precio.Tipo.MAYORISTA]:
+            return JsonResponse({"error": "Modo inválido"}, status=400)
+        
+        # Guardar en la sesión
+        request.session["modo_precio"] = nuevo_modo
+        request.session.save()
+        
+        return JsonResponse({
+            "success": True,
+            "modo": nuevo_modo,
+            "modo_display": "Mayorista" if nuevo_modo == Precio.Tipo.MAYORISTA else "Minorista"
+        })
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Payload inválido"}, status=400)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
 
 @login_required
@@ -470,7 +501,29 @@ def agregar_producto_carrito_remoto_api(request):
     
     if item_existente:
         # Incrementar cantidad
-        item_existente["cantidad"] = item_existente.get("cantidad", 1) + 1
+        nueva_cantidad = item_existente.get("cantidad", 1) + 1
+        item_existente["cantidad"] = nueva_cantidad
+        
+        # Recalcular descuento por escala si es mayorista
+        if modo_precio == Precio.Tipo.MAYORISTA and item_existente.get("precio_base"):
+            try:
+                from configuracion.models import ConfiguracionSistema
+                from decimal import Decimal
+                config = ConfiguracionSistema.obtener_unica()
+                if config.precios_escala_activos:
+                    precio_base = Decimal(str(item_existente["precio_base"]))
+                    precio_con_escala = config.obtener_precio_con_escala(precio_base, nueva_cantidad)
+                    nuevo_precio = float(precio_con_escala)
+                    item_existente["precio_unitario_ars"] = nuevo_precio
+                    
+                    if precio_con_escala < precio_base:
+                        item_existente["descuento_aplicado"] = float(precio_base - precio_con_escala)
+                        item_existente["porcentaje_descuento"] = float((item_existente["descuento_aplicado"] / float(precio_base)) * 100)
+                    else:
+                        item_existente.pop("descuento_aplicado", None)
+                        item_existente.pop("porcentaje_descuento", None)
+            except Exception:
+                pass  # Si hay error, mantener precio actual
     else:
         # Agregar nuevo item
         variante_formateada = _formatear_variante(variante, modo_precio)
@@ -489,18 +542,38 @@ def agregar_producto_carrito_remoto_api(request):
         ).order_by("-actualizado").first()
         
         # Resolver precio ARS (convertir USD si es necesario)
+        precio_base_ars = None
         precio_ars_valor = None
         precio_usd_original = None
         if precio_ars:
-            precio_ars_valor = float(precio_ars.precio)
+            precio_base_ars = Decimal(str(precio_ars.precio))
+            precio_ars_valor = float(precio_base_ars)
         elif precio_usd:
             precio_usd_original = float(precio_usd.precio)
             dolar_blue = obtener_valor_dolar_blue()
             if dolar_blue:
-                precio_ars_valor = precio_usd_original * float(dolar_blue)
+                precio_base_ars = Decimal(str(precio_usd_original)) * Decimal(str(dolar_blue))
+                precio_ars_valor = float(precio_base_ars)
         
         if precio_ars_valor is None:
             return JsonResponse({"error": "Producto sin precio"}, status=400)
+        
+        # Aplicar escalas de descuento si es mayorista
+        descuento_escala_aplicado = None
+        porcentaje_descuento = None
+        if modo_precio == Precio.Tipo.MAYORISTA and precio_base_ars:
+            try:
+                from configuracion.models import ConfiguracionSistema
+                config = ConfiguracionSistema.obtener_unica()
+                if config.precios_escala_activos:
+                    cantidad_para_escala = 1  # Cantidad inicial al agregar
+                    precio_con_escala = config.obtener_precio_con_escala(precio_base_ars, cantidad_para_escala)
+                    if precio_con_escala < precio_base_ars:
+                        descuento_escala_aplicado = float(precio_base_ars - precio_con_escala)
+                        porcentaje_descuento = float((descuento_escala_aplicado / float(precio_base_ars)) * 100)
+                        precio_ars_valor = float(precio_con_escala)
+            except Exception:
+                pass  # Si hay error, usar precio sin escala
         
         # Verificar si es iPhone
         es_iphone = (
@@ -517,6 +590,9 @@ def agregar_producto_carrito_remoto_api(request):
             "precio_unitario_ars": precio_ars_valor,
             "precio_usd_original": precio_usd_original,
             "es_iphone": es_iphone,
+            "descuento_aplicado": descuento_escala_aplicado,
+            "porcentaje_descuento": porcentaje_descuento,
+            "precio_base": float(precio_base_ars) if precio_base_ars else precio_ars_valor,
             "es_custom": False,
             "stock_actual": variante.stock_actual or 0,  # Incluir stock actual
             "precios": variante_formateada.get("precios", {}),
@@ -623,16 +699,21 @@ def buscar_clientes_api(request):
     if not query:
         return JsonResponse({"results": []})
     
+    # Buscar por nombre, teléfono, email o documento (DNI)
     clientes = Cliente.objects.filter(
-        Q(nombre__icontains=query) | Q(telefono__icontains=query) | Q(email__icontains=query)
+        Q(nombre__icontains=query) | 
+        Q(telefono__icontains=query) | 
+        Q(email__icontains=query) |
+        Q(documento__icontains=query)
     ).order_by("nombre")[:10]
     
     results = [
         {
             "id": c.id,
             "nombre": c.nombre,
-            "telefono": c.telefono,
+            "telefono": c.telefono or "",
             "email": c.email or "",
+            "documento": c.documento or "",
         }
         for c in clientes
     ]
@@ -647,15 +728,16 @@ def _generar_id_venta(prefix: str = "POS") -> str:
     return base
 
 
-def _resolver_precio_ars(variante: ProductoVariante, modo_precio: str = None) -> tuple[Decimal, Decimal | None, Decimal | None]:
+def _resolver_precio_ars(variante: ProductoVariante, modo_precio: str = None, cantidad: int = 1) -> tuple[Decimal, Decimal | None, Decimal | None, Decimal | None]:
     """
-    Resuelve el precio en ARS de una variante.
+    Resuelve el precio en ARS de una variante, aplicando descuentos por escalas si es mayorista.
     Si es un iPhone (categoría Celulares) y tiene precio en USD, lo convierte a ARS.
-    Retorna: (precio_ars, precio_usd_original, tipo_cambio_usado)
+    Retorna: (precio_ars, precio_usd_original, tipo_cambio_usado, descuento_escala)
     
     Args:
         variante: La variante del producto
         modo_precio: "MINORISTA" o "MAYORISTA" (por defecto "MINORISTA")
+        cantidad: Cantidad del producto para aplicar escalas de descuento (default: 1)
     """
     # Usar modo_precio o default a MINORISTA
     tipo_precio = modo_precio if modo_precio in [Precio.Tipo.MINORISTA, Precio.Tipo.MAYORISTA] else Precio.Tipo.MINORISTA
@@ -666,6 +748,9 @@ def _resolver_precio_ars(variante: ProductoVariante, modo_precio: str = None) ->
         and variante.producto.categoria.nombre.lower() == "celulares"
     )
     
+    precio_base_ars = None
+    descuento_escala = None
+    
     # Primero intentar precio en ARS
     precio_ars = variante.precios.filter(
         activo=True,
@@ -674,29 +759,54 @@ def _resolver_precio_ars(variante: ProductoVariante, modo_precio: str = None) ->
     ).order_by("-actualizado").first()
     
     if precio_ars:
-        return (Decimal(precio_ars.precio), None, None)
-    
-    # Si no hay precio en ARS, buscar en USD
-    precio_usd = variante.precios.filter(
-        activo=True,
-        tipo=tipo_precio,
-        moneda=Precio.Moneda.USD,
-    ).order_by("-actualizado").first()
-    
-    if precio_usd:
-        precio_usd_valor = Decimal(precio_usd.precio)
+        precio_base_ars = Decimal(precio_ars.precio)
+    else:
+        # Si no hay precio en ARS, buscar en USD
+        precio_usd = variante.precios.filter(
+            activo=True,
+            tipo=tipo_precio,
+            moneda=Precio.Moneda.USD,
+        ).order_by("-actualizado").first()
         
-        # Si es iPhone, convertir USD a ARS usando dólar blue
-        if es_iphone:
-            dolar_blue = obtener_valor_dolar_blue()
-            if dolar_blue:
-                precio_ars_convertido = precio_usd_valor * Decimal(str(dolar_blue))
-                return (precio_ars_convertido, precio_usd_valor, Decimal(str(dolar_blue)))
-        
-        # Si no es iPhone o no hay dólar blue, devolver el precio USD como está (será 0)
-        return (precio_usd_valor, precio_usd_valor, None)
+        if precio_usd:
+            precio_usd_valor = Decimal(precio_usd.precio)
+            
+            # Si es iPhone, convertir USD a ARS usando dólar blue
+            if es_iphone:
+                dolar_blue = obtener_valor_dolar_blue()
+                if dolar_blue:
+                    precio_base_ars = precio_usd_valor * Decimal(str(dolar_blue))
+                    precio_usd_original = precio_usd_valor
+                    tipo_cambio_usado = Decimal(str(dolar_blue))
+                else:
+                    return (Decimal("0"), None, None, None)
+            else:
+                # Si no es iPhone, usar el precio USD directamente (aunque no es ideal)
+                precio_base_ars = precio_usd_valor
+                precio_usd_original = precio_usd_valor
+                tipo_cambio_usado = None
+        else:
+            return (Decimal("0"), None, None, None)
     
-    return (Decimal("0"), None, None)
+    # Aplicar escalas de descuento si es mayorista
+    precio_final_ars = precio_base_ars
+    if tipo_precio == Precio.Tipo.MAYORISTA and precio_base_ars:
+        try:
+            from configuracion.models import ConfiguracionSistema
+            config = ConfiguracionSistema.obtener_unica()
+            if config.precios_escala_activos:
+                precio_con_escala = config.obtener_precio_con_escala(precio_base_ars, cantidad)
+                precio_final_ars = precio_con_escala
+                if precio_con_escala < precio_base_ars:
+                    descuento_escala = precio_base_ars - precio_con_escala
+        except Exception:
+            pass  # Si hay error, usar precio sin escala
+    
+    # Retornar según si se usó USD o no
+    if precio_ars:
+        return (precio_final_ars, None, None, descuento_escala)
+    else:
+        return (precio_final_ars, precio_usd_original, tipo_cambio_usado, descuento_escala)
 
 
 @csrf_exempt
@@ -719,6 +829,15 @@ def crear_venta_api(request):
         return JsonResponse({"error": "Método de pago inválido"}, status=400)
 
     nota = data.get("nota", "")
+    
+    # Construir observaciones con información de descuentos aplicados
+    observaciones_descuentos = []
+    if descuento_escalas_total > 0:
+        observaciones_descuentos.append(f"Descuento por cantidad aplicado: ${descuento_escalas_total:,.2f}")
+        for det_esc in detalles_escalas:
+            observaciones_descuentos.append(
+                f"  - {det_esc['producto']} (x{det_esc['cantidad']}): {det_esc['porcentaje']:.1f}% = ${det_esc['descuento']:,.2f}"
+            )
     aplicar_iva = data.get("aplicar_iva", False)
     iva_porcentaje = Decimal(str(data.get("iva_porcentaje", 21)))
     descuento_general = data.get("descuento_general", {"tipo": "monto", "valor": 0})
@@ -728,13 +847,16 @@ def crear_venta_api(request):
     cliente_nombre = data.get("cliente_nombre", "").strip()
     cliente_documento = data.get("cliente_documento", "").strip()
     cliente_telefono = data.get("cliente_telefono", "").strip()
+    cliente_email = data.get("cliente_email", "").strip()
     
     # Si hay cliente_id, buscar el cliente existente
     if cliente_id:
         cliente_obj = Cliente.objects.filter(pk=cliente_id).first()
         if cliente_obj:
             cliente_nombre = cliente_obj.nombre
-            cliente_documento = cliente_obj.telefono  # Usar teléfono como documento si no hay otro
+            cliente_documento = cliente_obj.documento or cliente_documento
+            cliente_telefono = cliente_obj.telefono or cliente_telefono
+            cliente_email = cliente_obj.email or cliente_email
     
     # Si no hay cliente_id pero hay nombre y teléfono, crear o buscar cliente
     elif cliente_nombre and cliente_telefono:
@@ -742,15 +864,25 @@ def crear_venta_api(request):
             telefono=cliente_telefono,
             defaults={
                 "nombre": cliente_nombre,
-                "email": data.get("cliente_email", "").strip() or None,
+                "email": cliente_email or None,
+                "documento": cliente_documento or None,
                 "tipo_cliente": "Minorista",
             }
         )
         if not created:
-            # Si ya existe, actualizar nombre si es diferente
+            # Si ya existe, actualizar datos si son diferentes
+            updated = False
             if cliente_obj.nombre != cliente_nombre:
                 cliente_obj.nombre = cliente_nombre
-                cliente_obj.save(update_fields=["nombre", "ultima_actualizacion"])
+                updated = True
+            if cliente_email and cliente_obj.email != cliente_email:
+                cliente_obj.email = cliente_email
+                updated = True
+            if cliente_documento and cliente_obj.documento != cliente_documento:
+                cliente_obj.documento = cliente_documento
+                updated = True
+            if updated:
+                cliente_obj.save(update_fields=["nombre", "email", "documento", "ultima_actualizacion"])
     
     # Si solo hay nombre sin teléfono, usar nombre como consumidor final
     elif cliente_nombre and not cliente_telefono:
@@ -764,6 +896,8 @@ def crear_venta_api(request):
 
     subtotal = Decimal("0")
     descuento_items_total = Decimal("0")
+    descuento_escalas_total = Decimal("0")
+    detalles_escalas = []  # Para registrar qué descuentos se aplicaron
     detalles = []
 
     for item in items:
@@ -841,13 +975,33 @@ def crear_venta_api(request):
             and variante.producto.categoria.nombre.lower() == "celulares"
         )
         
+        # Obtener modo_precio de la sesión
+        modo_precio = request.session.get("modo_precio", Precio.Tipo.MINORISTA)
+        descuento_escala = None
+        precio_base_para_escala = None
+        
         if precio_ars is None:
             # Si no viene precio del frontend, resolverlo
-            # Obtener modo_precio de la sesión
-            modo_precio = request.session.get("modo_precio", Precio.Tipo.MINORISTA)
-            precio_ars, precio_usd_original, tipo_cambio_usado = _resolver_precio_ars(variante, modo_precio)
+            precio_ars, precio_usd_original, tipo_cambio_usado, descuento_escala = _resolver_precio_ars(variante, modo_precio, cantidad)
+            if descuento_escala:
+                precio_base_para_escala = precio_ars + descuento_escala
         else:
             precio_ars = Decimal(str(precio_ars))
+            precio_base_para_escala = precio_ars  # Guardar precio base antes de aplicar escalas
+            
+            # Aplicar escalas de descuento si es mayorista y el precio viene del frontend
+            if modo_precio == Precio.Tipo.MAYORISTA:
+                try:
+                    from configuracion.models import ConfiguracionSistema
+                    config = ConfiguracionSistema.obtener_unica()
+                    if config.precios_escala_activos:
+                        precio_con_escala = config.obtener_precio_con_escala(precio_ars, cantidad)
+                        if precio_con_escala < precio_ars:
+                            descuento_escala = precio_ars - precio_con_escala
+                            precio_ars = precio_con_escala
+                except Exception:
+                    pass  # Si hay error, usar precio sin escala
+            
             # Si el precio viene del frontend, verificar si es iPhone y tiene precio USD
             if es_iphone:
                 precio_usd = variante.precios.filter(
@@ -881,7 +1035,9 @@ def crear_venta_api(request):
                             tipo_cambio_usado = Decimal(str(dolar_blue))
                             precio_ars = precio_usd_original * tipo_cambio_usado
 
-        bruto = precio_ars * cantidad
+        # Calcular bruto usando precio base si hay descuento por escala, sino usar precio final
+        precio_para_bruto = precio_base_para_escala if precio_base_para_escala else precio_ars
+        bruto = precio_para_bruto * cantidad
 
         descuento_linea_valor = Decimal("0")
         descuento_linea = item.get("descuento", {})
@@ -892,6 +1048,20 @@ def crear_venta_api(request):
                 descuento_linea_valor = (bruto * valor) / Decimal("100")
             elif tipo == "monto":
                 descuento_linea_valor = min(bruto, valor)
+        
+        # Agregar descuento por escala al descuento de línea
+        if descuento_escala:
+            descuento_escala_total = descuento_escala * cantidad
+            descuento_linea_valor += descuento_escala_total
+            descuento_escalas_total += descuento_escala_total
+            # Calcular porcentaje de descuento
+            porcentaje_descuento = (descuento_escala / precio_base_para_escala * 100) if precio_base_para_escala else Decimal("0")
+            detalles_escalas.append({
+                "producto": variante.producto.nombre,
+                "cantidad": cantidad,
+                "descuento": descuento_escala_total,
+                "porcentaje": porcentaje_descuento,
+            })
 
         subtotal += bruto
         descuento_items_total += descuento_linea_valor
@@ -903,10 +1073,12 @@ def crear_venta_api(request):
                 "sku": variante.sku,
                 "descripcion": f"{variante.producto.nombre} {variante.atributos_display}",
                 "cantidad": cantidad,
-                "precio": precio_ars,
+                "precio": precio_ars,  # Precio final con descuento aplicado
+                "precio_base": precio_base_para_escala if precio_base_para_escala else precio_ars,
                 "subtotal": total_linea,
                 "precio_usd_original": precio_usd_original,
                 "tipo_cambio_usado": tipo_cambio_usado,
+                "descuento_escala": descuento_escala * cantidad if descuento_escala else None,
                 "es_custom": False,
             }
         )
@@ -994,6 +1166,25 @@ def crear_venta_api(request):
                 "error": f"Los montos de pago mixto no suman la base correcta. Base: ${base_antes_descuento_metodo:,.2f}, Suma: ${suma:,.2f}, Diferencia: ${diferencia:,.2f}. Los montos deben sumar la base antes de aplicar descuentos por método de pago."
             }, status=400)
 
+    # Normalizar método de pago
+    metodo_pago_normalizado = metodo_pago.lower()
+    if metodo_pago_normalizado not in [choice[0] for choice in Venta.MetodoPago.choices]:
+        # Si viene un valor antiguo, normalizarlo
+        if "EFECTIVO" in metodo_pago.upper():
+            metodo_pago_normalizado = "efectivo"
+        elif "TRANSFERENCIA" in metodo_pago.upper():
+            metodo_pago_normalizado = "transferencia"
+        elif "MERCADOPAGO" in metodo_pago.upper() or "MP" in metodo_pago.upper():
+            metodo_pago_normalizado = "mercadopago_link"
+        else:
+            metodo_pago_normalizado = "efectivo"  # Default
+    
+    # Asegurar que se use el documento del cliente si existe
+    if cliente_obj and cliente_obj.documento:
+        cliente_documento = cliente_obj.documento
+    elif not cliente_documento and cliente_obj:
+        cliente_documento = ""  # No usar teléfono como documento
+    
     venta = Venta.objects.create(
         id=venta_id,
         fecha=timezone.now(),
@@ -1005,10 +1196,14 @@ def crear_venta_api(request):
         descuento_metodo_pago_ars=descuento_metodo_pago_valor,
         impuestos_ars=impuestos,
         total_ars=total,
-        metodo_pago=metodo_pago,
-        status=status,
+        metodo_pago=metodo_pago_normalizado,
+        status=status,  # Mantener compatibilidad con status antiguo
         nota=nota,
+        observaciones="\n".join([nota] + observaciones_descuentos).strip() if observaciones_descuentos else nota,  # Agregar descuentos a observaciones
         vendedor=request.user if request.user.is_authenticated else None,
+        origen=Venta.Origen.LOCAL,  # Ventas desde POS son locales
+        estado_pago=Venta.EstadoPago.PAGADO,  # Ventas locales: pagado
+        estado_entrega=Venta.EstadoEntrega.RETIRADO,  # Ventas locales: retirado
         es_pago_mixto=es_pago_mixto,
         metodo_pago_2=metodo_pago_2 if es_pago_mixto else None,
         monto_pago_1=Decimal(str(monto_pago_1)) if es_pago_mixto and monto_pago_1 else None,
@@ -1024,8 +1219,6 @@ def crear_venta_api(request):
             cantidad=detalle["cantidad"],
             precio_unitario_ars_congelado=detalle["precio"],
             subtotal_ars=detalle["subtotal"],
-            precio_unitario_usd_original=detalle.get("precio_usd_original"),
-            tipo_cambio_usado=detalle.get("tipo_cambio_usado"),
         )
         # Solo descontar stock si es un producto del catálogo (tiene variante)
         if detalle["variante"]:
@@ -1039,8 +1232,8 @@ def crear_venta_api(request):
         descripcion=f"Venta {venta.id} por ${venta.total_ars:.2f} ({venta.metodo_pago}).",
     )
 
-    pdf_file = generar_comprobante_pdf(venta)
-    venta.comprobante_pdf.save(pdf_file.name, pdf_file, save=True)
+    # El PDF se genera bajo demanda cuando se solicita, no se guarda en el modelo
+    # pdf_file = generar_comprobante_pdf(venta)  # Generado bajo demanda
 
     # ========== INTEGRACIÓN CON CAJA ==========
     # Buscar caja abierta para el local (por defecto el primero, o el que se pase en el request)
@@ -1079,7 +1272,7 @@ def crear_venta_api(request):
                 "descuento_metodo_pago_ars": str(descuento_metodo_pago_valor),
                 "impuestos_ars": str(impuestos),
                 "total_ars": str(total),
-                "pdf": venta.comprobante_pdf.url if venta.comprobante_pdf else None,
+                "pdf": None,  # PDF se genera bajo demanda cuando se solicita
             },
         }
     )
@@ -1103,7 +1296,7 @@ def ultima_venta_api(request):
                 "id": ultima_venta.id,
                 "fecha": ultima_venta.fecha.isoformat(),
                 "total_ars": str(ultima_venta.total_ars),
-                "pdf": ultima_venta.comprobante_pdf.url if ultima_venta.comprobante_pdf else None,
+                "pdf": None,  # PDF se genera bajo demanda cuando se solicita
             },
         }
     )
@@ -1111,15 +1304,16 @@ def ultima_venta_api(request):
 
 @login_required
 def generar_voucher_pdf(request, venta_id: str):
+    """Genera y devuelve el PDF del comprobante de venta bajo demanda"""
+    from django.http import HttpResponse
     venta = get_object_or_404(Venta.objects.prefetch_related("detalles"), pk=venta_id)
-    if not venta.comprobante_pdf:
-        pdf = generar_comprobante_pdf(venta)
-        venta.comprobante_pdf.save(pdf.name, pdf, save=True)
-    if not venta.comprobante_pdf:
-        return HttpResponseNotFound("No se pudo generar el comprobante")
-    venta.comprobante_pdf.open("rb")
-    filename = venta.comprobante_pdf.name.split("/")[-1]
-    return FileResponse(venta.comprobante_pdf, as_attachment=True, filename=filename)
+    
+    # Generar PDF bajo demanda
+    pdf_file = generar_comprobante_pdf(venta)
+    
+    response = HttpResponse(pdf_file.read(), content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="comprobante_{venta_id}.pdf"'
+    return response
 
 
 @login_required
@@ -1239,15 +1433,19 @@ def marcar_impresion_completada_api(request):
 
 @login_required
 def listado_ventas(request):
+    """Listado unificado de todas las ventas (web, local, mayorista)"""
     fecha_desde = request.GET.get("fecha_desde", "")
     fecha_hasta = request.GET.get("fecha_hasta", "")
-    status = request.GET.get("estado", "")
+    origen_filter = request.GET.get("origen", "")
+    estado_pago_filter = request.GET.get("estado_pago", "")
+    estado_entrega_filter = request.GET.get("estado_entrega", "")
     metodo_pago = request.GET.get("metodo_pago", "")
     q = request.GET.get("q", "").strip()
 
-    # Filtrar solo ventas POS (no web)
-    ventas_qs = Venta.objects.filter(origen=Venta.Origen.POS).select_related("vendedor", "cliente").prefetch_related("detalles")
+    # Incluir TODAS las ventas (web, local, mayorista)
+    ventas_qs = Venta.objects.select_related("vendedor", "cliente").prefetch_related("detalles")
 
+    # Filtros
     if fecha_desde:
         try:
             desde = timezone.datetime.strptime(fecha_desde, "%Y-%m-%d").date()
@@ -1262,8 +1460,17 @@ def listado_ventas(request):
         except ValueError:
             pass
 
-    if status:
-        ventas_qs = ventas_qs.filter(status=status)
+    if origen_filter:
+        # Normalizar valores antiguos para compatibilidad
+        if origen_filter.upper() == "POS":
+            origen_filter = "local"
+        ventas_qs = ventas_qs.filter(origen=origen_filter)
+
+    if estado_pago_filter:
+        ventas_qs = ventas_qs.filter(estado_pago=estado_pago_filter)
+
+    if estado_entrega_filter:
+        ventas_qs = ventas_qs.filter(estado_entrega=estado_entrega_filter)
 
     if metodo_pago:
         ventas_qs = ventas_qs.filter(metodo_pago=metodo_pago)
@@ -1281,6 +1488,15 @@ def listado_ventas(request):
     total_facturado = ventas_qs.aggregate(total=Sum("total_ars"))["total"] or Decimal("0")
     promedio_ticket = total_facturado / total_ventas if total_ventas > 0 else Decimal("0")
 
+    # Estadísticas por origen
+    ventas_web = Venta.objects.filter(origen=Venta.Origen.WEB).count()
+    ventas_local = Venta.objects.filter(origen__in=[Venta.Origen.LOCAL, Venta.Origen.POS]).count()
+    ventas_mayorista = Venta.objects.filter(origen=Venta.Origen.MAYORISTA).count()
+
+    # Estadísticas por estado de pago
+    pendientes_pago = Venta.objects.filter(estado_pago=Venta.EstadoPago.PENDIENTE).count()
+    pagadas = Venta.objects.filter(estado_pago=Venta.EstadoPago.PAGADO).count()
+
     paginator = Paginator(ventas_qs, 20)
     page = request.GET.get("page", 1)
     page_obj = paginator.get_page(page)
@@ -1291,14 +1507,23 @@ def listado_ventas(request):
         "total_ventas": total_ventas,
         "total_facturado": total_facturado,
         "promedio_ticket": promedio_ticket,
+        "ventas_web": ventas_web,
+        "ventas_local": ventas_local,
+        "ventas_mayorista": ventas_mayorista,
+        "pendientes_pago": pendientes_pago,
+        "pagadas": pagadas,
         "filtros": {
             "fecha_desde": fecha_desde,
             "fecha_hasta": fecha_hasta,
-            "estado": status,
+            "origen": origen_filter,
+            "estado_pago": estado_pago_filter,
+            "estado_entrega": estado_entrega_filter,
             "metodo_pago": metodo_pago,
             "q": q,
         },
-        "estados": Venta.Status.choices,
+        "origenes": Venta.Origen.choices,
+        "estados_pago": Venta.EstadoPago.choices,
+        "estados_entrega": Venta.EstadoEntrega.choices,
         "metodos_pago": Venta.MetodoPago.choices,
     }
 
@@ -1390,15 +1615,16 @@ def actualizar_estado_venta(request, venta_id: str):
     
     venta.save(update_fields=["status", "motivo_cancelacion"])
     
-    # Registrar en historial de estados
+    # Registrar en historial de estados (usar save() para evitar RETURNING en MariaDB 10.4)
     from ventas.models import HistorialEstadoVenta
-    HistorialEstadoVenta.objects.create(
+    historial = HistorialEstadoVenta(
         venta=venta,
         estado_anterior=estado_anterior,
         estado_nuevo=nuevo_estado,
         usuario=request.user,
         nota=nota
     )
+    historial.save()
     
     # También registrar en historial general
     RegistroHistorial.objects.create(

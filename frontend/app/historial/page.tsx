@@ -142,7 +142,6 @@ function HistorialContent() {
                   </div>
                 </div>
               </motion.div>
-              </Link>
             ))}
           </div>
         ) : (

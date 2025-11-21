@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import ChatIA from '@/components/ChatIA';
 import { Toaster } from 'react-hot-toast';
 import ConfigProvider from '@/components/ConfigProvider';
 
@@ -25,6 +26,7 @@ export default function RootLayout({
             <Footer />
           </div>
           <Toaster position="top-right" />
+          <ChatIA />
         </ConfigProvider>
       </body>
     </html>

@@ -20,6 +20,10 @@ interface PedidoDetalle {
   impuestos_ars: number;
   status: string;
   status_display: string;
+  estado_pago?: string;
+  estado_pago_display?: string;
+  estado_entrega?: string;
+  estado_entrega_display?: string;
   metodo_pago: string;
   metodo_pago_display: string;
   origen: string;
@@ -69,8 +73,8 @@ function PedidoDetalleContent() {
   const loadPedido = async () => {
     setIsLoading(true);
     try {
-      const data = await api.getPedido(pedidoId);
-      setPedido(data);
+      const response = await api.getPedido(pedidoId);
+      setPedido(response.pedido);
     } catch (error: any) {
       toast.error(error.message || 'Error al cargar el pedido');
       router.push('/historial');
@@ -176,13 +180,14 @@ function PedidoDetalleContent() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-6">
-          <button
+          <motion.button
             onClick={() => router.back()}
-            className="flex items-center text-gray-600 hover:text-gray-900 mb-4 transition-colors"
+            whileHover={{ x: -4 }}
+            className="flex items-center text-gray-700 hover:text-gray-900 mb-4 transition-colors font-medium"
           >
             <FiArrowLeft className="w-4 h-4 mr-2" />
             Volver
-          </button>
+          </motion.button>
           <h1 className="text-3xl font-bold text-gray-900">Pedido {pedido.id}</h1>
         </div>
 
@@ -364,13 +369,54 @@ function PedidoDetalleContent() {
                 )}
               </div>
 
-              <button
-                onClick={handleDescargarPDF}
-                className="w-full mt-6 px-4 py-3 bg-black text-white rounded-full font-semibold flex items-center justify-center space-x-2 hover:bg-gray-800 transition-colors"
-              >
-                <FiDownload className="w-4 h-4" />
-                <span>Descargar Comprobante PDF</span>
-              </button>
+              {/* Mostrar botón de descargar comprobante solo si el pedido está pagado o completado */}
+              {(() => {
+                // El comprobante solo se muestra cuando:
+                // 1. El estado de pago es "pagado" O
+                // 2. El status es "COMPLETADO" O
+                // 3. El estado de entrega es "entregado" o "retirado"
+                const puedeDescargar = 
+                  pedido.estado_pago === 'pagado' ||
+                  pedido.status === 'COMPLETADO' ||
+                  pedido.estado_entrega === 'entregado' ||
+                  pedido.estado_entrega === 'retirado';
+                
+                if (!puedeDescargar) {
+                  return (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="w-full mt-6 px-5 py-4 bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 rounded-2xl shadow-sm"
+                    >
+                      <div className="flex items-start space-x-3">
+                        <div className="flex-shrink-0 mt-0.5">
+                          <FiClock className="w-5 h-5 text-amber-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-amber-900 mb-1">
+                            Comprobante pendiente
+                          </p>
+                          <p className="text-xs text-amber-700 leading-relaxed">
+                            El comprobante estará disponible una vez que el pedido haya sido pagado y procesado.
+                          </p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                }
+                
+                return (
+                  <motion.button
+                    onClick={handleDescargarPDF}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full mt-6 px-4 py-3 bg-black text-white rounded-full font-semibold flex items-center justify-center space-x-2 hover:bg-gray-800 transition-all shadow-lg hover:shadow-xl"
+                  >
+                    <FiDownload className="w-4 h-4" />
+                    <span>Descargar Comprobante PDF</span>
+                  </motion.button>
+                );
+              })()}
             </motion.div>
           </div>
         </div>

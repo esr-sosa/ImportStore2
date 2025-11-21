@@ -1,6 +1,7 @@
 from decimal import Decimal
 from io import BytesIO
 from uuid import uuid4
+import logging
 
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
@@ -10,6 +11,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from django.contrib import messages
+
+logger = logging.getLogger(__name__)
 from core.db_inspector import column_exists
 from core.utils import obtener_valor_dolar_blue
 from historial.models import RegistroHistorial
@@ -46,6 +49,8 @@ def _ultimo_precio(variante, tipo, moneda):
 def _sincronizar_precios(variante, data):
     """Sincroniza precios usando la función consolidada de inventario."""
     from inventario.views import _sincronizar_precios as _sincronizar_precios_inventario
+    from inventario.models import Precio
+    from core.utils import obtener_valor_dolar_blue
     
     # Mapear datos de iPhone a formato de inventario
     data_inventario = {
@@ -56,10 +61,157 @@ def _sincronizar_precios(variante, data):
     }
     
     _sincronizar_precios_inventario(variante, data_inventario)
+    
+    # Sincronizar precios USD desde DetalleIphone si existen
+    precio_venta_usd = data.get("precio_venta_usd")
+    precio_mayorista_usd = data.get("precio_mayorista_usd")
+    
+    if precio_venta_usd:
+        try:
+            precio_usd_decimal = Decimal(str(precio_venta_usd))
+            if precio_usd_decimal > 0:
+                # Verificar si existe el precio
+                precio_existente = Precio.objects.filter(
+                    variante=variante,
+                    tipo=Precio.Tipo.MINORISTA,
+                    moneda=Precio.Moneda.USD
+                ).first()
+                
+                if precio_existente:
+                    # Actualizar precio existente
+                    precio_existente.precio = precio_usd_decimal
+                    precio_existente.activo = True
+                    precio_existente.save()
+                else:
+                    # Crear nuevo precio usando SQL directo
+                    from django.db import connection
+                    from core.db_inspector import column_exists
+                    from django.utils import timezone
+                    
+                    tiene_tipo_precio = column_exists("inventario_precio", "tipo_precio")
+                    tiene_costo = column_exists("inventario_precio", "costo")
+                    tiene_precio_venta_normal = column_exists("inventario_precio", "precio_venta_normal")
+                    tiene_precio_venta_minimo = column_exists("inventario_precio", "precio_venta_minimo")
+                    tiene_precio_venta_descuento = column_exists("inventario_precio", "precio_venta_descuento")
+                    
+                    insert_fields = ["variante_id", "tipo", "moneda", "precio", "activo"]
+                    insert_values = [
+                        variante.pk,
+                        Precio.Tipo.MINORISTA,
+                        Precio.Moneda.USD,
+                        precio_usd_decimal,
+                        True
+                    ]
+                    
+                    if tiene_tipo_precio:
+                        insert_fields.append("tipo_precio")
+                        insert_values.append(Precio.Tipo.MINORISTA)
+                    
+                    if tiene_costo:
+                        insert_fields.append("costo")
+                        insert_values.append(Decimal("0.00"))
+                    
+                    if tiene_precio_venta_normal:
+                        insert_fields.append("precio_venta_normal")
+                        insert_values.append(precio_usd_decimal)
+                    
+                    if tiene_precio_venta_minimo:
+                        insert_fields.append("precio_venta_minimo")
+                        insert_values.append(precio_usd_decimal)
+                    
+                    if tiene_precio_venta_descuento:
+                        insert_fields.append("precio_venta_descuento")
+                        insert_values.append(None)
+                    
+                    # Agregar timestamps usando NOW() en SQL
+                    insert_fields.extend(["creado", "actualizado"])
+                    
+                    with connection.cursor() as cursor:
+                        placeholders = ", ".join(["%s"] * len(insert_values) + ["NOW()", "NOW()"])
+                        fields_str = ", ".join(insert_fields)
+                        cursor.execute(
+                            f"INSERT INTO inventario_precio ({fields_str}) VALUES ({placeholders})",
+                            insert_values
+                        )
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Error al sincronizar precio USD minorista: {e}")
+    
+    if precio_mayorista_usd:
+        try:
+            precio_may_usd_decimal = Decimal(str(precio_mayorista_usd))
+            if precio_may_usd_decimal > 0:
+                # Verificar si existe el precio
+                precio_existente = Precio.objects.filter(
+                    variante=variante,
+                    tipo=Precio.Tipo.MAYORISTA,
+                    moneda=Precio.Moneda.USD
+                ).first()
+                
+                if precio_existente:
+                    # Actualizar precio existente
+                    precio_existente.precio = precio_may_usd_decimal
+                    precio_existente.activo = True
+                    precio_existente.save()
+                else:
+                    # Crear nuevo precio usando SQL directo
+                    from django.db import connection
+                    from core.db_inspector import column_exists
+                    from django.utils import timezone
+                    
+                    tiene_tipo_precio = column_exists("inventario_precio", "tipo_precio")
+                    tiene_costo = column_exists("inventario_precio", "costo")
+                    tiene_precio_venta_normal = column_exists("inventario_precio", "precio_venta_normal")
+                    tiene_precio_venta_minimo = column_exists("inventario_precio", "precio_venta_minimo")
+                    tiene_precio_venta_descuento = column_exists("inventario_precio", "precio_venta_descuento")
+                    
+                    insert_fields = ["variante_id", "tipo", "moneda", "precio", "activo"]
+                    insert_values = [
+                        variante.pk,
+                        Precio.Tipo.MAYORISTA,
+                        Precio.Moneda.USD,
+                        precio_may_usd_decimal,
+                        True
+                    ]
+                    
+                    if tiene_tipo_precio:
+                        insert_fields.append("tipo_precio")
+                        insert_values.append(Precio.Tipo.MAYORISTA)
+                    
+                    if tiene_costo:
+                        insert_fields.append("costo")
+                        insert_values.append(Decimal("0.00"))
+                    
+                    if tiene_precio_venta_normal:
+                        insert_fields.append("precio_venta_normal")
+                        insert_values.append(precio_may_usd_decimal)
+                    
+                    if tiene_precio_venta_minimo:
+                        insert_fields.append("precio_venta_minimo")
+                        insert_values.append(precio_may_usd_decimal)
+                    
+                    if tiene_precio_venta_descuento:
+                        insert_fields.append("precio_venta_descuento")
+                        insert_values.append(None)
+                    
+                    # Agregar timestamps usando NOW() en SQL
+                    insert_fields.extend(["creado", "actualizado"])
+                    
+                    with connection.cursor() as cursor:
+                        placeholders = ", ".join(["%s"] * len(insert_values) + ["NOW()", "NOW()"])
+                        fields_str = ", ".join(insert_fields)
+                        cursor.execute(
+                            f"INSERT INTO inventario_precio ({fields_str}) VALUES ({placeholders})",
+                            insert_values
+                        )
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Error al sincronizar precio USD mayorista: {e}")
 
 
 @login_required
 def iphone_dashboard(request):
+    # Asegurar que column_exists esté disponible (ya está importado al inicio del archivo)
+    from core.db_inspector import column_exists as _column_exists
+    
     required_columns = [
         ("inventario_productovariante", "sku"),
         ("inventario_productovariante", "stock_actual"),
@@ -68,7 +220,7 @@ def iphone_dashboard(request):
     missing_columns = [
         f"{table}.{column}"
         for table, column in required_columns
-        if not column_exists(table, column)
+        if not _column_exists(table, column)
     ]
 
     valor_dolar = obtener_valor_dolar_blue()
@@ -153,29 +305,99 @@ def iphone_dashboard(request):
             precio_mayorista_ars.precio if precio_mayorista_ars else None
         )
 
-        if variante.precio_minorista_usd:
-            total_usd += Decimal(variante.precio_minorista_usd) * Decimal(
+        # Usar precio del detalle si no hay precio en la variante
+        precio_usd_para_calculo = variante.precio_minorista_usd
+        if detalle and detalle.precio_venta_usd and not precio_usd_para_calculo:
+            precio_usd_para_calculo = detalle.precio_venta_usd
+            variante.precio_minorista_usd = detalle.precio_venta_usd
+            # Crear precio en la tabla Precio si no existe
+            precio_usd_existente = Precio.objects.filter(
+                variante=variante,
+                tipo=Precio.Tipo.MINORISTA,
+                moneda=Precio.Moneda.USD,
+                activo=True
+            ).first()
+            if not precio_usd_existente:
+                # Usar SQL directo para incluir todos los campos requeridos
+                from django.db import connection
+                from django.utils import timezone
+                
+                tiene_tipo_precio = _column_exists("inventario_precio", "tipo_precio")
+                tiene_costo = _column_exists("inventario_precio", "costo")
+                tiene_precio_venta_normal = _column_exists("inventario_precio", "precio_venta_normal")
+                tiene_precio_venta_minimo = _column_exists("inventario_precio", "precio_venta_minimo")
+                tiene_precio_venta_descuento = _column_exists("inventario_precio", "precio_venta_descuento")
+                
+                precio_valor = Decimal(str(detalle.precio_venta_usd))
+                
+                insert_fields = ["variante_id", "tipo", "moneda", "precio", "activo"]
+                insert_values = [
+                    variante.pk,
+                    Precio.Tipo.MINORISTA,
+                    Precio.Moneda.USD,
+                    precio_valor,
+                    True
+                ]
+                
+                if tiene_tipo_precio:
+                    insert_fields.append("tipo_precio")
+                    insert_values.append(Precio.Tipo.MINORISTA)
+                
+                if tiene_costo:
+                    insert_fields.append("costo")
+                    insert_values.append(Decimal("0.00"))
+                
+                if tiene_precio_venta_normal:
+                    insert_fields.append("precio_venta_normal")
+                    insert_values.append(precio_valor)
+                
+                if tiene_precio_venta_minimo:
+                    insert_fields.append("precio_venta_minimo")
+                    insert_values.append(precio_valor)
+                
+                if tiene_precio_venta_descuento:
+                    insert_fields.append("precio_venta_descuento")
+                    insert_values.append(None)
+                
+                # Agregar timestamps usando NOW() en SQL
+                insert_fields.extend(["creado", "actualizado"])
+                
+                with connection.cursor() as cursor:
+                    placeholders = ", ".join(["%s"] * len(insert_values) + ["NOW()", "NOW()"])
+                    fields_str = ", ".join(insert_fields)
+                    cursor.execute(
+                        f"INSERT INTO inventario_precio ({fields_str}) VALUES ({placeholders})",
+                        insert_values
+                    )
+        
+        # Calcular totales usando el precio disponible
+        if precio_usd_para_calculo:
+            total_usd += Decimal(precio_usd_para_calculo) * Decimal(
                 variante.stock_actual or 0
             )
-        if total_ars is not None and variante.precio_minorista_usd:
-            total_ars += (
-                Decimal(variante.precio_minorista_usd)
-                * Decimal(variante.stock_actual or 0)
-                * dolar_decimal
-            )
+            if total_ars is not None:
+                total_ars += (
+                    Decimal(precio_usd_para_calculo)
+                    * Decimal(variante.stock_actual or 0)
+                    * dolar_decimal
+                )
 
-        if dolar_decimal and variante.precio_minorista_usd and not variante.precio_minorista_ars:
-            variante.precio_minorista_ars = (
-                Decimal(variante.precio_minorista_usd) * dolar_decimal
-            )
-        if dolar_decimal and variante.precio_mayorista_usd and not variante.precio_mayorista_ars:
-            variante.precio_mayorista_ars = (
-                Decimal(variante.precio_mayorista_usd) * dolar_decimal
-            )
+        # Convertir precios USD a ARS si no existen
+        if dolar_decimal:
+            if variante.precio_minorista_usd and not variante.precio_minorista_ars:
+                variante.precio_minorista_ars = (
+                    Decimal(variante.precio_minorista_usd) * dolar_decimal
+                )
+            if variante.precio_mayorista_usd and not variante.precio_mayorista_ars:
+                variante.precio_mayorista_ars = (
+                    Decimal(variante.precio_mayorista_usd) * dolar_decimal
+                )
+            # Si tiene detalle con precio pero no precio en variante, calcular ARS también
+            if detalle and detalle.precio_venta_usd and not variante.precio_minorista_ars:
+                variante.precio_minorista_ars = (
+                    Decimal(detalle.precio_venta_usd) * dolar_decimal
+                )
 
-        if detalle:
-            if detalle.precio_venta_usd and not variante.precio_minorista_usd:
-                variante.precio_minorista_usd = detalle.precio_venta_usd
         variante.detalle_cache = detalle
 
     stats = {
@@ -611,7 +833,10 @@ def toggle_iphone_status(request, variante_id):
 
 @login_required
 def iphone_historial(request):
-    """Historial de iPhones vendidos (stock = 0)."""
+    """
+    Historial completo de TODOS los iPhones vendidos históricamente.
+    Incluye incluso los que fueron eliminados del inventario.
+    """
     if not is_detalleiphone_variante_ready():
         messages.error(
             request,
@@ -620,33 +845,81 @@ def iphone_historial(request):
         return redirect("inventario:dashboard")
     
     from ventas.models import DetalleVenta
+    from inventario.models import DetalleIphone
+    from django.db.models import Q
     
-    # Buscar iPhones vendidos (variantes con stock = 0 que tienen DetalleIphone)
-    variantes_vendidas = ProductoVariante.objects.filter(
-        producto__categoria__nombre__iexact="Celulares",
-        stock_actual=0
-    ).select_related("producto", "detalle_iphone").prefetch_related("detalles_venta__venta", "detalles_venta__venta__cliente")
+    # Buscar SOLO DetalleVenta de productos de la categoría "Celulares"
+    # Y que tengan DetalleIphone asociado (son iPhones reales)
+    # Usar un filtro más específico: solo los que tienen DetalleIphone
+    detalles_venta_iphones = DetalleVenta.objects.filter(
+        variante__producto__categoria__nombre__iexact="Celulares",
+        variante__detalle_iphone__isnull=False  # Solo los que tienen DetalleIphone
+    ).select_related(
+        "venta",
+        "venta__cliente",
+        "variante",
+        "variante__producto",
+        "variante__producto__categoria",
+        "variante__detalle_iphone"
+    ).order_by("-venta__fecha")
     
-    # Obtener información de ventas para cada variante
+    # Filtrar solo los que tienen DetalleIphone asociado (son iPhones reales)
     historial = []
-    for variante in variantes_vendidas:
-        detalle_iphone = getattr(variante, "detalle_iphone", None)
+    
+    for detalle_venta in detalles_venta_iphones:
+        variante = detalle_venta.variante
+        
+        # Si la variante fue eliminada, verificar si la descripción o SKU indica que es iPhone
+        if not variante:
+            # Solo incluir si claramente es un iPhone (descripción o SKU contiene "iphone")
+            descripcion_lower = (detalle_venta.descripcion or "").lower()
+            sku_lower = (detalle_venta.sku or "").lower()
+            if "iphone" in descripcion_lower or "iphone" in sku_lower:
+                # Es un iPhone pero la variante fue eliminada
+                historial.append({
+                    "variante": None,
+                    "detalle_iphone": None,
+                    "venta": detalle_venta.venta,
+                    "cliente": detalle_venta.venta.cliente,
+                    "cliente_nombre": detalle_venta.venta.cliente_nombre or (
+                        detalle_venta.venta.cliente.nombre if detalle_venta.venta.cliente else "Sin cliente"
+                    ),
+                    "fecha_venta": detalle_venta.venta.fecha,
+                    "precio_venta": detalle_venta.precio_unitario_ars_congelado,
+                    "cantidad": detalle_venta.cantidad,
+                    "sku": detalle_venta.sku,
+                    "descripcion": detalle_venta.descripcion,
+                })
+            continue
+        
+        # Verificar que sea de la categoría "Celulares" (doble verificación)
+        if not variante.producto or not variante.producto.categoria:
+            continue
+        if variante.producto.categoria.nombre.lower() != "celulares":
+            continue
+        
+        # Obtener DetalleIphone (ya está en el prefetch, así que debería estar disponible)
+        detalle_iphone = getattr(variante, 'detalle_iphone', None)
+        
+        # Si no tiene DetalleIphone, no es un iPhone registrado correctamente, saltar
         if not detalle_iphone:
             continue
         
-        # Buscar la última venta de esta variante
-        ultima_venta_detalle = variante.detalles_venta.select_related("venta", "venta__cliente").order_by("-venta__fecha").first()
-        
-        if ultima_venta_detalle:
-            historial.append({
-                "variante": variante,
-                "detalle_iphone": detalle_iphone,
-                "venta": ultima_venta_detalle.venta,
-                "cliente": ultima_venta_detalle.venta.cliente,
-                "cliente_nombre": ultima_venta_detalle.venta.cliente_nombre or (ultima_venta_detalle.venta.cliente.nombre if ultima_venta_detalle.venta.cliente else "Sin cliente"),
-                "fecha_venta": ultima_venta_detalle.venta.fecha,
-                "precio_venta": ultima_venta_detalle.precio_unitario_ars_congelado,
-            })
+        # Crear entrada en historial (solo llegamos aquí si es un iPhone)
+        historial.append({
+            "variante": variante,
+            "detalle_iphone": detalle_iphone,
+            "venta": detalle_venta.venta,
+            "cliente": detalle_venta.venta.cliente,
+            "cliente_nombre": detalle_venta.venta.cliente_nombre or (
+                detalle_venta.venta.cliente.nombre if detalle_venta.venta.cliente else "Sin cliente"
+            ),
+            "fecha_venta": detalle_venta.venta.fecha,
+            "precio_venta": detalle_venta.precio_unitario_ars_congelado,
+            "cantidad": detalle_venta.cantidad,
+            "sku": detalle_venta.sku,
+            "descripcion": detalle_venta.descripcion,
+        })
     
     # Ordenar por fecha de venta (más reciente primero)
     historial.sort(key=lambda x: x["fecha_venta"], reverse=True)
