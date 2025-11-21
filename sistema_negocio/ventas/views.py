@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 import json
 from uuid import uuid4
 
@@ -348,46 +348,100 @@ def actualizar_producto_rapido_api(request):
     precios_actualizados = []
     if "precio_minorista_ars" in data and data["precio_minorista_ars"]:
         precio_id = data.get("precio_minorista_ars_id")
-        nuevo_precio = Decimal(str(data["precio_minorista_ars"]))
-        if precio_id:
-            try:
-                precio = Precio.objects.get(pk=precio_id)
-                precio.precio = nuevo_precio
-                precio.save(update_fields=["precio"])
-                precios_actualizados.append("Precio minorista ARS")
-            except Precio.DoesNotExist:
-                pass
-        else:
-            # Crear nuevo precio
-            Precio.objects.create(
-                variante=variante,
-                tipo=Precio.Tipo.MINORISTA,
-                moneda=Precio.Moneda.ARS,
-                precio=nuevo_precio,
-                activo=True
-            )
-            precios_actualizados.append("Precio minorista ARS (creado)")
+        try:
+            # Limpiar y validar el valor del precio
+            precio_str = str(data["precio_minorista_ars"]).strip()
+            if not precio_str or precio_str.lower() in ['na', 'n/a', 'null', 'none', '']:
+                raise ValueError("Precio inválido o vacío")
+            
+            # Remover caracteres no numéricos excepto punto y coma
+            precio_limpio = precio_str.replace(',', '.').replace('$', '').replace(' ', '')
+            
+            # Intentar convertir a Decimal
+            nuevo_precio = Decimal(precio_limpio)
+            
+            # Validar que el precio sea positivo
+            if nuevo_precio < 0:
+                raise ValueError("El precio no puede ser negativo")
+            
+            if precio_id:
+                try:
+                    precio = Precio.objects.get(pk=precio_id)
+                    precio.precio = nuevo_precio
+                    precio.save(update_fields=["precio"])
+                    precios_actualizados.append("Precio minorista ARS")
+                except Precio.DoesNotExist:
+                    # Si el precio no existe, crear uno nuevo
+                    Precio.objects.create(
+                        variante=variante,
+                        tipo=Precio.Tipo.MINORISTA,
+                        moneda=Precio.Moneda.ARS,
+                        precio=nuevo_precio,
+                        activo=True
+                    )
+                    precios_actualizados.append("Precio minorista ARS (creado)")
+            else:
+                # Crear nuevo precio
+                Precio.objects.create(
+                    variante=variante,
+                    tipo=Precio.Tipo.MINORISTA,
+                    moneda=Precio.Moneda.ARS,
+                    precio=nuevo_precio,
+                    activo=True
+                )
+                precios_actualizados.append("Precio minorista ARS (creado)")
+        except (ValueError, InvalidOperation, TypeError) as e:
+            return JsonResponse({
+                "error": f"Error al procesar precio minorista ARS: {str(e)}. Asegurate de ingresar un número válido (ej: 1500.50)"
+            }, status=400)
     
     if "precio_mayorista_ars" in data and data["precio_mayorista_ars"]:
         precio_id = data.get("precio_mayorista_ars_id")
-        nuevo_precio = Decimal(str(data["precio_mayorista_ars"]))
-        if precio_id:
-            try:
-                precio = Precio.objects.get(pk=precio_id)
-                precio.precio = nuevo_precio
-                precio.save(update_fields=["precio"])
-                precios_actualizados.append("Precio mayorista ARS")
-            except Precio.DoesNotExist:
-                pass
-        else:
-            Precio.objects.create(
-                variante=variante,
-                tipo=Precio.Tipo.MAYORISTA,
-                moneda=Precio.Moneda.ARS,
-                precio=nuevo_precio,
-                activo=True
-            )
-            precios_actualizados.append("Precio mayorista ARS (creado)")
+        try:
+            # Limpiar y validar el valor del precio
+            precio_str = str(data["precio_mayorista_ars"]).strip()
+            if not precio_str or precio_str.lower() in ['na', 'n/a', 'null', 'none', '']:
+                raise ValueError("Precio inválido o vacío")
+            
+            # Remover caracteres no numéricos excepto punto y coma
+            precio_limpio = precio_str.replace(',', '.').replace('$', '').replace(' ', '')
+            
+            # Intentar convertir a Decimal
+            nuevo_precio = Decimal(precio_limpio)
+            
+            # Validar que el precio sea positivo
+            if nuevo_precio < 0:
+                raise ValueError("El precio no puede ser negativo")
+            
+            if precio_id:
+                try:
+                    precio = Precio.objects.get(pk=precio_id)
+                    precio.precio = nuevo_precio
+                    precio.save(update_fields=["precio"])
+                    precios_actualizados.append("Precio mayorista ARS")
+                except Precio.DoesNotExist:
+                    # Si el precio no existe, crear uno nuevo
+                    Precio.objects.create(
+                        variante=variante,
+                        tipo=Precio.Tipo.MAYORISTA,
+                        moneda=Precio.Moneda.ARS,
+                        precio=nuevo_precio,
+                        activo=True
+                    )
+                    precios_actualizados.append("Precio mayorista ARS (creado)")
+            else:
+                Precio.objects.create(
+                    variante=variante,
+                    tipo=Precio.Tipo.MAYORISTA,
+                    moneda=Precio.Moneda.ARS,
+                    precio=nuevo_precio,
+                    activo=True
+                )
+                precios_actualizados.append("Precio mayorista ARS (creado)")
+        except (ValueError, InvalidOperation, TypeError) as e:
+            return JsonResponse({
+                "error": f"Error al procesar precio mayorista ARS: {str(e)}. Asegurate de ingresar un número válido (ej: 1500.50)"
+            }, status=400)
     
     if "precio_minorista_usd" in data and data["precio_minorista_usd"]:
         precio_id = data.get("precio_minorista_usd_id")
@@ -512,7 +566,11 @@ def agregar_producto_carrito_remoto_api(request):
                 config = ConfiguracionSistema.obtener_unica()
                 if config.precios_escala_activos:
                     precio_base = Decimal(str(item_existente["precio_base"]))
-                    precio_con_escala = config.obtener_precio_con_escala(precio_base, nueva_cantidad)
+                    # Obtener categoría del producto si está disponible
+                    categoria_id = None
+                    if variante and variante.producto and variante.producto.categoria:
+                        categoria_id = variante.producto.categoria.id
+                    precio_con_escala = config.obtener_precio_con_escala(precio_base, nueva_cantidad, categoria_id)
                     nuevo_precio = float(precio_con_escala)
                     item_existente["precio_unitario_ars"] = nuevo_precio
                     
@@ -567,7 +625,8 @@ def agregar_producto_carrito_remoto_api(request):
                 config = ConfiguracionSistema.obtener_unica()
                 if config.precios_escala_activos:
                     cantidad_para_escala = 1  # Cantidad inicial al agregar
-                    precio_con_escala = config.obtener_precio_con_escala(precio_base_ars, cantidad_para_escala)
+                    categoria_id = variante.producto.categoria.id if variante.producto.categoria else None
+                    precio_con_escala = config.obtener_precio_con_escala(precio_base_ars, cantidad_para_escala, categoria_id)
                     if precio_con_escala < precio_base_ars:
                         descuento_escala_aplicado = float(precio_base_ars - precio_con_escala)
                         porcentaje_descuento = float((descuento_escala_aplicado / float(precio_base_ars)) * 100)
@@ -795,7 +854,8 @@ def _resolver_precio_ars(variante: ProductoVariante, modo_precio: str = None, ca
             from configuracion.models import ConfiguracionSistema
             config = ConfiguracionSistema.obtener_unica()
             if config.precios_escala_activos:
-                precio_con_escala = config.obtener_precio_con_escala(precio_base_ars, cantidad)
+                categoria_id = variante.producto.categoria.id if variante.producto.categoria else None
+                precio_con_escala = config.obtener_precio_con_escala(precio_base_ars, cantidad, categoria_id)
                 precio_final_ars = precio_con_escala
                 if precio_con_escala < precio_base_ars:
                     descuento_escala = precio_base_ars - precio_con_escala
@@ -995,7 +1055,8 @@ def crear_venta_api(request):
                     from configuracion.models import ConfiguracionSistema
                     config = ConfiguracionSistema.obtener_unica()
                     if config.precios_escala_activos:
-                        precio_con_escala = config.obtener_precio_con_escala(precio_ars, cantidad)
+                        categoria_id = variante.producto.categoria.id if variante.producto.categoria else None
+                        precio_con_escala = config.obtener_precio_con_escala(precio_ars, cantidad, categoria_id)
                         if precio_con_escala < precio_ars:
                             descuento_escala = precio_ars - precio_con_escala
                             precio_ars = precio_con_escala
@@ -1429,6 +1490,99 @@ def marcar_impresion_completada_api(request):
     solicitud.save()
     
     return JsonResponse({"status": "ok"})
+
+
+@csrf_exempt
+@login_required
+def recalcular_precio_con_escala_api(request):
+    """API para recalcular el precio de un producto con escalas de descuento según la cantidad."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Método no permitido"}, status=405)
+    
+    try:
+        data = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Payload inválido"}, status=400)
+    
+    variante_id = data.get("variante_id")
+    cantidad = data.get("cantidad", 1)
+    
+    if not variante_id:
+        return JsonResponse({"error": "variante_id requerido"}, status=400)
+    
+    try:
+        cantidad = int(cantidad)
+        if cantidad < 1:
+            cantidad = 1
+    except (ValueError, TypeError):
+        return JsonResponse({"error": "cantidad debe ser un número entero positivo"}, status=400)
+    
+    try:
+        variante = ProductoVariante.objects.select_related("producto", "producto__categoria").get(pk=variante_id)
+    except ProductoVariante.DoesNotExist:
+        return JsonResponse({"error": "Producto no encontrado"}, status=404)
+    
+    # Obtener modo_precio de la sesión
+    modo_precio = request.session.get("modo_precio", Precio.Tipo.MINORISTA)
+    
+    # Resolver precio con escalas
+    precio_ars, precio_usd_original, tipo_cambio_usado, descuento_escala = _resolver_precio_ars(
+        variante, modo_precio, cantidad
+    )
+    
+    # Calcular descuento aplicado y porcentaje
+    # Siempre obtener precio base (sin descuento por escalas)
+    precio_base = None
+    descuento_aplicado = None
+    porcentaje_descuento = None
+    
+    # Obtener precio base (sin descuento por escalas)
+    precio_base_obj = variante.precios.filter(
+        activo=True,
+        tipo=modo_precio,
+        moneda=Precio.Moneda.ARS,
+    ).order_by("-actualizado").first()
+    
+    if precio_base_obj:
+        precio_base = float(precio_base_obj.precio)
+    else:
+        # Si no hay precio ARS, buscar USD y convertir
+        precio_usd_obj = variante.precios.filter(
+            activo=True,
+            tipo=modo_precio,
+            moneda=Precio.Moneda.USD,
+        ).order_by("-actualizado").first()
+        
+        if precio_usd_obj:
+            es_iphone = (
+                variante.producto.categoria 
+                and variante.producto.categoria.nombre.lower() == "celulares"
+            )
+            if es_iphone:
+                dolar_blue = obtener_valor_dolar_blue()
+                if dolar_blue:
+                    precio_base = float(precio_usd_obj.precio) * dolar_blue
+            else:
+                precio_base = float(precio_usd_obj.precio)
+    
+    # Si no se encontró precio base, usar el precio final como base
+    if precio_base is None:
+        precio_base = float(precio_ars)
+    
+    # Calcular descuento si existe
+    if modo_precio == Precio.Tipo.MAYORISTA and descuento_escala and precio_base:
+        descuento_aplicado = float(descuento_escala)
+        porcentaje_descuento = (descuento_aplicado / precio_base) * 100 if precio_base > 0 else 0
+    
+    return JsonResponse({
+        "status": "ok",
+        "precio_unitario_ars": float(precio_ars),
+        "precio_base": precio_base,
+        "descuento_aplicado": descuento_aplicado,
+        "porcentaje_descuento": porcentaje_descuento,
+        "precio_usd_original": float(precio_usd_original) if precio_usd_original else None,
+        "tipo_cambio_usado": float(tipo_cambio_usado) if tipo_cambio_usado else None,
+    })
 
 
 @login_required

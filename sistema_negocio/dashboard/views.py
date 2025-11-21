@@ -9,7 +9,7 @@ from decimal import Decimal
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, F, Prefetch, Sum, DecimalField
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, Cast
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -236,6 +236,12 @@ def dashboard_view(request):
     margenes_por_metodo: list[dict] = []
     analisis_mayorista: dict[str, object] = {}
     margenes_mayorista_por_metodo: list[dict] = []
+    ventas_por_origen: list[dict] = []
+    ventas_por_vendedor: list[dict] = []
+    top_productos: list[dict] = []
+    ventas_por_categoria: list[dict] = []
+    comparativa_mensual: dict[str, object] = {}
+    ventas_por_hora: list[dict] = []
     
     if table_exists("ventas_venta"):
         periodo_inicio = timezone.now() - timedelta(days=30)
@@ -534,6 +540,138 @@ def dashboard_view(request):
                 "es_ganancia": total_ganancia_mayorista >= 0,
             }
         
+        # Ventas por origen (POS vs WEB vs MAYORISTA)
+        ventas_por_origen_raw = ventas_qs.values("origen").annotate(
+            total=Coalesce(Sum("total_ars"), Decimal("0")),
+            cantidad=Count("id")
+        )
+        origen_dict = dict(Venta.Origen.choices)
+        ventas_por_origen = [
+            {
+                "origen": origen_dict.get(v["origen"], v["origen"] or "Sin origen"),
+                "total": float(v["total"]),
+                "cantidad": v["cantidad"]
+            }
+            for v in ventas_por_origen_raw
+        ]
+        
+        # Ventas por vendedor
+        ventas_por_vendedor_raw = ventas_qs.filter(vendedor__isnull=False).values(
+            "vendedor__username", "vendedor__first_name", "vendedor__last_name"
+        ).annotate(
+            total=Coalesce(Sum("total_ars"), Decimal("0")),
+            cantidad=Count("id")
+        ).order_by("-total")[:10]
+        
+        ventas_por_vendedor = [
+            {
+                "vendedor": f"{v['vendedor__first_name'] or ''} {v['vendedor__last_name'] or ''}".strip() or v['vendedor__username'],
+                "total": float(v["total"]),
+                "cantidad": v["cantidad"]
+            }
+            for v in ventas_por_vendedor_raw
+        ]
+        
+        # Top productos vendidos (últimos 30 días)
+        top_productos = []
+        if table_exists("ventas_detalleventa"):
+            # Usar subtotal_ars que ya está calculado en el modelo
+            # Convertir cantidad a DecimalField para evitar problemas de tipos mixtos
+            from django.db.models.functions import Cast
+            top_productos_raw = DetalleVenta.objects.filter(
+                venta__fecha__gte=periodo_inicio,
+                variante__isnull=False
+            ).values(
+                "variante__producto__nombre", "variante__sku"
+            ).annotate(
+                cantidad_vendida=Coalesce(
+                    Sum(Cast("cantidad", DecimalField(max_digits=10, decimal_places=0))),
+                    Decimal("0")
+                ),
+                total_ventas=Coalesce(Sum("subtotal_ars"), Decimal("0"))
+            ).order_by("-cantidad_vendida")[:10]
+            
+            top_productos = [
+                {
+                    "producto": v["variante__producto__nombre"] or "Sin nombre",
+                    "sku": v["variante__sku"] or "",
+                    "cantidad": int(v["cantidad_vendida"]),
+                    "total": float(v["total_ventas"])
+                }
+                for v in top_productos_raw
+            ]
+        
+        # Ventas por categoría
+        ventas_por_categoria = []
+        if table_exists("ventas_detalleventa") and table_exists("inventario_categoria"):
+            from inventario.models import Categoria
+            # Usar subtotal_ars que ya está calculado en el modelo
+            ventas_categoria_raw = DetalleVenta.objects.filter(
+                venta__fecha__gte=periodo_inicio,
+                variante__producto__categoria__isnull=False
+            ).values("variante__producto__categoria__nombre").annotate(
+                total=Coalesce(Sum("subtotal_ars"), Decimal("0")),
+                cantidad=Count("id")
+            ).order_by("-total")[:10]
+            
+            ventas_por_categoria = [
+                {
+                    "categoria": v["variante__producto__categoria__nombre"] or "Sin categoría",
+                    "total": float(v["total"]),
+                    "cantidad": v["cantidad"]
+                }
+                for v in ventas_categoria_raw
+            ]
+        
+        # Comparativa mensual (mes actual vs mes anterior)
+        mes_anterior_inicio = (mes_actual_inicio - timedelta(days=1)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        mes_anterior_fin = mes_actual_inicio - timedelta(seconds=1)
+        
+        ventas_mes_anterior = Venta.objects.filter(
+            fecha__gte=mes_anterior_inicio,
+            fecha__lte=mes_anterior_fin
+        )
+        
+        total_mes_anterior = ventas_mes_anterior.aggregate(
+            total=Coalesce(Sum("total_ars"), Decimal("0"))
+        )["total"] or Decimal("0")
+        
+        tickets_mes_anterior = ventas_mes_anterior.count()
+        
+        comparativa_mensual = {
+            "mes_actual": {
+                "total": float(total),
+                "tickets": tickets,
+                "promedio": float(promedio)
+            },
+            "mes_anterior": {
+                "total": float(total_mes_anterior),
+                "tickets": tickets_mes_anterior,
+                "promedio": float(total_mes_anterior / tickets_mes_anterior) if tickets_mes_anterior > 0 else 0
+            },
+            "variacion_total": float((total - total_mes_anterior) / total_mes_anterior * 100) if total_mes_anterior > 0 else 0,
+            "variacion_tickets": float((tickets - tickets_mes_anterior) / tickets_mes_anterior * 100) if tickets_mes_anterior > 0 else 0
+        }
+        
+        # Ventas por hora del día (últimos 7 días)
+        from django.db.models.functions import ExtractHour
+        ventas_por_hora_raw = ventas_qs.filter(fecha__gte=ultimos_7_dias).annotate(
+            hora=ExtractHour("fecha")
+        ).values("hora").annotate(
+            total=Coalesce(Sum("total_ars"), Decimal("0")),
+            cantidad=Count("id")
+        ).order_by("hora")
+        
+        ventas_por_hora = [
+            {
+                "hora": f"{v['hora']:02d}:00" if v.get('hora') is not None else "00:00",
+                "total": float(v["total"]),
+                "cantidad": v["cantidad"]
+            }
+            for v in ventas_por_hora_raw
+            if v.get('hora') is not None
+        ]
+        
         ventas_metrics = {
             "total_periodo": total,
             "tickets_periodo": tickets,
@@ -606,6 +744,12 @@ def dashboard_view(request):
         "margenes_por_metodo": margenes_por_metodo,
         "analisis_mayorista": analisis_mayorista,
         "margenes_mayorista_por_metodo": margenes_mayorista_por_metodo,
+        "ventas_por_origen": ventas_por_origen,
+        "ventas_por_vendedor": ventas_por_vendedor,
+        "top_productos": top_productos,
+        "ventas_por_categoria": ventas_por_categoria,
+        "comparativa_mensual": comparativa_mensual,
+        "ventas_por_hora": ventas_por_hora,
         "notificaciones_no_leidas": notificaciones_no_leidas,
         "total_notificaciones_no_leidas": total_notificaciones_no_leidas,
     }

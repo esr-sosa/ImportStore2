@@ -10,9 +10,11 @@ from crm import views
 from core.views import IosLoginView, set_precio_modo
 from core import api_views
 from core import jwt_views
+from core.healthcheck import healthcheck
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 urlpatterns = [
+    path('health/', healthcheck, name='healthcheck'),
     path('acceso/', IosLoginView.as_view(), name='login'),
     path('salir/', LogoutView.as_view(next_page='login'), name='logout'),
     path('set-precio-modo/', set_precio_modo, name='set_precio_modo'),

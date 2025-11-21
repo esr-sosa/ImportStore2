@@ -1,5 +1,5 @@
 <div class="min-h-screen bg-[var(--surface-color)] pb-16 pt-10 dark:bg-[var(--surface-color)]">
-  <div class="mx-auto flex max-w-6xl flex-col gap-10 px-6">
+  <div class="mx-auto flex max-w-7xl flex-col gap-6 px-6">
     <header class="flex flex-col gap-3">
       <span class="text-xs font-semibold uppercase tracking-[0.35em] text-muted">Centro de control</span>
       <div class="flex flex-wrap items-end justify-between gap-4">
@@ -28,46 +28,28 @@
       </div>
     </header>
 
-    <div class="grid gap-6 lg:grid-cols-[3fr,2fr]">
+    <!-- Grid principal: 2 columnas equilibradas -->
+    <div class="grid gap-6 lg:grid-cols-2">
+      <!-- Columna Izquierda -->
+      <div class="space-y-6">
+        <!-- Identidad de marca -->
       <section class="glass-surface card-surface rounded-3xl border px-6 py-6 shadow-xl dark:border-slate-700/60">
-        <div class="flex flex-col gap-6 lg:flex-row">
-          <div class="flex-1">
-            <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Identidad de marca</h2>
+          <div class="mb-6">
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-white mb-2">Identidad de marca</h2>
             <p class="text-sm text-muted">Los cambios se aplican instantáneamente al sidebar, la cabecera, los PDF y la tienda pública.</p>
-          </div>
-          <div class="relative w-full max-w-xs overflow-hidden rounded-3xl border border-white/30 bg-gradient-to-br from-[var(--accent-color)]/95 to-slate-900/90 p-5 text-white shadow-xl" id="brand-preview" style="--accent-color: {{ configuracion.color_principal }};">
-            <div class="flex items-center gap-3">
-              <div class="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-white/10 text-xl font-semibold" id="brand-preview-logo">
-                {% if configuracion.logo %}
-                  <img src="{{ configuracion.logo.url }}" alt="Logo actual" class="h-12 w-12 object-cover" />
-                {% else %}
-                  {{ configuracion.nombre_comercial|default:'IS'|slice:':2'|upper }}
-                {% endif %}
-              </div>
-              <div class="leading-tight">
-                <p class="text-xs uppercase tracking-[0.3em] text-white/80">Vista previa</p>
-                <p class="text-lg font-semibold" id="brand-preview-name">{{ configuracion.nombre_comercial }}</p>
-                <p class="text-xs text-white/70" id="brand-preview-tagline">{{ configuracion.lema|default:"Personalizá tu slogan" }}</p>
-              </div>
-            </div>
-            <div class="mt-4 flex items-center justify-between text-xs text-white/70">
-              <span>{{ system_info.engine|default:"DB"|upper }} · {{ system_info.database|default:"—" }}</span>
-              <span>Actualizado: {{ configuracion.ultima_actualizacion|default:"—" }}</span>
-            </div>
-          </div>
         </div>
 
-        <form method="post" enctype="multipart/form-data" class="mt-6 space-y-8" hx-post="{% url 'configuracion:panel' %}" hx-target="#configuracion-panel" hx-swap="outerHTML" hx-encoding="multipart/form-data">
+          <form method="post" enctype="multipart/form-data" hx-post="{% url 'configuracion:panel' %}" hx-target="#configuracion-panel" hx-swap="outerHTML" hx-encoding="multipart/form-data">
           {% csrf_token %}
           <input type="hidden" name="form-target" value="sistema">
 
           {% if form.non_field_errors %}
-            <div class="rounded-2xl border border-rose-400/50 bg-rose-100/70 px-4 py-3 text-sm font-medium text-rose-700 dark:border-rose-500/50 dark:bg-rose-500/10 dark:text-rose-200">
+              <div class="rounded-2xl border border-rose-400/50 bg-rose-100/70 px-4 py-3 text-sm font-medium text-rose-700 dark:border-rose-500/50 dark:bg-rose-500/10 dark:text-rose-200 mb-6">
               {{ form.non_field_errors }}
             </div>
           {% endif %}
 
-          <div class="grid gap-5 md:grid-cols-2">
+            <div class="grid gap-4 md:grid-cols-2">
             <div>
               <label class="text-xs font-semibold uppercase tracking-wide text-muted">Nombre comercial</label>
               {{ form.nombre_comercial }}
@@ -100,63 +82,208 @@
             </div>
             <div class="flex items-center gap-3 pt-2">
               {{ form.acceso_admin_habilitado }}
-              <span class="text-sm text-muted">Mostrar acceso rápido al panel de Django</span>
-            </div>
-            <div>
-              <label class="text-xs font-semibold uppercase tracking-wide text-muted">WhatsApp corporativo</label>
-              {{ form.whatsapp_numero }}
-              {{ form.whatsapp_numero.errors }}
-            </div>
-            <div>
-              <label class="text-xs font-semibold uppercase tracking-wide text-muted">Correo de contacto</label>
-              {{ form.contacto_email }}
-              {{ form.contacto_email.errors }}
-            </div>
-            <div>
-              <label class="text-xs font-semibold uppercase tracking-wide text-muted">Domicilio comercial</label>
-              {{ form.domicilio_comercial }}
-              {{ form.domicilio_comercial.errors }}
-            </div>
-            <div>
-              <label class="text-xs font-semibold uppercase tracking-wide text-muted">Dólar blue manual</label>
-              {{ form.dolar_blue_manual }}
-              {{ form.dolar_blue_manual.errors }}
+                <span class="text-sm text-muted">Acceso rápido al panel Django</span>
             </div>
           </div>
 
-          <div class="mt-6 rounded-2xl border-2 border-purple-500/30 bg-gradient-to-br from-purple-500/10 to-indigo-500/10 p-6">
+            <div class="mt-6 rounded-2xl border-2 border-purple-500/30 bg-gradient-to-br from-purple-500/10 to-indigo-500/10 p-5">
             <h3 class="text-sm font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
               <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               Configuración Mayorista
             </h3>
-            <div class="grid gap-5 md:grid-cols-2">
-              <div class="flex items-center gap-3 pt-2">
+              <div class="grid gap-4 md:grid-cols-2">
+                <div class="flex items-center gap-3">
                 {{ form.precios_escala_activos }}
                 <div>
                   <span class="text-sm text-slate-100 font-medium">Activar descuentos por cantidad</span>
-                  <p class="text-xs text-muted mt-0.5">Aplica descuentos automáticos según la cantidad comprada</p>
-                </div>
+                    <p class="text-xs text-muted mt-0.5">Aplica descuentos automáticos según la cantidad</p>
+                  </div>
               </div>
               <div>
                 <label class="text-xs font-semibold uppercase tracking-wide text-muted">Monto mínimo mayorista</label>
                 {{ form.monto_minimo_mayorista }}
                 {{ form.monto_minimo_mayorista.errors }}
-                <p class="text-xs text-muted mt-1">Monto mínimo de compra para usuarios mayoristas (0 = sin límite)</p>
               </div>
               <div>
                 <label class="text-xs font-semibold uppercase tracking-wide text-muted">Cantidad mínima mayorista</label>
                 {{ form.cantidad_minima_mayorista }}
                 {{ form.cantidad_minima_mayorista.errors }}
-                <p class="text-xs text-muted mt-1">Cantidad mínima de unidades para usuarios mayoristas (0 = sin límite)</p>
+                </div>
               </div>
             </div>
             
-            <!-- Lista de Escalas Existentes -->
             <div class="mt-6">
-              <div class="flex items-center justify-between mb-4">
-                <h4 class="text-sm font-semibold text-slate-100">Escalas de Descuento por Cantidad</h4>
+              <label class="text-xs font-semibold uppercase tracking-wide text-muted">Notas internas</label>
+              {{ form.notas_sistema }}
+              {{ form.notas_sistema.errors }}
+            </div>
+
+            <div class="mt-6 flex items-center justify-between">
+              <p class="text-xs text-muted">Actualizado: {{ configuracion.ultima_actualizacion|default:"—" }}</p>
+              <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white/90">
+                <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                Guardar cambios
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <!-- Datos fiscales y contacto - Compacto -->
+        <section class="glass-surface card-surface rounded-3xl border px-6 py-6 shadow-xl dark:border-slate-700/60">
+          <div class="mb-6">
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-white mb-2">Datos fiscales y contacto</h2>
+            <p class="text-sm text-muted">Estos datos aparecen en los comprobantes PDF y en la tienda pública.</p>
+          </div>
+          <form method="post" enctype="multipart/form-data" hx-post="{% url 'configuracion:panel' %}" hx-target="#configuracion-panel" hx-swap="outerHTML" hx-encoding="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="form-target" value="tienda">
+            {% if tienda_form.non_field_errors %}
+              <div class="rounded-2xl border border-rose-400/50 bg-rose-100/70 px-4 py-3 text-sm font-medium text-rose-700 dark:border-rose-500/50 dark:bg-rose-500/10 dark:text-rose-200 mb-6">
+                {{ tienda_form.non_field_errors }}
+              </div>
+            {% endif %}
+            <div class="grid gap-4 md:grid-cols-2">
+              <div>
+                <label class="text-xs font-semibold uppercase tracking-wide text-muted">Nombre fiscal</label>
+                {{ tienda_form.nombre_tienda }}
+                {{ tienda_form.nombre_tienda.errors }}
+              </div>
+              <div>
+                <label class="text-xs font-semibold uppercase tracking-wide text-muted">CUIT</label>
+                {{ tienda_form.cuit }}
+                {{ tienda_form.cuit.errors }}
+              </div>
+              <div class="md:col-span-2">
+                <label class="text-xs font-semibold uppercase tracking-wide text-muted">Domicilio</label>
+                {{ tienda_form.direccion }}
+                {{ tienda_form.direccion.errors }}
+              </div>
+              <div>
+                <label class="text-xs font-semibold uppercase tracking-wide text-muted">Correo</label>
+                {{ tienda_form.email_contacto }}
+                {{ tienda_form.email_contacto.errors }}
+              </div>
+              <div>
+                <label class="text-xs font-semibold uppercase tracking-wide text-muted">Teléfono / WhatsApp</label>
+                {{ tienda_form.telefono_contacto }}
+                {{ tienda_form.telefono_contacto.errors }}
+              </div>
+              <div class="md:col-span-2">
+                <label class="text-xs font-semibold uppercase tracking-wide text-muted">Garantía general (días)</label>
+                {{ tienda_form.garantia_dias_general }}
+                {{ tienda_form.garantia_dias_general.errors }}
+              </div>
+            </div>
+            <div class="mt-6 flex justify-end">
+              <button type="submit" class="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white/90">
+                <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                Guardar datos fiscales
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <!-- Locales y puntos de retiro -->
+        <section class="glass-surface card-surface rounded-3xl border px-6 py-6 shadow-xl dark:border-slate-700/60">
+          <div class="mb-6">
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-white mb-2">Locales y puntos de retiro</h2>
+            <p class="text-sm text-muted">Publicá todas tus sucursales. Se mostrarán en la vista web y comprobantes.</p>
+          </div>
+          <div class="space-y-3 mb-6">
+            {% for local in locales %}
+              <div class="flex flex-col gap-2 rounded-xl border border-slate-200/50 bg-slate-50/50 px-4 py-3 text-sm dark:border-slate-700/60 dark:bg-slate-800/50 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p class="font-semibold text-slate-900 dark:text-white">{{ local.nombre }}</p>
+                  <p class="text-xs text-muted">{{ local.direccion|default:"Dirección no especificada" }}</p>
+                </div>
+                <form method="post" hx-post="{% url 'configuracion:local_eliminar' local.pk %}" hx-target="#configuracion-panel" hx-swap="outerHTML" class="inline">
+                  {% csrf_token %}
+                  <button type="submit" class="inline-flex items-center gap-1 rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700">
+                    <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    Quitar
+                  </button>
+                </form>
+              </div>
+            {% empty %}
+              <p class="rounded-xl border border-dashed border-slate-300 px-4 py-6 text-sm text-muted dark:border-slate-700">Todavía no cargaste locales. Sumá al menos uno para imprimirlo en tus comprobantes.</p>
+            {% endfor %}
+          </div>
+          <div class="rounded-xl border border-slate-200/50 bg-slate-50/30 p-4 dark:border-slate-700/60 dark:bg-slate-900/30">
+            <form method="post" hx-post="{% url 'configuracion:panel' %}" hx-target="#configuracion-panel" hx-swap="outerHTML">
+              {% csrf_token %}
+              <input type="hidden" name="form-target" value="local">
+              <div class="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label class="text-xs font-semibold uppercase tracking-wide text-muted">Nombre del local</label>
+                  {{ local_form.nombre }}
+                  {{ local_form.nombre.errors }}
+                </div>
+                <div>
+                  <label class="text-xs font-semibold uppercase tracking-wide text-muted">Dirección</label>
+                  {{ local_form.direccion }}
+                  {{ local_form.direccion.errors }}
+                </div>
+              </div>
+              <div class="mt-4 flex justify-end">
+                <button type="submit" class="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white/90">
+                  <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                  Agregar local
+                </button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <!-- Garantía por categorías -->
+        <section class="glass-surface card-surface rounded-3xl border px-6 py-6 shadow-xl dark:border-slate-700/60">
+          <div class="mb-6">
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-white mb-2">Garantía por categorías</h2>
+            <p class="text-sm text-muted">Configurá los días de garantía específicos para cada categoría.</p>
+          </div>
+          <div class="space-y-3">
+            {% for categoria in categorias %}
+              <div class="flex flex-col gap-2 rounded-xl border border-slate-200/50 bg-slate-50/50 px-4 py-3 text-sm dark:border-slate-700/60 dark:bg-slate-800/50 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex-1">
+                  <p class="font-semibold text-slate-900 dark:text-white">{{ categoria.nombre }}</p>
+                  <p class="text-xs text-muted">
+                    {% if categoria.garantia_dias %}
+                      Garantía: {{ categoria.garantia_dias }} días
+                    {% else %}
+                      Usa garantía general ({{ configuracion_tienda.garantia_dias_general|default:45 }} días)
+                    {% endif %}
+                  </p>
+                </div>
+                <form method="post" hx-post="{% url 'configuracion:categoria_garantia' categoria.pk %}" hx-target="#configuracion-panel" hx-swap="outerHTML" class="flex items-center gap-2">
+                  {% csrf_token %}
+                  <input type="number" name="garantia_dias" value="{{ categoria.garantia_dias|default:'' }}" min="0" placeholder="Días" class="w-24 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-500 focus:outline-none dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100">
+                  <button type="submit" class="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white/90">
+                    Guardar
+                  </button>
+                </form>
+              </div>
+            {% empty %}
+              <p class="rounded-xl border border-dashed border-slate-300 px-4 py-6 text-sm text-muted dark:border-slate-700">No hay categorías configuradas. Creá categorías desde el módulo de inventario.</p>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
+
+      <!-- Columna Derecha -->
+      <div class="space-y-6">
+        <!-- Escalas de Descuento por Cantidad -->
+        <section class="glass-surface card-surface rounded-3xl border px-6 py-6 shadow-xl dark:border-slate-700/60">
+          <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between mb-6">
+            <div>
+              <h2 class="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                Escalas de Descuento
+              </h2>
+              <p class="text-sm text-muted mt-1">Configurá descuentos automáticos según la cantidad comprada</p>
+            </div>
                 <button 
                   type="button"
                   onclick="document.getElementById('nueva-escala-form').classList.toggle('hidden')"
@@ -170,9 +297,10 @@
               </div>
 
               <!-- Formulario para Nueva Escala -->
-              <div id="nueva-escala-form" class="hidden mb-4 p-4 bg-slate-800/70 rounded-xl border border-purple-500/30">
+          <div id="nueva-escala-form" class="hidden mb-6 p-4 bg-slate-800/70 rounded-xl border border-purple-500/30">
                 <form 
                   id="form-nueva-escala"
+                  method="post"
                   hx-post="{% url 'configuracion:escala_crear' %}"
                   hx-target="#configuracion-panel"
                   hx-swap="outerHTML"
@@ -181,7 +309,7 @@
                   class="space-y-4"
                 >
                   {% csrf_token %}
-                  <div class="grid gap-4 md:grid-cols-4">
+              <div class="grid gap-4 md:grid-cols-2">
                     <div>
                       <label class="text-xs font-semibold uppercase tracking-wide text-muted mb-1 block">Cantidad Mínima *</label>
                       <input 
@@ -215,6 +343,7 @@
                         step="0.01"
                         class="mt-1 w-full rounded-xl border-2 border-slate-600/40 bg-slate-800/90 px-3 py-2 text-sm font-medium text-slate-100 shadow-lg focus:border-purple-500 focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
                         placeholder="5.00"
+                    oninput="this.setCustomValidity(''); if(this.value < 0 || this.value > 100) this.setCustomValidity('El descuento debe estar entre 0 y 100%');"
                       />
                     </div>
                     <div>
@@ -228,29 +357,58 @@
                       />
                     </div>
                   </div>
-                  <div class="flex items-center gap-4">
-                    <label class="flex items-center gap-2 text-sm text-slate-100">
+              <div>
+                <label class="text-xs font-semibold uppercase tracking-wide text-muted mb-2 block">Categorías aplicables</label>
+                <p class="text-xs text-muted mb-2">Si no seleccionás ninguna, se aplica a todas las categorías.</p>
+                <div class="max-h-40 overflow-y-auto rounded-xl border-2 border-slate-600/40 bg-slate-800/90 p-3 space-y-2">
+                  {% for categoria in categorias %}
+                    <label class="flex items-center gap-2 text-sm text-slate-100 cursor-pointer hover:bg-slate-700/50 p-2 rounded transition">
                       <input 
                         type="checkbox" 
-                        name="activo" 
-                        checked
+                        name="categorias" 
+                        value="{{ categoria.id }}"
                         class="h-4 w-4 rounded border-slate-500 bg-slate-700 text-purple-600 focus:ring-purple-500"
                       />
-                      <span>Activa</span>
+                      <span>{{ categoria.nombre }}</span>
                     </label>
-                    <div class="flex gap-2 ml-auto">
+                  {% empty %}
+                    <p class="text-xs text-muted">No hay categorías disponibles</p>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="flex items-center gap-4">
+                <label class="flex items-center gap-2 text-sm text-slate-100">
+                  <input 
+                    type="checkbox" 
+                    name="activo" 
+                    checked
+                    class="h-4 w-4 rounded border-slate-500 bg-slate-700 text-purple-600 focus:ring-purple-500"
+                  />
+                  <span>Activa</span>
+                    </label>
+                    <div class="flex gap-2 ml-auto flex-shrink-0">
                       <button 
                         type="button"
                         onclick="document.getElementById('nueva-escala-form').classList.add('hidden')"
-                        class="px-4 py-2 text-xs font-semibold text-slate-300 hover:text-slate-100 transition"
+                        class="px-4 py-2 text-xs font-semibold text-slate-300 hover:text-slate-100 transition whitespace-nowrap"
                       >
                         Cancelar
                       </button>
                       <button 
                         type="submit"
-                        class="px-4 py-2 rounded-full bg-purple-600 text-xs font-semibold text-white shadow-lg transition hover:bg-purple-700"
+                        class="px-5 py-2 rounded-full bg-purple-600 text-xs font-semibold text-white shadow-lg transition hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap min-w-[120px]"
+                        hx-indicator="#loading-indicator-escala"
                       >
-                        Guardar Escala
+                        <span class="flex items-center justify-center gap-2">
+                          <span class="htmx-indicator-hidden">Guardar Escala</span>
+                          <span id="loading-indicator-escala" class="htmx-indicator flex items-center">
+                            <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span class="ml-1">Guardando...</span>
+                          </span>
+                        </span>
                       </button>
                     </div>
                   </div>
@@ -258,34 +416,50 @@
               </div>
 
               <!-- Lista de Escalas -->
-              <div class="space-y-2">
+          <div class="space-y-3">
                 {% for escala in escalas_precio %}
                   <div id="escala-{{ escala.id }}" class="rounded-xl border border-purple-500/20 bg-slate-800/50 hover:bg-slate-800/70 transition">
                     <!-- Vista Normal -->
-                    <div id="escala-view-{{ escala.id }}" class="flex items-center justify-between p-4">
+                <div id="escala-view-{{ escala.id }}" class="p-4">
+                  <div class="flex items-start justify-between gap-4">
                       <div class="flex-1">
-                        <div class="flex items-center gap-3 flex-wrap">
-                          <span class="text-sm font-semibold text-slate-100">
+                      <div class="flex items-center gap-3 flex-wrap mb-2">
+                        <span class="text-base font-bold text-slate-100">
                             {% if escala.cantidad_maxima %}
                               {{ escala.cantidad_minima }} - {{ escala.cantidad_maxima }} unidades
                             {% else %}
                               {{ escala.cantidad_minima }}+ unidades
                             {% endif %}
                           </span>
-                          <span class="px-2 py-1 rounded-full text-xs font-semibold {% if escala.activo %}bg-green-500/20 text-green-400{% else %}bg-gray-500/20 text-gray-400{% endif %}">
-                            {{ escala.porcentaje_descuento }}% desc.
+                        <span class="px-3 py-1 rounded-full text-sm font-bold {% if escala.activo %}bg-green-500/20 text-green-400 border border-green-500/30{% else %}bg-gray-500/20 text-gray-400 border border-gray-500/30{% endif %}">
+                          {{ escala.porcentaje_descuento }}% descuento
                           </span>
                           {% if not escala.activo %}
-                            <span class="text-xs text-muted">(Inactiva)</span>
+                          <span class="px-2 py-1 rounded-full text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30">Inactiva</span>
                           {% endif %}
                         </div>
-                        <p class="text-xs text-muted mt-1">Orden: {{ escala.orden }}</p>
+                      <div class="flex items-center gap-4 text-xs text-muted mt-2">
+                        <span>Orden: {{ escala.orden }}</span>
+                        <span>{% if escala.activo %}Activa{% else %}Inactiva{% endif %}</span>
                       </div>
-                      <div class="flex items-center gap-2">
+                      <div class="mt-2">
+                        <span class="text-xs text-muted">Categorías: </span>
+                        {% if escala.categorias.all %}
+                          <span class="text-xs text-slate-200">
+                            {% for categoria in escala.categorias.all %}
+                              <span class="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">{{ categoria.nombre }}</span>{% if not forloop.last %}, {% endif %}
+                            {% endfor %}
+                          </span>
+                        {% else %}
+                          <span class="text-xs text-slate-400 italic">Todas las categorías</span>
+                        {% endif %}
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0">
                         <button 
                           type="button"
                           onclick="document.getElementById('escala-view-{{ escala.id }}').classList.add('hidden'); document.getElementById('escala-edit-{{ escala.id }}').classList.remove('hidden');"
-                          class="px-3 py-1 rounded-lg text-xs font-semibold bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition"
+                        class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition border border-blue-500/30"
                           title="Editar"
                         >
                           Editar
@@ -300,7 +474,7 @@
                           <input type="hidden" name="activo" value="toggle" />
                           <button 
                             type="submit"
-                            class="px-3 py-1 rounded-lg text-xs font-semibold {% if escala.activo %}bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30{% else %}bg-green-500/20 text-green-400 hover:bg-green-500/30{% endif %} transition"
+                          class="px-3 py-1.5 rounded-lg text-xs font-semibold {% if escala.activo %}bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 border border-yellow-500/30{% else %}bg-green-500/20 text-green-400 hover:bg-green-500/30 border border-green-500/30{% endif %} transition"
                             title="{% if escala.activo %}Desactivar{% else %}Activar{% endif %}"
                           >
                             {% if escala.activo %}Desactivar{% else %}Activar{% endif %}
@@ -316,12 +490,13 @@
                           {% csrf_token %}
                           <button 
                             type="submit"
-                            class="px-3 py-1 rounded-lg text-xs font-semibold bg-red-500/20 text-red-400 hover:bg-red-500/30 transition"
+                          class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500/20 text-red-400 hover:bg-red-500/30 transition border border-red-500/30"
                             title="Eliminar"
                           >
                             Eliminar
                           </button>
                         </form>
+                    </div>
                       </div>
                     </div>
                     
@@ -329,6 +504,7 @@
                     <div id="escala-edit-{{ escala.id }}" class="hidden p-4">
                       <form 
                         id="form-editar-escala-{{ escala.id }}"
+                        method="post"
                         hx-post="{% url 'configuracion:escala_editar' escala.id %}"
                         hx-target="#configuracion-panel"
                         hx-swap="outerHTML"
@@ -336,7 +512,7 @@
                         class="space-y-4"
                       >
                         {% csrf_token %}
-                        <div class="grid gap-4 md:grid-cols-4">
+                    <div class="grid gap-4 md:grid-cols-2">
                           <div>
                             <label class="text-xs font-semibold uppercase tracking-wide text-muted mb-1 block">Cantidad Mínima *</label>
                             <input 
@@ -370,6 +546,7 @@
                               max="100" 
                               step="0.01"
                               class="mt-1 w-full rounded-xl border-2 border-slate-600/40 bg-slate-800/90 px-3 py-2 text-sm font-medium text-slate-100 shadow-lg focus:border-purple-500 focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                          oninput="this.setCustomValidity(''); if(this.value < 0 || this.value > 100) this.setCustomValidity('El descuento debe estar entre 0 y 100%');"
                             />
                           </div>
                           <div>
@@ -383,15 +560,35 @@
                             />
                           </div>
                         </div>
-                        <div class="flex items-center gap-4">
-                          <label class="flex items-center gap-2 text-sm text-slate-100">
+                    <div>
+                      <label class="text-xs font-semibold uppercase tracking-wide text-muted mb-2 block">Categorías aplicables</label>
+                      <p class="text-xs text-muted mb-2">Si no seleccionás ninguna, se aplica a todas las categorías.</p>
+                      <div class="max-h-40 overflow-y-auto rounded-xl border-2 border-slate-600/40 bg-slate-800/90 p-3 space-y-2">
+                        {% for categoria in categorias %}
+                          <label class="flex items-center gap-2 text-sm text-slate-100 cursor-pointer hover:bg-slate-700/50 p-2 rounded transition">
                             <input 
                               type="checkbox" 
-                              name="activo" 
-                              {% if escala.activo %}checked{% endif %}
+                              name="categorias" 
+                              value="{{ categoria.id }}"
+                              {% if categoria in escala.categorias.all %}checked{% endif %}
                               class="h-4 w-4 rounded border-slate-500 bg-slate-700 text-purple-600 focus:ring-purple-500"
                             />
-                            <span>Activa</span>
+                            <span>{{ categoria.nombre }}</span>
+                          </label>
+                        {% empty %}
+                          <p class="text-xs text-muted">No hay categorías disponibles</p>
+                        {% endfor %}
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                      <label class="flex items-center gap-2 text-sm text-slate-100">
+                        <input 
+                          type="checkbox" 
+                          name="activo" 
+                          {% if escala.activo %}checked{% endif %}
+                          class="h-4 w-4 rounded border-slate-500 bg-slate-700 text-purple-600 focus:ring-purple-500"
+                        />
+                        <span>Activa</span>
                           </label>
                           <div class="flex gap-2 ml-auto">
                             <button 
@@ -403,9 +600,18 @@
                             </button>
                             <button 
                               type="submit"
-                              class="px-4 py-2 rounded-full bg-purple-600 text-xs font-semibold text-white shadow-lg transition hover:bg-purple-700"
+                              class="px-4 py-2 rounded-full bg-purple-600 text-xs font-semibold text-white shadow-lg transition hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                              hx-indicator="#loading-indicator-edit-{{ escala.id }}"
                             >
-                              Guardar Cambios
+                              <span class="flex items-center gap-2">
+                                <span>Guardar Cambios</span>
+                                <span id="loading-indicator-edit-{{ escala.id }}" class="htmx-indicator">
+                                  <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  </svg>
+                                </span>
+                              </span>
                             </button>
                           </div>
                         </div>
@@ -414,183 +620,26 @@
                   </div>
                 {% empty %}
                   <div class="rounded-xl border border-dashed border-purple-500/30 bg-slate-800/30 p-6 text-center">
-                    <p class="text-sm text-muted">No hay escalas configuradas. Agregá una para aplicar descuentos automáticos por cantidad.</p>
-                  </div>
-                {% endfor %}
+                <svg class="w-12 h-12 mx-auto text-purple-500/50 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                <p class="text-sm text-muted mb-2">No hay escalas configuradas</p>
+                <p class="text-xs text-muted">Agregá una para aplicar descuentos automáticos por cantidad</p>
               </div>
-            </div>
-          </div>
-
-          <div>
-            <label class="text-xs font-semibold uppercase tracking-wide text-muted">Notas internas</label>
-            {{ form.notas_sistema }}
-            {{ form.notas_sistema.errors }}
-          </div>
-
-
-          <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <p class="text-xs text-muted">Última actualización: {{ configuracion.ultima_actualizacion|default:"—" }}</p>
-            <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-300 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white/90">
-              <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
-              Guardar cambios
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <section class="glass-surface card-surface rounded-3xl border px-6 py-6 shadow-xl dark:border-slate-700/60">
-        <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Datos fiscales y contacto</h2>
-            <p class="text-sm text-muted">Estos datos aparecen en los comprobantes PDF, en la cabecera y en la tienda pública.</p>
-          </div>
-        </div>
-        <form method="post" enctype="multipart/form-data" class="mt-6 space-y-6" hx-post="{% url 'configuracion:panel' %}" hx-target="#configuracion-panel" hx-swap="outerHTML" hx-encoding="multipart/form-data">
-          {% csrf_token %}
-          <input type="hidden" name="form-target" value="tienda">
-          {% if tienda_form.non_field_errors %}
-            <div class="rounded-2xl border border-rose-400/50 bg-rose-100/70 px-4 py-3 text-sm font-medium text-rose-700 dark:border-rose-500/50 dark:bg-rose-500/10 dark:text-rose-200">
-              {{ tienda_form.non_field_errors }}
-            </div>
-          {% endif %}
-          <div class="grid gap-5 md:grid-cols-2">
-            <div>
-              <label class="text-xs font-semibold uppercase tracking-wide text-muted">Nombre fiscal / público</label>
-              {{ tienda_form.nombre_tienda }}
-              {{ tienda_form.nombre_tienda.errors }}
-            </div>
-            <div>
-              <label class="text-xs font-semibold uppercase tracking-wide text-muted">CUIT</label>
-              {{ tienda_form.cuit }}
-              {{ tienda_form.cuit.errors }}
-            </div>
-            <div class="md:col-span-2">
-              <label class="text-xs font-semibold uppercase tracking-wide text-muted">Domicilio principal</label>
-              {{ tienda_form.direccion }}
-              {{ tienda_form.direccion.errors }}
-            </div>
-            <div>
-              <label class="text-xs font-semibold uppercase tracking-wide text-muted">Correo de contacto</label>
-              {{ tienda_form.email_contacto }}
-              {{ tienda_form.email_contacto.errors }}
-            </div>
-            <div>
-              <label class="text-xs font-semibold uppercase tracking-wide text-muted">Teléfono / WhatsApp de contacto</label>
-              {{ tienda_form.telefono_contacto }}
-              {{ tienda_form.telefono_contacto.errors }}
-            </div>
-            <div class="md:col-span-2">
-              <label class="text-xs font-semibold uppercase tracking-wide text-muted">Garantía en productos (días)</label>
-              {{ tienda_form.garantia_dias_general }}
-              {{ tienda_form.garantia_dias_general.errors }}
-              <p class="mt-1 text-xs text-muted">Días de garantía por defecto para todos los productos. Se puede configurar garantías específicas por categoría.</p>
-            </div>
-          </div>
-          <div class="flex justify-end">
-            <button type="submit" class="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white/90">
-              <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
-              Guardar datos fiscales
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <section class="glass-surface card-surface rounded-3xl border px-6 py-6 shadow-xl dark:border-slate-700/60">
-        <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Locales y puntos de retiro</h2>
-            <p class="text-sm text-muted">Publicá todas tus sucursales. Se mostrarán en la vista web y comprobantes.</p>
-          </div>
-        </div>
-        <div class="mt-6 space-y-3">
-          {% for local in locales %}
-            <div class="flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm text-slate-100 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/70 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p class="font-semibold text-slate-100">{{ local.nombre }}</p>
-                <p class="text-xs text-muted">{{ local.direccion|default:"Dirección no especificada" }}</p>
-              </div>
-              <form method="post" action="{% url 'configuracion:local_eliminar' local.pk %}" hx-post="{% url 'configuracion:local_eliminar' local.pk %}" hx-target="#configuracion-panel" hx-swap="outerHTML">
-                {% csrf_token %}
-                <button type="submit" class="inline-flex items-center gap-1 rounded-full border border-white/20 px-3 py-1 text-xs font-semibold text-slate-100 transition hover:bg-white/10">
-                  <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                  Quitar
-                </button>
-              </form>
-            </div>
-          {% empty %}
-            <p class="rounded-2xl border border-dashed border-white/20 px-4 py-6 text-sm text-muted">Todavía no cargaste locales. Sumá al menos uno para imprimirlo en tus comprobantes.</p>
-          {% endfor %}
-        </div>
-        <div class="mt-6 rounded-2xl border border-white/15 bg-white/5 p-4 shadow-inner dark:border-slate-700/60 dark:bg-slate-900/50">
-          <form method="post" hx-post="{% url 'configuracion:panel' %}" hx-target="#configuracion-panel" hx-swap="outerHTML">
-            {% csrf_token %}
-            <input type="hidden" name="form-target" value="local">
-            <div class="grid gap-4 md:grid-cols-2">
-              <div>
-                <label class="text-xs font-semibold uppercase tracking-wide text-muted">Nombre del local</label>
-                {{ local_form.nombre }}
-                {{ local_form.nombre.errors }}
-              </div>
-              <div>
-                <label class="text-xs font-semibold uppercase tracking-wide text-muted">Dirección</label>
-                {{ local_form.direccion }}
-                {{ local_form.direccion.errors }}
-              </div>
-            </div>
-            <div class="mt-4 flex justify-end">
-              <button type="submit" class="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white/90">
-                <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                Agregar local
-              </button>
-            </div>
-          </form>
-        </div>
-      </section>
-
-      <section class="glass-surface card-surface rounded-3xl border px-6 py-6 shadow-xl dark:border-slate-700/60">
-        <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Garantía en productos por categorías</h2>
-            <p class="text-sm text-muted">Configurá los días de garantía específicos para cada categoría. Si no se especifica, se usa la garantía general.</p>
-          </div>
-        </div>
-        <div class="mt-6 space-y-3">
-          {% for categoria in categorias %}
-            <div class="flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm text-slate-100 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/70 sm:flex-row sm:items-center sm:justify-between">
-              <div class="flex-1">
-                <p class="font-semibold text-slate-100">{{ categoria.nombre }}</p>
-                <p class="text-xs text-muted">
-                  {% if categoria.garantia_dias %}
-                    Garantía: {{ categoria.garantia_dias }} días
-                  {% else %}
-                    Usa garantía general ({{ configuracion_tienda.garantia_dias_general|default:45 }} días)
-                  {% endif %}
-                </p>
-              </div>
-              <form method="post" action="{% url 'configuracion:categoria_garantia' categoria.pk %}" hx-post="{% url 'configuracion:categoria_garantia' categoria.pk %}" hx-target="#configuracion-panel" hx-swap="outerHTML" class="flex items-center gap-2">
-                {% csrf_token %}
-                <input type="number" name="garantia_dias" value="{{ categoria.garantia_dias|default:'' }}" min="0" placeholder="Días" class="w-24 rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-slate-100 placeholder-slate-400 focus:border-white/40 focus:outline-none">
-                <button type="submit" class="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white/90">
-                  Guardar
-                </button>
-              </form>
-            </div>
-          {% empty %}
-            <p class="rounded-2xl border border-dashed border-white/20 px-4 py-6 text-sm text-muted">No hay categorías configuradas. Creá categorías desde el módulo de inventario.</p>
           {% endfor %}
         </div>
       </section>
 
-      <aside class="space-y-6">
+        <!-- Diagnóstico rápido -->
         <section class="glass-surface card-surface rounded-3xl border px-6 py-6 shadow-lg dark:border-slate-700/60">
-          <h3 class="text-sm font-semibold uppercase tracking-widest text-muted">Diagnóstico rápido</h3>
-          <div class="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-200">
-            <div class="flex items-center justify-between rounded-2xl bg-slate-100/80 px-4 py-3 text-sm dark:bg-slate-800/70">
+          <h3 class="text-sm font-semibold uppercase tracking-widest text-muted mb-4">Diagnóstico rápido</h3>
+          <div class="space-y-3 text-sm text-slate-600 dark:text-slate-200">
+            <div class="flex items-center justify-between rounded-xl bg-slate-100/80 px-4 py-3 dark:bg-slate-800/70">
               <span>Migraciones pendientes</span>
               <span class="font-semibold {% if pendientes %}text-amber-500{% else %}text-emerald-500{% endif %}">{{ pendientes|length }}</span>
             </div>
             {% if columnas_faltantes %}
-              <div class="rounded-2xl bg-rose-500/10 px-4 py-3 text-xs text-rose-400">
+              <div class="rounded-xl bg-rose-500/10 px-4 py-3 text-xs text-rose-400">
                 <p class="font-semibold">Columnas faltantes detectadas</p>
                 {% for app, columnas in columnas_faltantes.items %}
                   <p class="mt-1">{{ app }}: {{ columnas|join:", " }}</p>
@@ -599,7 +648,7 @@
             {% else %}
               <p class="text-xs text-muted">¡Todo listo! No se detectaron columnas faltantes.</p>
             {% endif %}
-            <div class="grid gap-2 rounded-2xl bg-slate-100/70 p-3 text-xs dark:bg-slate-800/60">
+            <div class="grid gap-2 rounded-xl bg-slate-100/70 p-3 text-xs dark:bg-slate-800/60">
               <p class="font-semibold text-slate-600 dark:text-slate-200">Inventario</p>
               <p>Productos activos: {{ salud_inventario.productos|default:"—" }}</p>
               {% for tabla, existe in salud_inventario.tablas.items %}
@@ -609,9 +658,10 @@
           </div>
         </section>
 
+        <!-- Información del entorno -->
         <section class="glass-surface card-surface rounded-3xl border px-6 py-6 shadow-lg dark:border-slate-700/60">
-          <h3 class="text-sm font-semibold uppercase tracking-widest text-muted">Información del entorno</h3>
-          <dl class="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-200">
+          <h3 class="text-sm font-semibold uppercase tracking-widest text-muted mb-4">Información del entorno</h3>
+          <dl class="space-y-3 text-sm text-slate-600 dark:text-slate-200">
             <div class="flex items-center justify-between">
               <dt>Motor</dt>
               <dd class="font-semibold uppercase">{{ system_info.engine|default:"—" }}</dd>
@@ -637,12 +687,13 @@
           </dl>
         </section>
 
+        <!-- Actividad reciente -->
         <section class="glass-surface card-surface rounded-3xl border px-6 py-6 shadow-lg dark:border-slate-700/60">
-          <h3 class="text-sm font-semibold uppercase tracking-widest text-muted">Actividad reciente</h3>
+          <h3 class="text-sm font-semibold uppercase tracking-widest text-muted mb-4">Actividad reciente</h3>
           {% if historial_reciente %}
-            <ul class="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-200">
+            <ul class="space-y-3 text-sm text-slate-600 dark:text-slate-200">
               {% for registro in historial_reciente %}
-                <li class="rounded-2xl bg-slate-100/70 px-4 py-3 dark:bg-slate-800/70">
+                <li class="rounded-xl bg-slate-100/70 px-4 py-3 dark:bg-slate-800/70">
                   <p class="font-semibold">{{ registro.get_tipo_accion_display }}</p>
                   <p class="text-xs text-muted">{{ registro.fecha|date:"d/m/Y H:i" }} · {{ registro.usuario|default:"Sistema" }}</p>
                   <p class="mt-1 text-xs">{{ registro.descripcion }}</p>
@@ -650,10 +701,10 @@
               {% endfor %}
             </ul>
           {% else %}
-            <p class="mt-4 text-sm text-muted">Aún no hay registros en el historial.</p>
+            <p class="text-sm text-muted">Aún no hay registros en el historial.</p>
           {% endif %}
         </section>
-      </aside>
+      </div>
     </div>
   </div>
 </div>

@@ -349,7 +349,7 @@
         {% endif %}
 
         <!-- Gráficos de estadísticas -->
-        {% if ventas_ultimos_7_dias or ventas_por_metodo or margenes_por_metodo %}
+        {% if ventas_metrics %}
         <section class="grid gap-6 lg:grid-cols-2">
             {% if ventas_ultimos_7_dias %}
             <article class="glass-card rounded-3xl p-6">
@@ -359,6 +359,16 @@
                 </header>
                 <div class="h-64">
                     <canvas id="ventasChart"></canvas>
+                </div>
+            </article>
+            {% else %}
+            <article class="glass-card rounded-3xl p-6">
+                <header class="mb-4">
+                    <p class="text-xs font-semibold uppercase tracking-[0.3em] text-muted">Tendencia de ventas</p>
+                    <h2 class="text-lg font-semibold text-slate-100">Últimos 7 días</h2>
+                </header>
+                <div class="h-64 flex items-center justify-center">
+                    <p class="text-sm text-muted">No hay ventas en los últimos 7 días</p>
                 </div>
             </article>
             {% endif %}
@@ -371,6 +381,16 @@
                 </header>
                 <div class="h-64">
                     <canvas id="metodosChart"></canvas>
+                </div>
+            </article>
+            {% else %}
+            <article class="glass-card rounded-3xl p-6">
+                <header class="mb-4">
+                    <p class="text-xs font-semibold uppercase tracking-[0.3em] text-muted">Métodos de pago</p>
+                    <h2 class="text-lg font-semibold text-slate-100">Distribución</h2>
+                </header>
+                <div class="h-64 flex items-center justify-center">
+                    <p class="text-sm text-muted">No hay datos de métodos de pago</p>
                 </div>
             </article>
             {% endif %}
@@ -517,6 +537,89 @@
         {% endif %}
         {% endif %}
 
+        <!-- Nuevos gráficos profesionales -->
+        {% if ventas_por_origen or ventas_por_vendedor or top_productos or ventas_por_categoria or comparativa_mensual or ventas_por_hora %}
+        <section class="grid gap-6 lg:grid-cols-2">
+            <!-- Ventas POS vs WEB -->
+            {% if ventas_por_origen %}
+            <article class="glass-card rounded-3xl p-6">
+                <header class="mb-4">
+                    <p class="text-xs font-semibold uppercase tracking-[0.3em] text-muted">Análisis de canales</p>
+                    <h2 class="text-lg font-semibold text-slate-100">Ventas POS vs Web</h2>
+                </header>
+                <div class="h-64">
+                    <canvas id="origenChart"></canvas>
+                </div>
+            </article>
+            {% endif %}
+
+            <!-- Ventas por vendedor -->
+            {% if ventas_por_vendedor %}
+            <article class="glass-card rounded-3xl p-6">
+                <header class="mb-4">
+                    <p class="text-xs font-semibold uppercase tracking-[0.3em] text-muted">Rendimiento</p>
+                    <h2 class="text-lg font-semibold text-slate-100">Ventas por empleado</h2>
+                </header>
+                <div class="h-64">
+                    <canvas id="vendedorChart"></canvas>
+                </div>
+            </article>
+            {% endif %}
+
+            <!-- Top productos -->
+            {% if top_productos %}
+            <article class="glass-card rounded-3xl p-6">
+                <header class="mb-4">
+                    <p class="text-xs font-semibold uppercase tracking-[0.3em] text-muted">Productos estrella</p>
+                    <h2 class="text-lg font-semibold text-slate-100">Top 10 productos vendidos</h2>
+                </header>
+                <div class="h-80">
+                    <canvas id="topProductosChart"></canvas>
+                </div>
+            </article>
+            {% endif %}
+
+            <!-- Ventas por categoría -->
+            {% if ventas_por_categoria %}
+            <article class="glass-card rounded-3xl p-6">
+                <header class="mb-4">
+                    <p class="text-xs font-semibold uppercase tracking-[0.3em] text-muted">Análisis por categoría</p>
+                    <h2 class="text-lg font-semibold text-slate-100">Ventas por categoría</h2>
+                </header>
+                <div class="h-80">
+                    <canvas id="categoriaChart"></canvas>
+                </div>
+            </article>
+            {% endif %}
+
+            <!-- Comparativa mensual -->
+            {% if comparativa_mensual %}
+            <article class="glass-card rounded-3xl p-6">
+                <header class="mb-4">
+                    <p class="text-xs font-semibold uppercase tracking-[0.3em] text-muted">Comparativa</p>
+                    <h2 class="text-lg font-semibold text-slate-100">Mes actual vs Mes anterior</h2>
+                </header>
+                <div class="h-64">
+                    <canvas id="comparativaChart"></canvas>
+                </div>
+            </article>
+            {% endif %}
+
+            <!-- Ventas por hora -->
+            {% if ventas_por_hora %}
+            <article class="glass-card rounded-3xl p-6">
+                <header class="mb-4">
+                    <p class="text-xs font-semibold uppercase tracking-[0.3em] text-muted">Análisis temporal</p>
+                    <h2 class="text-lg font-semibold text-slate-100">Ventas por hora del día</h2>
+                </header>
+                <div class="h-64">
+                    <canvas id="horaChart"></canvas>
+                </div>
+            </article>
+            {% endif %}
+        </section>
+        {% endif %}
+
         <section class="grid gap-6 lg:grid-cols-3">
             <div class="space-y-6 lg:col-span-2">
                 <article class="glass-card rounded-3xl p-6">
@@ -627,6 +730,24 @@
 {% endif %}
 {% if margenes_mayorista_por_metodo %}
 {{ margenes_mayorista_por_metodo|json_script:"margenes-mayorista-data" }}
+{% endif %}
+{% if ventas_por_origen %}
+{{ ventas_por_origen|json_script:"origen-data" }}
+{% endif %}
+{% if ventas_por_vendedor %}
+{{ ventas_por_vendedor|json_script:"vendedor-data" }}
+{% endif %}
+{% if top_productos %}
+{{ top_productos|json_script:"top-productos-data" }}
+{% endif %}
+{% if ventas_por_categoria %}
+{{ ventas_por_categoria|json_script:"categoria-data" }}
+{% endif %}
+{% if comparativa_mensual %}
+{{ comparativa_mensual|json_script:"comparativa-data" }}
+{% endif %}
+{% if ventas_por_hora %}
+{{ ventas_por_hora|json_script:"hora-data" }}
 {% endif %}
 
 <script>
@@ -1064,6 +1185,420 @@
                         grid: {
                             color: 'rgba(148, 163, 184, 0.1)'
                         }
+                    }
+                }
+            }
+        });
+    }
+    {% endif %}
+
+    // Gráfico de ventas por origen (POS vs WEB)
+    {% if ventas_por_origen %}
+    const origenCtx = document.getElementById('origenChart');
+    if (origenCtx) {
+        const origenData = JSON.parse(document.getElementById('origen-data').textContent);
+        const labels = origenData.map(o => o.origen);
+        const totals = origenData.map(o => o.total);
+        const colors = ['rgba(59, 130, 246, 0.8)', 'rgba(16, 185, 129, 0.8)', 'rgba(168, 85, 247, 0.8)'];
+
+        new Chart(origenCtx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Ventas ($)',
+                    data: totals,
+                    backgroundColor: colors.slice(0, totals.length),
+                    borderColor: colors.slice(0, totals.length).map(c => c.replace('0.8', '1')),
+                    borderWidth: 2,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        titleColor: '#f1f5f9',
+                        bodyColor: '#cbd5e1',
+                        borderColor: 'rgba(148, 163, 184, 0.2)',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: function(context) {
+                                return '$' + context.parsed.y.toLocaleString('es-AR');
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        ticks: {
+                            color: '#cbd5e1',
+                            callback: function(value) {
+                                return '$' + value.toLocaleString('es-AR');
+                            }
+                        },
+                        grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                    },
+                    x: {
+                        ticks: { color: '#cbd5e1' },
+                        grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                    }
+                }
+            }
+        });
+    }
+    {% endif %}
+
+    // Gráfico de ventas por vendedor
+    {% if ventas_por_vendedor %}
+    const vendedorCtx = document.getElementById('vendedorChart');
+    if (vendedorCtx) {
+        const vendedorData = JSON.parse(document.getElementById('vendedor-data').textContent);
+        const labels = vendedorData.map(v => v.vendedor);
+        const totals = vendedorData.map(v => v.total);
+
+        new Chart(vendedorCtx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Ventas ($)',
+                    data: totals,
+                    backgroundColor: 'rgba(139, 92, 246, 0.8)',
+                    borderColor: 'rgba(139, 92, 246, 1)',
+                    borderWidth: 2,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        titleColor: '#f1f5f9',
+                        bodyColor: '#cbd5e1',
+                        borderColor: 'rgba(148, 163, 184, 0.2)',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: function(context) {
+                                return '$' + context.parsed.x.toLocaleString('es-AR');
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            color: '#cbd5e1',
+                            callback: function(value) {
+                                return '$' + value.toLocaleString('es-AR');
+                            }
+                        },
+                        grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                    },
+                    y: {
+                        ticks: { color: '#cbd5e1' },
+                        grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                    }
+                }
+            }
+        });
+    }
+    {% endif %}
+
+    // Gráfico de top productos
+    {% if top_productos %}
+    const topProductosCtx = document.getElementById('topProductosChart');
+    if (topProductosCtx) {
+        const topProductosData = JSON.parse(document.getElementById('top-productos-data').textContent);
+        const labels = topProductosData.map(p => p.producto.length > 20 ? p.producto.substring(0, 20) + '...' : p.producto);
+        const cantidades = topProductosData.map(p => p.cantidad);
+        const totals = topProductosData.map(p => p.total);
+
+        new Chart(topProductosCtx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Cantidad vendida',
+                        data: cantidades,
+                        backgroundColor: 'rgba(59, 130, 246, 0.6)',
+                        borderColor: 'rgba(59, 130, 246, 0.8)',
+                        borderWidth: 2,
+                        yAxisID: 'y',
+                    },
+                    {
+                        label: 'Total ventas ($)',
+                        data: totals,
+                        type: 'line',
+                        borderColor: 'rgba(16, 185, 129, 1)',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        borderWidth: 3,
+                        fill: false,
+                        tension: 0.4,
+                        yAxisID: 'y1',
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { color: '#cbd5e1', font: { size: 11 } }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        titleColor: '#f1f5f9',
+                        bodyColor: '#cbd5e1',
+                        borderColor: 'rgba(148, 163, 184, 0.2)',
+                        borderWidth: 1,
+                    }
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        position: 'left',
+                        ticks: { color: '#cbd5e1' },
+                        grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                    },
+                    y1: {
+                        type: 'linear',
+                        position: 'right',
+                        ticks: {
+                            color: '#cbd5e1',
+                            callback: function(value) {
+                                return '$' + value.toLocaleString('es-AR');
+                            }
+                        },
+                        grid: { drawOnChartArea: false }
+                    },
+                    x: {
+                        ticks: { color: '#cbd5e1' },
+                        grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                    }
+                }
+            }
+        });
+    }
+    {% endif %}
+
+    // Gráfico de ventas por categoría
+    {% if ventas_por_categoria %}
+    const categoriaCtx = document.getElementById('categoriaChart');
+    if (categoriaCtx) {
+        const categoriaData = JSON.parse(document.getElementById('categoria-data').textContent);
+        const labels = categoriaData.map(c => c.categoria);
+        const totals = categoriaData.map(c => c.total);
+        const colors = [
+            'rgba(59, 130, 246, 0.8)', 'rgba(16, 185, 129, 0.8)', 'rgba(139, 92, 246, 0.8)',
+            'rgba(236, 72, 153, 0.8)', 'rgba(245, 158, 11, 0.8)', 'rgba(239, 68, 68, 0.8)',
+            'rgba(34, 197, 94, 0.8)', 'rgba(168, 85, 247, 0.8)', 'rgba(251, 146, 60, 0.8)', 'rgba(14, 165, 233, 0.8)'
+        ];
+
+        new Chart(categoriaCtx, {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: totals,
+                    backgroundColor: colors.slice(0, totals.length),
+                    borderColor: 'rgba(15, 23, 42, 0.8)',
+                    borderWidth: 2,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: { color: '#cbd5e1', font: { size: 11 }, padding: 12 }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        titleColor: '#f1f5f9',
+                        bodyColor: '#cbd5e1',
+                        borderColor: 'rgba(148, 163, 184, 0.2)',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return label + ': $' + value.toLocaleString('es-AR') + ' (' + percentage + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    {% endif %}
+
+    // Gráfico de comparativa mensual
+    {% if comparativa_mensual %}
+    const comparativaCtx = document.getElementById('comparativaChart');
+    if (comparativaCtx) {
+        const comparativaData = JSON.parse(document.getElementById('comparativa-data').textContent);
+        const mesActual = comparativaData.mes_actual;
+        const mesAnterior = comparativaData.mes_anterior;
+
+        new Chart(comparativaCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Mes Anterior', 'Mes Actual'],
+                datasets: [
+                    {
+                        label: 'Total Ventas ($)',
+                        data: [mesAnterior.total, mesActual.total],
+                        backgroundColor: ['rgba(148, 163, 184, 0.6)', 'rgba(59, 130, 246, 0.6)'],
+                        borderColor: ['rgba(148, 163, 184, 0.8)', 'rgba(59, 130, 246, 0.8)'],
+                        borderWidth: 2,
+                    },
+                    {
+                        label: 'Tickets',
+                        data: [mesAnterior.tickets, mesActual.tickets],
+                        backgroundColor: ['rgba(245, 158, 11, 0.6)', 'rgba(16, 185, 129, 0.6)'],
+                        borderColor: ['rgba(245, 158, 11, 0.8)', 'rgba(16, 185, 129, 0.8)'],
+                        borderWidth: 2,
+                        yAxisID: 'y1',
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { color: '#cbd5e1', font: { size: 11 } }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        titleColor: '#f1f5f9',
+                        bodyColor: '#cbd5e1',
+                        borderColor: 'rgba(148, 163, 184, 0.2)',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: function(context) {
+                                if (context.datasetIndex === 0) {
+                                    return '$' + context.parsed.y.toLocaleString('es-AR');
+                                } else {
+                                    return context.parsed.y + ' tickets';
+                                }
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        position: 'left',
+                        ticks: {
+                            color: '#cbd5e1',
+                            callback: function(value) {
+                                return '$' + value.toLocaleString('es-AR');
+                            }
+                        },
+                        grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                    },
+                    y1: {
+                        type: 'linear',
+                        position: 'right',
+                        ticks: { color: '#cbd5e1' },
+                        grid: { drawOnChartArea: false }
+                    },
+                    x: {
+                        ticks: { color: '#cbd5e1' },
+                        grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                    }
+                }
+            }
+        });
+    }
+    {% endif %}
+
+    // Gráfico de ventas por hora
+    {% if ventas_por_hora %}
+    const horaCtx = document.getElementById('horaChart');
+    if (horaCtx) {
+        const horaData = JSON.parse(document.getElementById('hora-data').textContent);
+        const labels = horaData.map(h => h.hora);
+        const totals = horaData.map(h => h.total);
+        const cantidades = horaData.map(h => h.cantidad);
+
+        new Chart(horaCtx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Facturación ($)',
+                        data: totals,
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        yAxisID: 'y',
+                    },
+                    {
+                        label: 'Cantidad de ventas',
+                        data: cantidades,
+                        borderColor: 'rgb(16, 185, 129)',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        yAxisID: 'y1',
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { color: '#cbd5e1', font: { size: 11 } }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        titleColor: '#f1f5f9',
+                        bodyColor: '#cbd5e1',
+                        borderColor: 'rgba(148, 163, 184, 0.2)',
+                        borderWidth: 1,
+                    }
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        ticks: {
+                            color: '#cbd5e1',
+                            callback: function(value) {
+                                return '$' + value.toLocaleString('es-AR');
+                            }
+                        },
+                        grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        ticks: { color: '#cbd5e1' },
+                        grid: { drawOnChartArea: false }
+                    },
+                    x: {
+                        ticks: { color: '#cbd5e1' },
+                        grid: { color: 'rgba(148, 163, 184, 0.1)' }
                     }
                 }
             }

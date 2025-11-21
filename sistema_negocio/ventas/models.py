@@ -223,6 +223,15 @@ class Venta(models.Model):
         blank=True,
         verbose_name="Monto Pagado con Método 2",
     )
+    
+    # URL del comprobante PDF en Bunny Storage
+    comprobante_url = models.URLField(
+        max_length=500,
+        blank=True,
+        null=True,
+        verbose_name="URL del Comprobante PDF",
+        help_text="URL del PDF del comprobante almacenado en Bunny Storage"
+    )
 
     def save(self, *args, **kwargs):
         if not self.pk:  # Solo al crear una nueva venta

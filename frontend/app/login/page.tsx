@@ -7,7 +7,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FiLock, FiUser, FiMail, FiPhone, FiArrowRight } from 'react-icons/fi';
 import { useAuthStore } from '@/stores/authStore';
 import { useConfigStore } from '@/stores/configStore';
-import PetMascot from '@/components/PetMascot';
 import toast from 'react-hot-toast';
 
 export default function LoginPage() {
@@ -32,7 +31,6 @@ export default function LoginPage() {
   });
   
   const [isLoading, setIsLoading] = useState(false);
-  const [petState, setPetState] = useState<'idle' | 'typing-email' | 'typing-password' | 'error' | 'success'>('idle');
   
   const { login, registro, isAuthenticated } = useAuthStore();
   const { config, getLogo } = useConfigStore();
@@ -49,19 +47,15 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setPetState('idle');
     
     try {
       await login(loginData.username, loginData.password);
-      setPetState('success');
       toast.success('Sesión iniciada correctamente');
       setTimeout(() => {
         router.push(redirect);
       }, 1000);
     } catch (error: any) {
-      setPetState('error');
       toast.error(error.response?.data?.error || error.message || 'Error al iniciar sesión');
-      setTimeout(() => setPetState('idle'), 2000);
     } finally {
       setIsLoading(false);
     }
@@ -101,7 +95,7 @@ export default function LoginPage() {
         className="max-w-md w-full"
       >
         <div className="bg-white rounded-2xl shadow-xl p-8">
-          {/* Logo y Mascota */}
+          {/* Logo */}
           <div className="text-center mb-8">
             {logo ? (
               <img src={logo} alt={config?.nombre_comercial || 'Logo'} className="h-16 mx-auto mb-4" />
@@ -109,12 +103,6 @@ export default function LoginPage() {
               <h2 className="text-3xl font-bold" style={{ color: colorPrimary }}>
                 {config?.nombre_comercial || 'ImportStore'}
               </h2>
-            )}
-            {/* Mascota animada - solo en login */}
-            {isLogin && (
-              <div className="my-4">
-                <PetMascot state={petState} />
-              </div>
             )}
             <p className="text-gray-600 mt-2">
               {isLogin ? 'Iniciar sesión en tu cuenta' : 'Crear una nueva cuenta'}
@@ -167,15 +155,6 @@ export default function LoginPage() {
                       value={loginData.username}
                       onChange={(e) => {
                         setLoginData((prev) => ({ ...prev, username: e.target.value }));
-                        if (e.target.value.length > 0) {
-                          setPetState('typing-email');
-                        } else {
-                          setPetState('idle');
-                        }
-                      }}
-                      onFocus={() => setPetState('typing-email')}
-                      onBlur={() => {
-                        if (!loginData.password) setPetState('idle');
                       }}
                       className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
                       placeholder="tu@email.com"
@@ -195,18 +174,6 @@ export default function LoginPage() {
                       value={loginData.password}
                       onChange={(e) => {
                         setLoginData((prev) => ({ ...prev, password: e.target.value }));
-                        if (e.target.value.length > 0) {
-                          setPetState('typing-password');
-                        } else if (loginData.username.length > 0) {
-                          setPetState('typing-email');
-                        } else {
-                          setPetState('idle');
-                        }
-                      }}
-                      onFocus={() => setPetState('typing-password')}
-                      onBlur={() => {
-                        if (loginData.username.length > 0) setPetState('typing-email');
-                        else setPetState('idle');
                       }}
                       className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
                       placeholder="Contraseña"

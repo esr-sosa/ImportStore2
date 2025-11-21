@@ -9,116 +9,212 @@ interface PetMascotProps {
 }
 
 export default function PetMascot({ state, className = '' }: PetMascotProps) {
-  const [mood, setMood] = useState<'happy' | 'curious' | 'shy' | 'sad' | 'excited'>('happy');
-  const [eyeDirection, setEyeDirection] = useState({ x: 0, y: 0 });
+  const [isBlinking, setIsBlinking] = useState(false);
+  const [eyeExpression, setEyeExpression] = useState<'normal' | 'wide' | 'closed' | 'squint'>('normal');
 
+  // Animación de parpadeo natural
+  useEffect(() => {
+    const blinkInterval = setInterval(() => {
+      setIsBlinking(true);
+      setTimeout(() => setIsBlinking(false), 150);
+    }, 3000 + Math.random() * 2000); // Parpadea cada 3-5 segundos
+
+    return () => clearInterval(blinkInterval);
+  }, []);
+
+  // Cambiar expresión según el estado
   useEffect(() => {
     switch (state) {
       case 'typing-email':
-        setMood('curious');
+        setEyeExpression('wide');
         break;
       case 'typing-password':
-        setMood('shy');
+        setEyeExpression('squint');
         break;
       case 'error':
-        setMood('sad');
+        setEyeExpression('squint');
         break;
       case 'success':
-        setMood('excited');
+        setEyeExpression('wide');
         break;
       default:
-        setMood('happy');
+        setEyeExpression('normal');
     }
   }, [state]);
 
   // Animaciones del cuerpo según el estado
   const bodyAnimations = {
-    happy: {
-      y: [0, -8, 0],
+    idle: {
+      y: [0, -5, 0],
+    },
+    'typing-email': {
+      y: [0, -3, 0],
       rotate: [0, 2, -2, 0],
     },
-    curious: {
-      y: [0, -5, 0],
-      x: [0, 3, -3, 0],
-      rotate: [0, 5, -5, 0],
+    'typing-password': {
+      scale: [1, 0.95, 1],
+      y: [0, 2, 0],
     },
-    shy: {
-      scale: [1, 0.92, 1],
-      y: [0, 3, 0],
+    error: {
+      y: [0, 5, 0],
+      rotate: [0, -3, 3, 0],
     },
-    sad: {
-      y: [0, 8, 0],
-      rotate: [0, -8, 0],
-    },
-    excited: {
-      scale: [1, 1.15, 1],
-      rotate: [0, 15, -15, 15, 0],
-      y: [0, -12, 0],
+    success: {
+      scale: [1, 1.1, 1],
+      rotate: [0, 5, -5, 5, 0],
+      y: [0, -8, 0],
     },
   };
+
+  const eyesClosed = isBlinking || eyeExpression === 'closed';
 
   return (
     <div className={`relative ${className}`}>
       <motion.div
-        animate={bodyAnimations[mood]}
+        animate={bodyAnimations[state]}
         transition={{
           duration: 1.5,
           repeat: Infinity,
           repeatType: 'reverse',
           ease: 'easeInOut',
         }}
-        className="relative w-32 h-32 mx-auto"
+        className="relative w-40 h-40 mx-auto"
       >
-        {/* Yeti Mascot */}
+        {/* Robot Body */}
         <div className="relative w-full h-full">
-          {/* Cuerpo principal del Yeti */}
+          {/* Cuerpo principal del robot */}
           <motion.div
-            className="absolute inset-0 rounded-full"
+            className="absolute inset-0 rounded-2xl"
             style={{
-              background: 'linear-gradient(135deg, #a8d8ea 0%, #7bb3d3 50%, #5a9fc7 100%)',
-              boxShadow: '0 10px 30px rgba(90, 159, 199, 0.4), inset 0 -5px 15px rgba(0,0,0,0.1)',
+              background: 'linear-gradient(135deg, #4a5568 0%, #2d3748 50%, #1a202c 100%)',
+              boxShadow: `
+                0 15px 35px rgba(0, 0, 0, 0.3),
+                inset 0 -8px 20px rgba(0, 0, 0, 0.4),
+                inset 0 4px 8px rgba(255, 255, 255, 0.1)
+              `,
             }}
           >
-            {/* Pelaje/textura superior */}
+            {/* Panel frontal con textura metálica */}
             <div 
-              className="absolute top-0 left-0 right-0 h-1/3 rounded-t-full"
+              className="absolute inset-2 rounded-xl"
               style={{
-                background: 'linear-gradient(180deg, rgba(255,255,255,0.3) 0%, transparent 100%)',
+                background: 'linear-gradient(135deg, #718096 0%, #4a5568 50%, #2d3748 100%)',
+                boxShadow: 'inset 0 2px 4px rgba(255, 255, 255, 0.2), inset 0 -2px 4px rgba(0, 0, 0, 0.3)',
               }}
-            />
-            
-            {/* Ojos grandes y expresivos */}
-            <div className="absolute top-6 left-1/2 transform -translate-x-1/2 flex gap-4">
+            >
+              {/* Líneas decorativas tipo panel */}
+              <div className="absolute top-4 left-4 right-4 h-0.5 bg-gray-600/30" />
+              <div className="absolute bottom-4 left-4 right-4 h-0.5 bg-gray-600/30" />
+              <div className="absolute left-4 top-4 bottom-4 w-0.5 bg-gray-600/30" />
+              <div className="absolute right-4 top-4 bottom-4 w-0.5 bg-gray-600/30" />
+            </div>
+
+            {/* Ojos del robot */}
+            <div className="absolute top-8 left-1/2 transform -translate-x-1/2 flex gap-6">
               {/* Ojo izquierdo */}
               <motion.div
                 className="relative"
                 animate={
-                  state === 'typing-email'
+                  eyeExpression === 'wide'
                     ? { scale: [1, 1.15, 1] }
-                    : state === 'typing-password'
-                    ? { scale: [1, 0.7, 1], opacity: [1, 0.4, 1] }
-                    : state === 'error'
-                    ? { y: [0, 3, 0], rotate: [0, -5, 0] }
-                    : state === 'success'
-                    ? { scale: [1, 1.2, 1] }
+                    : eyeExpression === 'squint'
+                    ? { scale: [1, 0.7, 1] }
                     : {}
                 }
-                transition={{ duration: 0.6, repeat: Infinity }}
+                transition={{ duration: 0.3 }}
               >
-                <div className="w-8 h-8 bg-white rounded-full shadow-inner flex items-center justify-center overflow-hidden">
-                  <motion.div
-                    className="w-5 h-5 bg-blue-900 rounded-full"
-                    animate={
-                      state === 'typing-email'
-                        ? { x: [0, 3, 0], y: [0, -2, 0] }
-                        : state === 'typing-password'
-                        ? { scale: [1, 0.3, 1] }
-                        : state === 'error'
-                        ? { x: [0, -2, 0], y: [0, 2, 0] }
-                        : {}
-                    }
-                    transition={{ duration: 0.4, repeat: Infinity }}
-                  />
+                {/* Carcasa del ojo */}
+                <div 
+                  className="w-12 h-12 rounded-full relative overflow-hidden"
+                  style={{
+                    background: 'linear-gradient(135deg, #1a202c 0%, #2d3748 100%)',
+                    boxShadow: `
+                      inset 0 2px 8px rgba(0, 0, 0, 0.5),
+                      0 2px 4px rgba(0, 0, 0, 0.3),
+                      0 0 0 2px rgba(0, 0, 0, 0.2)
+                    `,
+                  }}
+                >
+                  {/* Párpado superior */}
+                  <AnimatePresence>
+                    {eyesClosed && (
+                      <motion.div
+                        initial={{ y: -24 }}
+                        animate={{ y: 0 }}
+                        exit={{ y: -24 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute top-0 left-0 right-0 h-6 rounded-t-full z-20"
+                        style={{
+                          background: 'linear-gradient(135deg, #1a202c 0%, #2d3748 100%)',
+                          boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.3)',
+                        }}
+                      />
+                    )}
+                  </AnimatePresence>
+
+                  {/* Iris y pupila */}
+                  {!eyesClosed && (
+                    <motion.div
+                      className="absolute inset-2 rounded-full flex items-center justify-center"
+                      animate={
+                        state === 'typing-email'
+                          ? { x: [0, 3, 0], y: [0, -2, 0] }
+                          : state === 'typing-password'
+                          ? { scale: [1, 0.8, 1] }
+                          : state === 'error'
+                          ? { x: [0, -2, 0], y: [0, 2, 0] }
+                          : state === 'success'
+                          ? { scale: [1, 1.2, 1] }
+                          : {}
+                      }
+                      transition={{ duration: 0.4, repeat: Infinity }}
+                    >
+                      {/* Iris */}
+                      <div 
+                        className="w-8 h-8 rounded-full relative"
+                        style={{
+                          background: state === 'success' 
+                            ? 'radial-gradient(circle, #10b981 0%, #059669 100%)'
+                            : state === 'error'
+                            ? 'radial-gradient(circle, #ef4444 0%, #dc2626 100%)'
+                            : 'radial-gradient(circle, #3b82f6 0%, #2563eb 100%)',
+                          boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2)',
+                        }}
+                      >
+                        {/* Pupila */}
+                        <div 
+                          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-gray-900"
+                          style={{
+                            boxShadow: 'inset 0 1px 2px rgba(0, 0, 0, 0.5)',
+                          }}
+                        />
+                        {/* Brillo en el ojo */}
+                        <div 
+                          className="absolute top-1 left-2 w-2 h-2 rounded-full bg-white/80"
+                          style={{
+                            filter: 'blur(1px)',
+                          }}
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Párpado inferior */}
+                  <AnimatePresence>
+                    {eyesClosed && (
+                      <motion.div
+                        initial={{ y: 24 }}
+                        animate={{ y: 0 }}
+                        exit={{ y: 24 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute bottom-0 left-0 right-0 h-6 rounded-b-full z-20"
+                        style={{
+                          background: 'linear-gradient(135deg, #1a202c 0%, #2d3748 100%)',
+                          boxShadow: 'inset 0 -2px 4px rgba(0, 0, 0, 0.3)',
+                        }}
+                      />
+                    )}
+                  </AnimatePresence>
                 </div>
               </motion.div>
 
@@ -126,66 +222,112 @@ export default function PetMascot({ state, className = '' }: PetMascotProps) {
               <motion.div
                 className="relative"
                 animate={
-                  state === 'typing-email'
+                  eyeExpression === 'wide'
                     ? { scale: [1, 1.15, 1] }
-                    : state === 'typing-password'
-                    ? { scale: [1, 0.7, 1], opacity: [1, 0.4, 1] }
-                    : state === 'error'
-                    ? { y: [0, 3, 0], rotate: [0, 5, 0] }
-                    : state === 'success'
-                    ? { scale: [1, 1.2, 1] }
+                    : eyeExpression === 'squint'
+                    ? { scale: [1, 0.7, 1] }
                     : {}
                 }
-                transition={{ duration: 0.6, repeat: Infinity, delay: 0.1 }}
+                transition={{ duration: 0.3, delay: 0.05 }}
               >
-                <div className="w-8 h-8 bg-white rounded-full shadow-inner flex items-center justify-center overflow-hidden">
-                  <motion.div
-                    className="w-5 h-5 bg-blue-900 rounded-full"
-                    animate={
-                      state === 'typing-email'
-                        ? { x: [0, 3, 0], y: [0, -2, 0] }
-                        : state === 'typing-password'
-                        ? { scale: [1, 0.3, 1] }
-                        : state === 'error'
-                        ? { x: [0, 2, 0], y: [0, 2, 0] }
-                        : {}
-                    }
-                    transition={{ duration: 0.4, repeat: Infinity, delay: 0.1 }}
-                  />
+                {/* Carcasa del ojo */}
+                <div 
+                  className="w-12 h-12 rounded-full relative overflow-hidden"
+                  style={{
+                    background: 'linear-gradient(135deg, #1a202c 0%, #2d3748 100%)',
+                    boxShadow: `
+                      inset 0 2px 8px rgba(0, 0, 0, 0.5),
+                      0 2px 4px rgba(0, 0, 0, 0.3),
+                      0 0 0 2px rgba(0, 0, 0, 0.2)
+                    `,
+                  }}
+                >
+                  {/* Párpado superior */}
+                  <AnimatePresence>
+                    {eyesClosed && (
+                      <motion.div
+                        initial={{ y: -24 }}
+                        animate={{ y: 0 }}
+                        exit={{ y: -24 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute top-0 left-0 right-0 h-6 rounded-t-full z-20"
+                        style={{
+                          background: 'linear-gradient(135deg, #1a202c 0%, #2d3748 100%)',
+                          boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.3)',
+                        }}
+                      />
+                    )}
+                  </AnimatePresence>
+
+                  {/* Iris y pupila */}
+                  {!eyesClosed && (
+                    <motion.div
+                      className="absolute inset-2 rounded-full flex items-center justify-center"
+                      animate={
+                        state === 'typing-email'
+                          ? { x: [0, 3, 0], y: [0, -2, 0] }
+                          : state === 'typing-password'
+                          ? { scale: [1, 0.8, 1] }
+                          : state === 'error'
+                          ? { x: [0, 2, 0], y: [0, 2, 0] }
+                          : state === 'success'
+                          ? { scale: [1, 1.2, 1] }
+                          : {}
+                      }
+                      transition={{ duration: 0.4, repeat: Infinity, delay: 0.1 }}
+                    >
+                      {/* Iris */}
+                      <div 
+                        className="w-8 h-8 rounded-full relative"
+                        style={{
+                          background: state === 'success' 
+                            ? 'radial-gradient(circle, #10b981 0%, #059669 100%)'
+                            : state === 'error'
+                            ? 'radial-gradient(circle, #ef4444 0%, #dc2626 100%)'
+                            : 'radial-gradient(circle, #3b82f6 0%, #2563eb 100%)',
+                          boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2)',
+                        }}
+                      >
+                        {/* Pupila */}
+                        <div 
+                          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-gray-900"
+                          style={{
+                            boxShadow: 'inset 0 1px 2px rgba(0, 0, 0, 0.5)',
+                          }}
+                        />
+                        {/* Brillo en el ojo */}
+                        <div 
+                          className="absolute top-1 left-2 w-2 h-2 rounded-full bg-white/80"
+                          style={{
+                            filter: 'blur(1px)',
+                          }}
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Párpado inferior */}
+                  <AnimatePresence>
+                    {eyesClosed && (
+                      <motion.div
+                        initial={{ y: 24 }}
+                        animate={{ y: 0 }}
+                        exit={{ y: 24 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute bottom-0 left-0 right-0 h-6 rounded-b-full z-20"
+                        style={{
+                          background: 'linear-gradient(135deg, #1a202c 0%, #2d3748 100%)',
+                          boxShadow: 'inset 0 -2px 4px rgba(0, 0, 0, 0.3)',
+                        }}
+                      />
+                    )}
+                  </AnimatePresence>
                 </div>
               </motion.div>
             </div>
 
-            {/* Manos cubriendo ojos cuando escribe contraseña */}
-            <AnimatePresence>
-              {state === 'typing-password' && (
-                <>
-                  <motion.div
-                    initial={{ x: -20, opacity: 0 }}
-                    animate={{ x: 8, opacity: 1 }}
-                    exit={{ x: -20, opacity: 0 }}
-                    className="absolute top-4 left-4 w-10 h-10 rounded-full"
-                    style={{
-                      background: 'linear-gradient(135deg, #a8d8ea 0%, #7bb3d3 100%)',
-                      boxShadow: '0 4px 10px rgba(0,0,0,0.2)',
-                    }}
-                  />
-                  <motion.div
-                    initial={{ x: 20, opacity: 0 }}
-                    animate={{ x: -8, opacity: 1 }}
-                    exit={{ x: 20, opacity: 0 }}
-                    className="absolute top-4 right-4 w-10 h-10 rounded-full"
-                    style={{
-                      background: 'linear-gradient(135deg, #a8d8ea 0%, #7bb3d3 100%)',
-                      boxShadow: '0 4px 10px rgba(0,0,0,0.2)',
-                    }}
-                  />
-                </>
-              )}
-            </AnimatePresence>
-
             {/* Boca/Expresión */}
-            <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2">
+            <div className="absolute bottom-10 left-1/2 transform -translate-x-1/2">
               <AnimatePresence mode="wait">
                 {state === 'error' && (
                   <motion.div
@@ -212,56 +354,44 @@ export default function PetMascot({ state, className = '' }: PetMascotProps) {
                     key="neutral"
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="w-10 h-1 bg-blue-800 rounded-full"
+                    className="w-10 h-1 bg-gray-400 rounded-full"
                   />
                 )}
               </AnimatePresence>
             </div>
 
-            {/* Mejillas rosadas (solo en estados felices) */}
-            {(state === 'idle' || state === 'success') && (
-              <>
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="absolute bottom-12 left-6 w-4 h-3 rounded-full bg-pink-300 opacity-60"
-                />
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="absolute bottom-12 right-6 w-4 h-3 rounded-full bg-pink-300 opacity-60"
-                />
-              </>
-            )}
-
-            {/* Detalles decorativos - pequeños círculos */}
-            <div className="absolute top-3 left-3 w-2 h-2 bg-white/40 rounded-full" />
-            <div className="absolute top-3 right-3 w-2 h-2 bg-white/40 rounded-full" />
+            {/* Antenas decorativas */}
+            <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 flex gap-8">
+              <div className="w-1 h-3 bg-gray-600 rounded-full" />
+              <div className="w-1 h-3 bg-gray-600 rounded-full" />
+            </div>
           </motion.div>
 
           {/* Partículas de celebración cuando es éxito */}
           <AnimatePresence>
             {state === 'success' && (
               <>
-                {[...Array(6)].map((_, i) => (
+                {[...Array(8)].map((_, i) => (
                   <motion.div
                     key={i}
                     initial={{ scale: 0, x: 0, y: 0, opacity: 1 }}
                     animate={{
-                      scale: [0, 1, 0],
-                      x: Math.cos((i * Math.PI * 2) / 6) * 40,
-                      y: Math.sin((i * Math.PI * 2) / 6) * 40,
+                      scale: [0, 1.2, 0],
+                      x: Math.cos((i * Math.PI * 2) / 8) * 50,
+                      y: Math.sin((i * Math.PI * 2) / 8) * 50,
                       opacity: [1, 1, 0],
                     }}
                     exit={{ scale: 0, opacity: 0 }}
                     transition={{
-                      duration: 1,
+                      duration: 1.2,
                       delay: i * 0.1,
-                      repeat: 2,
+                      repeat: 1,
+                      ease: 'easeOut',
                     }}
                     className="absolute top-1/2 left-1/2 w-3 h-3 rounded-full"
                     style={{
-                      background: ['#fbbf24', '#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#8b5cf6'][i],
+                      background: ['#fbbf24', '#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6'][i],
+                      boxShadow: `0 0 12px ${['#fbbf24', '#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6'][i]}80`,
                     }}
                   />
                 ))}
@@ -271,7 +401,7 @@ export default function PetMascot({ state, className = '' }: PetMascotProps) {
         </div>
       </motion.div>
 
-      {/* Mensaje de estado mejorado */}
+      {/* Mensaje de estado */}
       <AnimatePresence>
         {state === 'error' && (
           <motion.div
@@ -312,7 +442,7 @@ export default function PetMascot({ state, className = '' }: PetMascotProps) {
             exit={{ opacity: 0 }}
             className="text-xs text-purple-500 text-center mt-2"
           >
-            🙈 No miro, no miro...
+            🔒 Verificando contraseña...
           </motion.p>
         )}
       </AnimatePresence>

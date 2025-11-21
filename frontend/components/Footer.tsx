@@ -14,11 +14,11 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand */}
           <div className="col-span-1 md:col-span-2">
-            <h3 className="text-2xl font-bold text-white mb-4">
+            <h3 className="text-3xl font-display font-bold text-white mb-3 tracking-tight">
               {config?.nombre_comercial || 'ImportStore'}
             </h3>
             {config?.lema && (
-              <p className="text-gray-400 mb-4">{config.lema}</p>
+              <p className="text-gray-400 mb-6 text-lg leading-relaxed">{config.lema}</p>
             )}
             <div className="flex space-x-4">
               {config?.redes_sociales?.instagram && (
@@ -46,7 +46,7 @@ export default function Footer() {
 
           {/* Links */}
           <div>
-            <h4 className="text-white font-semibold mb-4">Enlaces</h4>
+            <h4 className="text-white font-display font-semibold mb-4 text-lg">Enlaces</h4>
             <ul className="space-y-2">
               <li>
                 <Link href="/" className="hover:text-white transition-colors">
@@ -68,7 +68,7 @@ export default function Footer() {
 
           {/* Contact */}
           <div>
-            <h4 className="text-white font-semibold mb-4">Contacto</h4>
+            <h4 className="text-white font-display font-semibold mb-4 text-lg">Contacto</h4>
             <ul className="space-y-3">
               {config?.telefono && (
                 <li className="flex items-center space-x-2">
@@ -112,7 +112,7 @@ export default function Footer() {
         {/* Horarios */}
         {config?.horarios && (
           <div className="mt-8 pt-8 border-t border-gray-800">
-            <h4 className="text-white font-semibold mb-4">Horarios</h4>
+            <h4 className="text-white font-display font-semibold mb-4 text-lg">Horarios</h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
               {config.horarios.lunes_viernes && (
                 <div>

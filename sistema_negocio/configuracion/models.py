@@ -1,6 +1,10 @@
+import logging
 from decimal import Decimal
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
+
+logger = logging.getLogger(__name__)
 
 
 class ConfiguracionTienda(models.Model):
@@ -32,7 +36,8 @@ class ConfiguracionTienda(models.Model):
 
 class EscalaPrecioMayorista(models.Model):
     """
-    Define rangos de cantidad y porcentajes de descuento para precios mayoristas
+    Define rangos de cantidad y porcentajes de descuento para precios mayoristas.
+    Puede aplicarse a categorías específicas o a todas si no se especifican categorías.
     """
     configuracion = models.ForeignKey(
         'ConfiguracionSistema',
@@ -63,20 +68,37 @@ class EscalaPrecioMayorista(models.Model):
         verbose_name="Orden",
         help_text="Orden de aplicación (menor = primero)"
     )
+    categorias = models.ManyToManyField(
+        'inventario.Categoria',
+        blank=True,
+        verbose_name="Categorías",
+        help_text="Categorías a las que se aplica este descuento. Si no se selecciona ninguna, se aplica a todas las categorías."
+    )
     
     class Meta:
         verbose_name = "Escala de Precio Mayorista"
         verbose_name_plural = "Escalas de Precio Mayorista"
         ordering = ['orden', 'cantidad_minima']
+        indexes = [
+            models.Index(fields=['configuracion', 'activo', 'orden']),
+            models.Index(fields=['cantidad_minima', 'cantidad_maxima']),
+        ]
     
     def __str__(self):
         if self.cantidad_maxima:
             return f"{self.cantidad_minima}-{self.cantidad_maxima} unidades: {self.porcentaje_descuento}% desc."
         return f"{self.cantidad_minima}+ unidades: {self.porcentaje_descuento}% desc."
     
-    def aplicar_descuento(self, precio_base: Decimal, cantidad: int) -> Decimal:
+    def aplicar_descuento(self, precio_base: Decimal, cantidad: int, categoria_id: int = None) -> Decimal:
         """
         Aplica el descuento de esta escala al precio base si la cantidad está en el rango
+        y la categoría del producto está incluida (o si no hay categorías especificadas).
+        Retorna el precio con el descuento aplicado.
+        
+        Args:
+            precio_base: Precio base del producto
+            cantidad: Cantidad del producto
+            categoria_id: ID de la categoría del producto (opcional)
         """
         if not self.activo:
             return precio_base
@@ -84,11 +106,39 @@ class EscalaPrecioMayorista(models.Model):
         if cantidad < self.cantidad_minima:
             return precio_base
         
-        if self.cantidad_maxima and cantidad > self.cantidad_maxima:
+        if self.cantidad_maxima is not None and cantidad > self.cantidad_maxima:
             return precio_base
         
+        # Verificar si la categoría está incluida (si hay categorías especificadas)
+        if categoria_id is not None:
+            categorias_count = self.categorias.count()
+            if categorias_count > 0:
+                # Si hay categorías especificadas, verificar que la categoría del producto esté incluida
+                if not self.categorias.filter(pk=categoria_id).exists():
+                    return precio_base
+        
+        # Aplicar el descuento porcentual
         descuento = (precio_base * self.porcentaje_descuento) / Decimal('100')
-        return precio_base - descuento
+        precio_final = precio_base - descuento
+        
+        # Asegurar que el precio final no sea negativo
+        return max(precio_final, Decimal('0'))
+    
+    def clean(self):
+        """Validación del modelo para evitar rangos inválidos"""
+        if self.cantidad_minima < 1:
+            raise ValidationError({'cantidad_minima': 'La cantidad mínima debe ser mayor a 0'})
+        
+        if self.cantidad_maxima is not None:
+            if self.cantidad_maxima < self.cantidad_minima:
+                raise ValidationError({
+                    'cantidad_maxima': 'La cantidad máxima debe ser mayor o igual a la cantidad mínima'
+                })
+        
+        if self.porcentaje_descuento < 0 or self.porcentaje_descuento > 100:
+            raise ValidationError({
+                'porcentaje_descuento': 'El porcentaje de descuento debe estar entre 0 y 100'
+            })
 
 
 class ConfiguracionSistema(models.Model):
@@ -295,8 +345,81 @@ class ConfiguracionSistema(models.Model):
         verbose_name = "Configuración del Sistema"
         verbose_name_plural = "Configuración del Sistema"
 
+    def _normalizar_booleano(self, value) -> bool:
+        """
+        Normaliza un valor a booleano estricto.
+        Maneja todos los casos posibles: None, cadenas vacías, strings, números, etc.
+        """
+        if value is None:
+            return False
+        
+        if isinstance(value, bool):
+            return value
+        
+        if isinstance(value, str):
+            value = value.strip()
+            # Si es cadena vacía, retornar False
+            if not value:
+                return False
+            value = value.lower()
+            # Valores que se consideran True
+            if value in ('true', '1', 'on', 'yes', 'si', 'sí'):
+                return True
+            # Cualquier otro string se considera False
+            return False
+        
+        if isinstance(value, (int, float)):
+            return bool(value) and value != 0
+        
+        # Para cualquier otro tipo, intentar convertir a bool
+        try:
+            return bool(value)
+        except (TypeError, ValueError):
+            return False
+
+    def _normalizar_todos_los_booleanos(self):
+        """
+        Normaliza TODOS los campos booleanos del modelo.
+        Esto asegura que ningún campo booleano tenga valores inválidos.
+        """
+        # Obtener todos los campos booleanos del modelo usando _meta.fields
+        # que solo incluye campos directos del modelo (no relaciones)
+        boolean_fields = [
+            field.name for field in self._meta.fields
+            if isinstance(field, models.BooleanField)
+        ]
+        
+        # Normalizar cada campo booleano
+        for field_name in boolean_fields:
+            try:
+                value = getattr(self, field_name, None)
+                normalized_value = self._normalizar_booleano(value)
+                setattr(self, field_name, normalized_value)
+            except (AttributeError, ValueError) as e:
+                # Si hay un error al acceder al campo, usar el valor por defecto
+                logger.warning(f"Error al normalizar campo booleano {field_name}: {e}")
+                try:
+                    setattr(self, field_name, False)
+                except (AttributeError, ValueError):
+                    pass  # Si no se puede establecer, continuar
+
     def save(self, *args, **kwargs):
+        """
+        Guarda la configuración del sistema.
+        Asegura que todos los campos booleanos tengan valores válidos antes de guardar.
+        """
         self.pk = 1
+        
+        # Normalizar TODOS los campos booleanos del modelo
+        self._normalizar_todos_los_booleanos()
+        
+        # Validar que los valores numéricos sean correctos
+        if self.monto_minimo_mayorista is None or self.monto_minimo_mayorista < 0:
+            self.monto_minimo_mayorista = Decimal('0')
+        
+        if self.cantidad_minima_mayorista is None or self.cantidad_minima_mayorista < 0:
+            self.cantidad_minima_mayorista = 0
+        
         super().save(*args, **kwargs)
 
     @classmethod
@@ -304,21 +427,47 @@ class ConfiguracionSistema(models.Model):
         obj, _ = cls.objects.get_or_create(pk=1, defaults={"nombre_comercial": "ImportStore"})
         return obj
     
-    def obtener_precio_con_escala(self, precio_base: Decimal, cantidad: int) -> Decimal:
+    def obtener_precio_con_escala(self, precio_base: Decimal, cantidad: int, categoria_id: int = None) -> Decimal:
         """
-        Calcula el precio aplicando las escalas de descuento si están activas
+        Calcula el precio aplicando las escalas de descuento si están activas.
+        Devuelve el mejor descuento (mayor porcentaje) que aplique para la cantidad dada
+        y la categoría del producto (si se especifica).
+        
+        Args:
+            precio_base: Precio base del producto
+            cantidad: Cantidad del producto
+            categoria_id: ID de la categoría del producto (opcional)
         """
         if not self.precios_escala_activos:
             return precio_base
         
+        if cantidad < 1:
+            return precio_base
+        
+        # Obtener todas las escalas activas ordenadas por orden y cantidad mínima
         escalas = self.escalas_precio.filter(activo=True).order_by('orden', 'cantidad_minima')
         
+        if not escalas.exists():
+            return precio_base
+        
+        mejor_precio = precio_base
+        mejor_descuento = Decimal('0')
+        
+        # Buscar la escala que mejor se ajuste a la cantidad y categoría
         for escala in escalas:
+            # Verificar si la cantidad está en el rango de esta escala
             if cantidad >= escala.cantidad_minima:
                 if escala.cantidad_maxima is None or cantidad <= escala.cantidad_maxima:
-                    return escala.aplicar_descuento(precio_base, cantidad)
+                    # Calcular el precio con este descuento (incluyendo verificación de categoría)
+                    precio_con_descuento = escala.aplicar_descuento(precio_base, cantidad, categoria_id)
+                    descuento_aplicado = precio_base - precio_con_descuento
+                    
+                    # Si este descuento es mejor (mayor), usarlo
+                    if descuento_aplicado > mejor_descuento:
+                        mejor_descuento = descuento_aplicado
+                        mejor_precio = precio_con_descuento
         
-        return precio_base
+        return mejor_precio
 
 
 class PreferenciaUsuario(models.Model):

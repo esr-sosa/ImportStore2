@@ -1,0 +1,6 @@
+# Este directorio contiene los certificados SSL
+# En producción, colocar aquí:
+# - cert.pem (certificado)
+# - key.pem (clave privada)
+# O usar Certbot para generarlos automáticamente
+

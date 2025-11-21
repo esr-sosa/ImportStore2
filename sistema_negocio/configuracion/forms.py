@@ -39,6 +39,10 @@ class ConfiguracionTiendaForm(forms.ModelForm):
 
 
 class ConfiguracionSistemaForm(forms.ModelForm):
+    """
+    Formulario para la configuración del sistema.
+    Incluye validación robusta de campos booleanos y manejo de errores.
+    """
     class Meta:
         model = ConfiguracionSistema
         fields = [
@@ -63,11 +67,99 @@ class ConfiguracionSistemaForm(forms.ModelForm):
             "notas_sistema": forms.Textarea(attrs={"rows": 4}),
         }
 
+    def _normalizar_booleano(self, field_name: str, value) -> bool:
+        """
+        Normaliza un valor a booleano estricto.
+        Maneja todos los casos posibles: None, cadenas vacías, strings, números, etc.
+        """
+        if value is None:
+            return False
+        
+        if isinstance(value, bool):
+            return value
+        
+        if isinstance(value, str):
+            value = value.strip()
+            # Si es cadena vacía, retornar False
+            if not value:
+                return False
+            value = value.lower()
+            # Valores que se consideran True
+            if value in ('true', '1', 'on', 'yes', 'si', 'sí'):
+                return True
+            # Cualquier otro string se considera False
+            return False
+        
+        if isinstance(value, (int, float)):
+            return bool(value) and value != 0
+        
+        # Para cualquier otro tipo, intentar convertir a bool
+        try:
+            return bool(value)
+        except (TypeError, ValueError):
+            return False
+
+    def _obtener_valor_post_booleano(self, field_name: str) -> bool:
+        """
+        Obtiene el valor booleano desde el POST, considerando el prefijo del formulario.
+        """
+        prefixed_name = f'{self.prefix}-{field_name}' if self.prefix else field_name
+        
+        # Buscar en POST con prefijo
+        post_value = self.data.get(prefixed_name)
+        if post_value is None:
+            # Buscar sin prefijo
+            post_value = self.data.get(field_name)
+        
+        # Si el campo no está en POST, el checkbox no estaba marcado
+        if post_value is None:
+            return False
+        
+        return self._normalizar_booleano(field_name, post_value)
+
+    def clean_precios_escala_activos(self):
+        """Valida y normaliza el campo precios_escala_activos"""
+        value = self._obtener_valor_post_booleano('precios_escala_activos')
+        return value
+
+    def clean_modo_oscuro_predeterminado(self):
+        """Valida y normaliza el campo modo_oscuro_predeterminado"""
+        value = self._obtener_valor_post_booleano('modo_oscuro_predeterminado')
+        return value
+
+    def clean_mostrar_alertas(self):
+        """Valida y normaliza el campo mostrar_alertas"""
+        value = self._obtener_valor_post_booleano('mostrar_alertas')
+        return value
+
+    def clean_acceso_admin_habilitado(self):
+        """Valida y normaliza el campo acceso_admin_habilitado"""
+        value = self._obtener_valor_post_booleano('acceso_admin_habilitado')
+        return value
+
+    def clean_monto_minimo_mayorista(self):
+        """Valida el monto mínimo mayorista"""
+        value = self.cleaned_data.get('monto_minimo_mayorista')
+        if value is None:
+            return 0
+        if value < 0:
+            raise forms.ValidationError("El monto mínimo no puede ser negativo")
+        return value
+
+    def clean_cantidad_minima_mayorista(self):
+        """Valida la cantidad mínima mayorista"""
+        value = self.cleaned_data.get('cantidad_minima_mayorista')
+        if value is None:
+            return 0
+        if value < 0:
+            raise forms.ValidationError("La cantidad mínima no puede ser negativa")
+        return value
+
     def clean(self):
-        """Limpiar todos los campos booleanos para asegurar que tengan valores válidos"""
+        """Validación general del formulario"""
         cleaned_data = super().clean()
         
-        # Lista de campos booleanos en el formulario
+        # Asegurar que todos los campos booleanos estén normalizados
         boolean_fields = [
             'precios_escala_activos',
             'modo_oscuro_predeterminado',
@@ -75,41 +167,15 @@ class ConfiguracionSistemaForm(forms.ModelForm):
             'acceso_admin_habilitado',
         ]
         
-        # Asegurar que todos los campos booleanos tengan valores válidos
         for field_name in boolean_fields:
-            # Verificar si el campo está en los datos del POST (con el prefijo)
-            prefixed_name = f'{self.prefix}-{field_name}' if self.prefix else field_name
-            field_in_post = prefixed_name in self.data or field_name in self.data
-            
             if field_name in cleaned_data:
-                value = cleaned_data[field_name]
-                # Si el valor es None, cadena vacía, o no es booleano válido
-                if value is None or value == '':
-                    # Si el campo está en POST, intentar obtener el valor
-                    if field_in_post:
-                        post_value = self.data.get(prefixed_name) or self.data.get(field_name)
-                        if post_value in ('on', 'true', 'True', '1', 1, True):
-                            cleaned_data[field_name] = True
-                        else:
-                            cleaned_data[field_name] = False
-                    else:
-                        # Si no está en POST, el checkbox no estaba marcado
-                        cleaned_data[field_name] = False
-                else:
-                    # El valor ya es válido, asegurarse de que sea booleano
-                    cleaned_data[field_name] = bool(value)
+                cleaned_data[field_name] = self._normalizar_booleano(
+                    field_name, 
+                    cleaned_data[field_name]
+                )
             else:
-                # Si el campo no está en cleaned_data, verificar si está en POST
-                if field_in_post:
-                    # Si está en POST pero no en cleaned_data, puede ser un valor inválido
-                    post_value = self.data.get(prefixed_name) or self.data.get(field_name)
-                    if post_value in ('on', 'true', 'True', '1', 1, True):
-                        cleaned_data[field_name] = True
-                    else:
-                        cleaned_data[field_name] = False
-                else:
-                    # Si no está en POST, el checkbox no estaba marcado, establecer False
-                    cleaned_data[field_name] = False
+                # Si no está en cleaned_data, obtenerlo del POST
+                cleaned_data[field_name] = self._obtener_valor_post_booleano(field_name)
         
         return cleaned_data
     

@@ -61,6 +61,8 @@ def _formatear_variante_publica(variante, request, tipo_precio="MINORISTA", cant
     precio_final_usd = None
     precio_original_usd = None
     precio_base_mayorista = None
+    descuento_aplicado = None
+    porcentaje_descuento = None
     
     if tipo_precio == "MAYORISTA":
         if precio_mayorista_ars:
@@ -73,12 +75,11 @@ def _formatear_variante_publica(variante, request, tipo_precio="MINORISTA", cant
             precio_final_usd = precio_original_usd
         
         # Aplicar escalas de descuento si están activas
-        descuento_aplicado = None
-        porcentaje_descuento = None
         if precio_base_mayorista is not None:
             try:
                 config = ConfiguracionSistema.obtener_unica()
-                precio_con_escala = config.obtener_precio_con_escala(precio_base_mayorista, cantidad)
+                categoria_id = variante.producto.categoria.id if variante.producto.categoria else None
+                precio_con_escala = config.obtener_precio_con_escala(precio_base_mayorista, cantidad, categoria_id)
                 precio_final_ars = float(precio_con_escala)
                 
                 # Calcular descuento aplicado
@@ -162,17 +163,17 @@ def api_configuraciones(request):
             "lema": config.lema or "",
             "logo": _formatear_imagen(config.logo, request) if config.logo else None,
             "color_principal": config.color_principal,
-            "whatsapp": config.telefono_whatsapp or config.whatsapp_numero or "",
-            "email": config.correo_contacto or config.contacto_email or "",
-            "telefono": config.telefono_local or "",
+            "whatsapp": config.whatsapp_numero or config.whatsapp_alternativo or "",
+            "email": config.contacto_email or "",
+            "telefono": config.whatsapp_numero or "",
             "direccion": config.domicilio_comercial or tienda.direccion or "",
             "horarios": {
-                "lunes_viernes": config.horario_lunes_a_viernes or "",
-                "sabados": config.horario_sabados or "",
-                "domingos": config.horario_domingos or "",
+                "lunes_viernes": config.horarios_apertura or "",
+                "sabados": config.horarios_apertura or "",
+                "domingos": config.horarios_apertura or "",
             },
             "redes_sociales": {
-                "instagram": config.instagram_principal or "",
+                "instagram": config.instagram_empresa or config.instagram_personal or "",
                 "facebook": config.facebook or "",
             },
             "envios": {
@@ -201,7 +202,10 @@ def api_configuraciones(request):
             },
         })
     except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+        import traceback
+        error_detail = traceback.format_exc()
+        print(f"Error en api_configuraciones: {error_detail}")
+        return JsonResponse({"error": str(e), "detail": error_detail}, status=500)
 
 
 @csrf_exempt
@@ -330,7 +334,6 @@ def api_productos(request):
         
         if proveedor_id:
             variantes = variantes.filter(producto__proveedor_id=proveedor_id)
-            variantes = variantes.filter(producto__proveedor_id=proveedor_id)
         
         if atributo_1:
             variantes = variantes.filter(atributo_1__icontains=atributo_1)
@@ -395,7 +398,10 @@ def api_productos(request):
             }
         })
     except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+        import traceback
+        error_detail = traceback.format_exc()
+        print(f"Error en api_productos: {error_detail}")
+        return JsonResponse({"error": str(e), "detail": error_detail}, status=500)
 
 
 @csrf_exempt
@@ -608,7 +614,8 @@ def api_carrito(request):
             if tipo_precio == "MAYORISTA" and precio_base_ars:
                 try:
                     config = ConfiguracionSistema.obtener_unica()
-                    precio_con_escala = config.obtener_precio_con_escala(precio_base_ars, cantidad)
+                    categoria_id = variante.producto.categoria.id if variante.producto.categoria else None
+                    precio_con_escala = config.obtener_precio_con_escala(precio_base_ars, cantidad, categoria_id)
                     precio_ars_valor = float(precio_con_escala)
                     
                     if precio_con_escala < precio_base_ars:
@@ -643,7 +650,8 @@ def api_carrito(request):
                 if tipo_precio == "MAYORISTA" and precio_base_ars:
                     try:
                         config = ConfiguracionSistema.obtener_unica()
-                        precio_con_escala = config.obtener_precio_con_escala(precio_base_ars, nueva_cantidad)
+                        categoria_id = variante.producto.categoria.id if variante.producto.categoria else None
+                        precio_con_escala = config.obtener_precio_con_escala(precio_base_ars, nueva_cantidad, categoria_id)
                         nuevo_precio = float(precio_con_escala)
                         item_existente["precio_unitario_ars"] = nuevo_precio
                         

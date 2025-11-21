@@ -8,6 +8,7 @@ import { api, Producto, Categoria } from '@/lib/api';
 import ProductCard from '@/components/ProductCard';
 import { useConfigStore } from '@/stores/configStore';
 import { useAuthStore } from '@/stores/authStore';
+import { getTextColorClass, getTextColorStyle } from '@/lib/colorUtils';
 
 export default function HomePage() {
   const [productosDestacados, setProductosDestacados] = useState<Producto[]>([]);
@@ -48,26 +49,37 @@ export default function HomePage() {
             transition={{ duration: 0.6 }}
             className="text-center"
           >
-            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
+            <h1 className="text-5xl md:text-7xl font-display font-bold text-gray-900 mb-6 tracking-tight">
               {config?.nombre_comercial || 'Bienvenido a ImportStore'}
             </h1>
             {config?.lema && (
-              <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">{config.lema}</p>
+              <p className="text-xl md:text-2xl text-gray-600 mb-10 max-w-2xl mx-auto font-light leading-relaxed">{config.lema}</p>
             )}
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link
-                href="/productos"
-                className="inline-flex items-center justify-center px-8 py-4 rounded-full font-semibold transition-all shadow-lg hover:shadow-xl bg-blue-600 text-white hover:bg-blue-700"
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
               >
-                Ver Productos
-                <FiArrowRight className="ml-2" />
-              </Link>
-              <Link
-                href="/categorias"
-                className="inline-flex items-center justify-center px-8 py-4 rounded-full border-2 border-gray-300 text-gray-700 font-semibold transition-all hover:border-gray-400"
+                <Link
+                  href="/productos"
+                  className={`inline-flex items-center justify-center px-10 py-4 rounded-full font-display font-semibold text-base transition-all shadow-lg hover:shadow-xl ${getTextColorClass(colorPrimary)}`}
+                  style={{ backgroundColor: colorPrimary, ...getTextColorStyle(colorPrimary) }}
+                >
+                  Ver Productos
+                  <FiArrowRight className="ml-2 w-5 h-5" />
+                </Link>
+              </motion.div>
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
               >
-                Explorar Categorías
-              </Link>
+                <Link
+                  href="/categorias"
+                  className="inline-flex items-center justify-center px-10 py-4 rounded-full border-2 border-gray-300 text-gray-700 font-display font-semibold text-base transition-all hover:border-gray-400 hover:bg-gray-50"
+                >
+                  Explorar Categorías
+                </Link>
+              </motion.div>
             </div>
           </motion.div>
         </div>
@@ -77,8 +89,8 @@ export default function HomePage() {
       {categorias.length > 0 && (
         <section className="py-16 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-3xl font-bold text-gray-900">Categorías</h2>
+            <div className="flex items-center justify-between mb-12">
+              <h2 className="text-4xl font-display font-bold text-gray-900 tracking-tight">Categorías</h2>
               <Link
                 href="/categorias"
                 className="text-blue-600 hover:text-blue-700 font-semibold flex items-center"
@@ -115,8 +127,8 @@ export default function HomePage() {
       {/* Productos Destacados */}
       <section className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-3xl font-bold text-gray-900">Productos Destacados</h2>
+          <div className="flex items-center justify-between mb-12">
+            <h2 className="text-4xl font-display font-bold text-gray-900 tracking-tight">Productos Destacados</h2>
             <Link
               href="/productos"
               className="text-blue-600 hover:text-blue-700 font-semibold flex items-center"
@@ -164,7 +176,7 @@ export default function HomePage() {
             </p>
             <Link
               href="/productos"
-              className="inline-flex items-center justify-center px-8 py-4 rounded-full font-semibold transition-all shadow-lg hover:shadow-xl bg-blue-600 text-white hover:bg-blue-700"
+              className="inline-flex items-center justify-center px-8 py-4 rounded-full font-semibold transition-all shadow-lg hover:shadow-xl bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800"
             >
               Explorar Catálogo
               <FiArrowRight className="ml-2" />

@@ -1,0 +1,42 @@
+# Dockerfile optimizado para Railway
+FROM python:3.11-slim
+
+# Variables de entorno
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Instalar dependencias del sistema
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    libpq-dev \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+# Crear directorio de trabajo
+WORKDIR /app
+
+# Copiar requirements e instalar dependencias
+COPY requirements.txt .
+RUN pip install --upgrade pip && \
+    pip install -r requirements.txt
+
+# Copiar código de la aplicación
+COPY sistema_negocio/ /app/sistema_negocio/
+
+# Crear directorios necesarios
+RUN mkdir -p /app/media /app/staticfiles /app/logs && \
+    chmod -R 755 /app/media /app/staticfiles /app/logs
+
+# Exponer puerto (Railway usa PORT variable)
+EXPOSE $PORT
+
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:$PORT/health/', timeout=5)" || exit 1
+
+# Comando por defecto (Railway inyecta PORT)
+CMD sh -c "cd /app/sistema_negocio && python manage.py collectstatic --noinput && python manage.py migrate && gunicorn --bind 0.0.0.0:\$PORT --workers 4 --threads 2 --timeout 120 --access-logfile - --error-logfile - core.wsgi:application"
+

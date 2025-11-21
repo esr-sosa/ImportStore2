@@ -9,6 +9,9 @@ from django.core.exceptions import ImproperlyConfigured
 from django.core.files.base import ContentFile
 from django.utils import timezone
 from PIL import Image
+import logging
+
+logger = logging.getLogger(__name__)
 
 try:
     import qrcode
@@ -1001,4 +1004,30 @@ La presente garantía no implica derecho a reposición, reembolso ni sustitució
     c.save()
     buffer.seek(0)
     filename = f"comprobante_{venta.id}.pdf"
-    return ContentFile(buffer.read(), name=filename)
+    pdf_content = buffer.read()
+    
+    # Intentar subir a Bunny Storage si está configurado
+    bunny_url = None
+    use_bunny = os.getenv('USE_BUNNY_STORAGE', 'false').lower() == 'true'
+    
+    if use_bunny:
+        try:
+            from core.utils_bunny import upload_pdf_to_bunny
+            remote_path = f"comprobantes/{filename}"
+            bunny_url = upload_pdf_to_bunny(BytesIO(pdf_content), remote_path)
+            
+            if bunny_url:
+                logger.info(f"PDF subido exitosamente a Bunny Storage: {bunny_url}")
+                # Guardar URL en el modelo Venta si tiene el campo
+                try:
+                    if hasattr(venta, 'comprobante_url'):
+                        venta.comprobante_url = bunny_url
+                        venta.save(update_fields=['comprobante_url'])
+                except Exception as e:
+                    logger.warning(f"No se pudo guardar URL del PDF en el modelo: {e}")
+            else:
+                logger.warning("No se pudo subir PDF a Bunny Storage, se usará almacenamiento local")
+        except Exception as e:
+            logger.error(f"Error al subir PDF a Bunny Storage: {e}")
+    
+    return ContentFile(pdf_content, name=filename)

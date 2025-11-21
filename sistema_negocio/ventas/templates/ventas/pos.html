@@ -853,9 +853,6 @@
     let modoPrecioActual = '{{ modo_precio|default:"MINORISTA" }}';
 
     let lastPdfUrl = null;
-    
-    // Variable global para el modo de precio actual
-    let modoPrecioActual = '{{ modo_precio|default:"MINORISTA" }}';
 
     let cart = [];
     let quickScanInstance = null;
@@ -1158,22 +1155,38 @@
 
     // Búsqueda de clientes
     let customerSearchTimeout;
-    customerSearch.addEventListener('input', async () => {
-        clearTimeout(customerSearchTimeout);
-        const query = customerSearch.value.trim();
-        if (query.length < 2) {
-            customerDropdown.classList.add('hidden');
-            return;
-        }
-        
-        customerSearchTimeout = setTimeout(async () => {
-            const response = await fetch(`/ventas/api/buscar-clientes/?q=${encodeURIComponent(query)}`);
-            const data = await response.json();
-            renderCustomerResults(data.results || []);
-        }, 300);
-    });
+    if (customerSearch && customerDropdown) {
+        customerSearch.addEventListener('input', async () => {
+            clearTimeout(customerSearchTimeout);
+            const query = customerSearch.value.trim();
+            if (query.length < 2) {
+                customerDropdown.classList.add('hidden');
+                return;
+            }
+            
+            customerSearchTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch(`/ventas/api/buscar-clientes/?q=${encodeURIComponent(query)}`);
+                    if (!response.ok) {
+                        console.error('Error en búsqueda de clientes:', response.status);
+                        return;
+                    }
+                    const data = await response.json();
+                    renderCustomerResults(data.results || []);
+                } catch (error) {
+                    console.error('Error al buscar clientes:', error);
+                }
+            }, 300);
+        });
+    } else {
+        console.error('Error: No se encontraron los elementos customerSearch o customerDropdown');
+    }
     
     function renderCustomerResults(results) {
+        if (!customerDropdown) {
+            console.error('Error: customerDropdown no está definido');
+            return;
+        }
         if (!results.length) {
             customerDropdown.innerHTML = `
                 <div class="p-4 text-sm text-slate-500">
@@ -1250,30 +1263,32 @@
         selectedCustomer.classList.remove('hidden');
     }
     
-    clearCustomer.addEventListener('click', () => {
-        customerId.value = '';
-        customerName.value = '';
-        customerDocument.value = '';
-        customerEmail.value = '';
-        customerTelefono.value = '';
-        customerSearch.value = '';
-        selectedCustomer.classList.add('hidden');
-    });
+    if (clearCustomer) {
+        clearCustomer.addEventListener('click', () => {
+            if (customerId) customerId.value = '';
+            if (customerName) customerName.value = '';
+            if (customerDocument) customerDocument.value = '';
+            if (customerEmail) customerEmail.value = '';
+            if (customerTelefono) customerTelefono.value = '';
+            if (customerSearch) customerSearch.value = '';
+            if (selectedCustomer) selectedCustomer.classList.add('hidden');
+        });
+    }
     
     // Cerrar dropdown al hacer click fuera
     document.addEventListener('click', (e) => {
-        if (!customerSearch.contains(e.target) && !customerDropdown.contains(e.target)) {
+        if (customerSearch && customerDropdown && !customerSearch.contains(e.target) && !customerDropdown.contains(e.target)) {
             customerDropdown.classList.add('hidden');
         }
     });
 
     function updateSearchClearButton() {
-        if (!clearSearchBtn) return;
+        if (!clearSearchBtn || !searchInput) return;
         const hasText = searchInput.value.trim().length > 0;
         clearSearchBtn.classList.toggle('hidden', !hasText);
     }
 
-    if (clearSearchBtn) {
+    if (clearSearchBtn && searchInput && searchDropdown) {
         clearSearchBtn.addEventListener('click', () => {
             searchInput.value = '';
             updateSearchClearButton();
@@ -1282,23 +1297,53 @@
         });
     }
 
-    searchInput.addEventListener('input', async () => {
-        updateSearchClearButton();
-        const query = searchInput.value.trim();
-        if (query.length < 2) {
-            searchDropdown.classList.add('hidden');
-            return;
-        }
+    // Debounce para el buscador
+    let searchTimeout = null;
+    if (searchInput && searchDropdown) {
+        searchInput.addEventListener('input', () => {
+            updateSearchClearButton();
+            const query = searchInput.value.trim();
+            
+            // Limpiar timeout anterior
+            if (searchTimeout) {
+                clearTimeout(searchTimeout);
+            }
+            
+            if (query.length < 2) {
+                searchDropdown.classList.add('hidden');
+                return;
+            }
 
-        const response = await fetch(`/ventas/api/buscar-productos/?q=${encodeURIComponent(query)}`);
-        const data = await response.json();
-        renderSearchResults(data.results || []);
-    });
+            // Debounce de 300ms
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch(`{% url "ventas:buscar_productos_api" %}?q=${encodeURIComponent(query)}`);
+                    if (!response.ok) {
+                        console.error('Error en búsqueda:', response.status);
+                        return;
+                    }
+                    const data = await response.json();
+                    renderSearchResults(data.results || []);
+                } catch (error) {
+                    console.error('Error al buscar productos:', error);
+                }
+            }, 300);
+        });
+    } else {
+        console.error('Error: No se encontraron los elementos searchInput o searchDropdown');
+    }
     
     // Manejar cambio de modo de precio
     if (togglePrecioMode) {
         togglePrecioMode.addEventListener('click', async () => {
             const nuevoModo = modoPrecioActual === 'MINORISTA' ? 'MAYORISTA' : 'MINORISTA';
+            
+            // Deshabilitar botón mientras se procesa
+            togglePrecioMode.disabled = true;
+            const originalText = precioModeText ? precioModeText.textContent : '';
+            if (precioModeText) {
+                precioModeText.textContent = 'Cambiando...';
+            }
             
             try {
                 const response = await fetch('{% url "ventas:cambiar_modo_precio_api" %}', {
@@ -1317,26 +1362,94 @@
                         precioModeText.textContent = `PRECIO: ${data.modo_display}`;
                     }
                     
-                    // Recargar resultados de búsqueda si hay una búsqueda activa
-                    if (searchInput.value.trim().length >= 2) {
-                        searchInput.dispatchEvent(new Event('input'));
+                    // Actualizar precios en el carrito sin recargar todo
+                    cart.forEach(item => {
+                        if (!item.es_custom && item.precios) {
+                            const precioArs = nuevoModo === 'MAYORISTA' 
+                                ? parseFloat(item.precios.mayorista_ars || item.precios.minorista_ars || 0)
+                                : parseFloat(item.precios.minorista_ars || item.precios.mayorista_ars || 0);
+                            if (precioArs > 0) {
+                                item.precio_unitario_ars = precioArs;
+                            }
+                        }
+                    });
+                    
+                    // Solo actualizar resultados de búsqueda si están visibles
+                    if (!searchDropdown.classList.contains('hidden') && searchInput.value.trim().length >= 2) {
+                        // Limpiar timeout anterior si existe
+                        if (searchTimeout) {
+                            clearTimeout(searchTimeout);
+                        }
+                        // Re-buscar con debounce
+                        searchTimeout = setTimeout(async () => {
+                            try {
+                                const query = searchInput.value.trim();
+                                const response = await fetch(`{% url "ventas:buscar_productos_api" %}?q=${encodeURIComponent(query)}`);
+                                if (response.ok) {
+                                    const data = await response.json();
+                                    renderSearchResults(data.results || []);
+                                }
+                            } catch (error) {
+                                console.error('Error al actualizar búsqueda:', error);
+                            }
+                        }, 100);
                     }
                     
-                    // Recargar carrito para actualizar precios
-                    renderCart();
+                    // Actualizar solo el resumen del carrito (más rápido que renderCart completo)
+                    updateSummary();
+                    // Actualizar precios en el DOM del carrito sin recargar todo
+                    const cartRows = cartBody.querySelectorAll('tr');
+                    cartRows.forEach((row, index) => {
+                        if (cart[index]) {
+                            const lineTotals = calculateLineTotal(cart[index]);
+                            const unitPriceEl = row.querySelector('.unit-price');
+                            const unitPriceMobileEl = row.querySelector('.unit-price-mobile');
+                            const lineTotalEl = row.querySelector('.line-total');
+                            
+                            if (unitPriceEl) {
+                                let precioText = `$${lineTotals.precio.toFixed(2)}`;
+                                if (cart[index].es_iphone && cart[index].precio_usd_original) {
+                                    precioText = `US$${cart[index].precio_usd_original.toFixed(2)} / $${lineTotals.precio.toFixed(2)}`;
+                                }
+                                unitPriceEl.textContent = precioText;
+                            }
+                            if (unitPriceMobileEl) {
+                                let precioText = `$${lineTotals.precio.toFixed(2)}`;
+                                if (cart[index].es_iphone && cart[index].precio_usd_original) {
+                                    precioText = `US$${cart[index].precio_usd_original.toFixed(2)} / $${lineTotals.precio.toFixed(2)}`;
+                                }
+                                unitPriceMobileEl.textContent = precioText;
+                            }
+                            if (lineTotalEl) {
+                                lineTotalEl.textContent = `$${lineTotals.total.toFixed(2)}`;
+                            }
+                        }
+                    });
                     
                     showCartFeedback(`Modo de precio cambiado a ${data.modo_display}`, 'success');
                 } else {
                     alert('Error al cambiar el modo de precio: ' + (data.error || 'Error desconocido'));
+                    if (precioModeText) {
+                        precioModeText.textContent = originalText;
+                    }
                 }
             } catch (error) {
                 console.error('Error al cambiar modo de precio:', error);
                 alert('Error al cambiar el modo de precio');
+                if (precioModeText) {
+                    precioModeText.textContent = originalText;
+                }
+            } finally {
+                togglePrecioMode.disabled = false;
             }
         });
     }
 
     function renderSearchResults(results) {
+        if (!searchDropdown) {
+            console.error('Error: searchDropdown no está definido');
+            return;
+        }
         if (!results.length) {
             searchDropdown.innerHTML = '<div class="p-4 text-sm text-slate-500">Sin resultados.</div>';
             searchDropdown.classList.remove('hidden');
@@ -1413,7 +1526,7 @@
     }
 
     document.addEventListener('click', (event) => {
-        if (!event.target.closest('#product-search') && !event.target.closest('#search-dropdown')) {
+        if (searchDropdown && !event.target.closest('#product-search') && !event.target.closest('#search-dropdown')) {
             searchDropdown.classList.add('hidden');
         }
     });
@@ -1507,6 +1620,29 @@
                 sku = item.sku;
             }
             
+            // Calcular precio_base (precio sin descuento por escalas)
+            let precioBase = precioSeleccionado;
+            if (!item.es_custom && modoPrecioActual === 'MAYORISTA') {
+                // Si es mayorista, el precio base es el precio sin descuento por escalas
+                // Usar el precio del objeto item.precios directamente
+                const precioBaseArs = parseFloat(item.precios?.mayorista_ars || 0);
+                const precioBaseUsd = parseFloat(item.precios?.mayorista_usd || 0);
+                
+                if (precioBaseArs > 0) {
+                    precioBase = precioBaseArs;
+                } else if (precioBaseUsd > 0 && esIphone) {
+                    const dolarValueEl = document.getElementById('dolar-value');
+                    const dolarBlue = parseFloat(dolarValueEl?.dataset.value || dolarValueEl?.textContent.replace('$', '').replace(',', '') || '0');
+                    if (dolarBlue > 0) {
+                        precioBase = precioBaseUsd * dolarBlue;
+                    } else {
+                        precioBase = precioBaseUsd;
+                    }
+                } else if (precioBaseUsd > 0) {
+                    precioBase = precioBaseUsd;
+                }
+            }
+            
             cart.push({
                 variante_id: item.es_custom ? null : itemId,
                 nombre: nombre,
@@ -1515,6 +1651,7 @@
                 cantidad: cantidadAAgregar, // Usar la cantidad especificada en lugar de siempre 1
                 precios: item.precios || {},
                 precio_unitario_ars: precioSeleccionado,
+                precio_base: precioBase, // Guardar precio base (sin descuento por escalas)
                 precio_usd_original: precioUsdOriginal, // Guardar precio USD si existe
                 es_iphone: esIphone || false, // Marcar si es iPhone
                 stock_actual: item.stock_actual ?? item.stock ?? 0, // Incluir stock actual
@@ -1569,9 +1706,46 @@
             const quantityInput = row.querySelector('.quantity-input');
             if (quantityInput) {
                 quantityInput.value = item.cantidad;
-                quantityInput.addEventListener('change', (event) => {
+                quantityInput.addEventListener('change', async (event) => {
                     const value = Math.max(1, parseInt(event.target.value, 10) || 1);
                     cart[index].cantidad = value;
+                    
+                    // Si es modo mayorista y tiene variante_id, recalcular precio con escalas
+                    if (modoPrecioActual === 'MAYORISTA' && item.variante_id && !item.es_custom) {
+                        try {
+                            const response = await fetch('{% url "ventas:recalcular_precio_con_escala_api" %}', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRFToken': csrfToken
+                                },
+                                body: JSON.stringify({
+                                    variante_id: item.variante_id,
+                                    cantidad: value
+                                })
+                            });
+                            
+                            if (response.ok) {
+                                const data = await response.json();
+                                if (data.status === 'ok') {
+                                    // Actualizar precio con el recalculado
+                                    cart[index].precio_unitario_ars = data.precio_unitario_ars;
+                                    // Siempre actualizar precio_base (siempre viene en la respuesta)
+                                    cart[index].precio_base = data.precio_base || data.precio_unitario_ars;
+                                    if (data.descuento_aplicado && data.descuento_aplicado > 0) {
+                                        cart[index].descuento_aplicado = data.descuento_aplicado;
+                                        cart[index].porcentaje_descuento = data.porcentaje_descuento;
+                                    } else {
+                                        cart[index].descuento_aplicado = null;
+                                        cart[index].porcentaje_descuento = null;
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Error al recalcular precio:', error);
+                        }
+                    }
+                    
                     renderCart();
                 });
             }
@@ -1592,17 +1766,27 @@
             const lineTotals = calculateLineTotal(item);
             
             // Mostrar precio: si es iPhone y tiene precio USD, mostrar ambos
+            // Si hay descuento por escalas, mostrar precio tachado y precio con descuento
             let precioText = `$${lineTotals.precio.toFixed(2)}`;
+            if (lineTotals.descuentoEscala > 0 && lineTotals.precioBase > lineTotals.precio) {
+                // Mostrar precio original tachado y precio con descuento
+                precioText = `<span class="line-through text-slate-400">$${lineTotals.precioBase.toFixed(2)}</span> <span class="text-emerald-600 font-semibold">$${lineTotals.precio.toFixed(2)}</span>`;
+            }
             if (item.es_iphone && item.precio_usd_original) {
-                precioText = `US$${item.precio_usd_original.toFixed(2)} / $${lineTotals.precio.toFixed(2)}`;
+                const precioUsdText = `US$${item.precio_usd_original.toFixed(2)}`;
+                if (lineTotals.descuentoEscala > 0 && lineTotals.precioBase > lineTotals.precio) {
+                    precioText = `${precioUsdText} / <span class="line-through text-slate-400">$${lineTotals.precioBase.toFixed(2)}</span> <span class="text-emerald-600 font-semibold">$${lineTotals.precio.toFixed(2)}</span>`;
+                } else {
+                    precioText = `${precioUsdText} / $${lineTotals.precio.toFixed(2)}`;
+                }
             }
             const unitPriceEl = row.querySelector('.unit-price');
             if (unitPriceEl) {
-                unitPriceEl.textContent = precioText;
+                unitPriceEl.innerHTML = precioText;
             }
             const unitPriceMobileEl = row.querySelector('.unit-price-mobile');
             if (unitPriceMobileEl) {
-                unitPriceMobileEl.textContent = precioText;
+                unitPriceMobileEl.innerHTML = precioText;
             }
             
             // Mostrar stock
@@ -1625,7 +1809,17 @@
             }
             
             if (discountBtn) {
-                discountBtn.textContent = lineTotals.descuento > 0 ? `-$${lineTotals.descuento.toFixed(2)}` : 'Configurar';
+                // Mostrar descuento por escalas si existe, o descuento manual, o "Configurar"
+                if (lineTotals.descuentoEscala > 0) {
+                    discountBtn.textContent = `-$${lineTotals.descuentoEscala.toFixed(2)}`;
+                    if (item.porcentaje_descuento) {
+                        discountBtn.textContent += ` (${item.porcentaje_descuento.toFixed(1)}%)`;
+                    }
+                } else if (lineTotals.descuentoManual > 0) {
+                    discountBtn.textContent = `-$${lineTotals.descuentoManual.toFixed(2)}`;
+                } else {
+                    discountBtn.textContent = 'Configurar';
+                }
             }
             const lineTotalEl = row.querySelector('.line-total');
             if (lineTotalEl) {
@@ -1656,18 +1850,43 @@
     }
 
     function calculateLineTotal(item) {
-        const precio = parseFloat(item.precio_unitario_ars || 0);
+        // Usar precio_base si existe (precio sin descuento por escalas), sino usar precio_unitario_ars
+        const precioBase = item.precio_base ? parseFloat(item.precio_base) : parseFloat(item.precio_unitario_ars || 0);
+        const precioFinal = parseFloat(item.precio_unitario_ars || 0);
         const cantidad = parseInt(item.cantidad, 10) || 1;
-        const bruto = precio * cantidad;
-        let descuento = 0;
+        
+        // Calcular bruto usando precio base (sin descuento por escalas)
+        const bruto = precioBase * cantidad;
+        
+        // Calcular descuento por escalas (si existe)
+        let descuentoEscala = 0;
+        if (item.descuento_aplicado && item.descuento_aplicado > 0) {
+            // El descuento_aplicado es por unidad, multiplicar por cantidad
+            descuentoEscala = parseFloat(item.descuento_aplicado) * cantidad;
+        }
+        
+        // Calcular descuento manual (si existe)
+        let descuentoManual = 0;
         if (item.descuento) {
             if (item.descuento.tipo === 'monto') {
-                descuento = Math.min(bruto, parseFloat(item.descuento.valor));
+                descuentoManual = Math.min(bruto - descuentoEscala, parseFloat(item.descuento.valor));
             } else if (item.descuento.tipo === 'porcentaje') {
-                descuento = bruto * (parseFloat(item.descuento.valor) / 100);
+                descuentoManual = (bruto - descuentoEscala) * (parseFloat(item.descuento.valor) / 100);
             }
         }
-        return { precio, cantidad, descuento, total: bruto - descuento };
+        
+        // Descuento total = descuento por escalas + descuento manual
+        const descuentoTotal = descuentoEscala + descuentoManual;
+        
+        return { 
+            precio: precioFinal, // Precio unitario final (con descuento por escalas aplicado)
+            precioBase: precioBase, // Precio base sin descuento
+            cantidad, 
+            descuento: descuentoTotal,
+            descuentoEscala: descuentoEscala,
+            descuentoManual: descuentoManual,
+            total: bruto - descuentoTotal 
+        };
     }
 
     function openDiscountModal(index) {
@@ -1710,7 +1929,8 @@
 
         cart.forEach(item => {
             const totals = calculateLineTotal(item);
-            subtotal += totals.precio * totals.cantidad;
+            // Usar precio base para el subtotal (antes de descuentos)
+            subtotal += totals.precioBase * totals.cantidad;
             descuentoItems += totals.descuento;
             itemsCount += totals.cantidad;
         });
@@ -2514,6 +2734,37 @@
                         } else if (existe.cantidad !== cantidadRemota) {
                             existe.cantidad = cantidadRemota;
                             console.log('🔄 Cantidad actualizada desde remoto:', existe.nombre, cantidadRemota);
+                            
+                            // Si es modo mayorista y tiene variante_id, recalcular precio con escalas
+                            if (modoPrecioActual === 'MAYORISTA' && existe.variante_id && !existe.es_custom) {
+                                fetch('{% url "ventas:recalcular_precio_con_escala_api" %}', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'X-CSRFToken': csrfToken
+                                    },
+                                    body: JSON.stringify({
+                                        variante_id: existe.variante_id,
+                                        cantidad: cantidadRemota
+                                    })
+                                })
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.status === 'ok') {
+                                        existe.precio_unitario_ars = data.precio_unitario_ars;
+                                        // Siempre actualizar precio_base (siempre viene en la respuesta)
+                                        existe.precio_base = data.precio_base || data.precio_unitario_ars;
+                                        if (data.descuento_aplicado && data.descuento_aplicado > 0) {
+                                            existe.descuento_aplicado = data.descuento_aplicado;
+                                            existe.porcentaje_descuento = data.porcentaje_descuento;
+                                        } else {
+                                            existe.descuento_aplicado = null;
+                                            existe.porcentaje_descuento = null;
+                                        }
+                                    }
+                                })
+                                .catch(error => console.error('Error al recalcular precio desde remoto:', error));
+                            }
                         }
                     }
                 }

@@ -393,25 +393,67 @@ async function stopScanner() {
 document.getElementById('edicion-rapida-btn').addEventListener('click', () => {
     if (!productoActual) return;
     
-    document.getElementById('edit-stock').value = productoActual.stock_actual || 0;
-    document.getElementById('edit-precio-minorista-ars').value = productoActual.precio_minorista_ars || '';
-    document.getElementById('edit-precio-mayorista-ars').value = productoActual.precio_mayorista_ars || '';
+    const editStock = document.getElementById('edit-stock');
+    const editPrecioMinoristaArs = document.getElementById('edit-precio-minorista-ars');
+    const editPrecioMayoristaArs = document.getElementById('edit-precio-mayorista-ars');
     
-    if (productoActual.precio_minorista_usd) {
+    // Asegurarse de que los campos estén habilitados
+    editStock.disabled = false;
+    editPrecioMinoristaArs.disabled = false;
+    editPrecioMayoristaArs.disabled = false;
+    editPrecioMinoristaArs.readOnly = false;
+    editPrecioMayoristaArs.readOnly = false;
+    
+    editStock.value = productoActual.stock_actual || 0;
+    
+    // Obtener precio minorista ARS (puede venir de precios o precio_minorista_ars)
+    const precioMinoristaArs = productoActual.precio_minorista_ars || 
+                                productoActual.precios?.minorista_ars || 
+                                '';
+    editPrecioMinoristaArs.value = precioMinoristaArs;
+    
+    // Obtener precio mayorista ARS (puede venir de precios o precio_mayorista_ars)
+    let precioMayoristaArs = productoActual.precio_mayorista_ars || 
+                             productoActual.precios?.mayorista_ars || 
+                             '';
+    
+    // Si el precio es null, undefined, o 'N/A', dejarlo vacío
+    if (!precioMayoristaArs || precioMayoristaArs === 'N/A' || precioMayoristaArs === 'null' || precioMayoristaArs === 'undefined') {
+        precioMayoristaArs = '';
+    }
+    
+    // Convertir a string y limpiar
+    precioMayoristaArs = String(precioMayoristaArs).trim();
+    editPrecioMayoristaArs.value = precioMayoristaArs;
+    
+    if (productoActual.precio_minorista_usd || productoActual.precios?.minorista_usd) {
+        const precioMinoristaUsd = productoActual.precio_minorista_usd || productoActual.precios?.minorista_usd || '';
         document.getElementById('edit-precio-minorista-usd-container').classList.remove('hidden');
-        document.getElementById('edit-precio-minorista-usd').value = productoActual.precio_minorista_usd || '';
+        const editPrecioMinoristaUsd = document.getElementById('edit-precio-minorista-usd');
+        editPrecioMinoristaUsd.disabled = false;
+        editPrecioMinoristaUsd.readOnly = false;
+        editPrecioMinoristaUsd.value = precioMinoristaUsd;
     } else {
         document.getElementById('edit-precio-minorista-usd-container').classList.add('hidden');
     }
     
-    if (productoActual.precio_mayorista_usd) {
+    if (productoActual.precio_mayorista_usd || productoActual.precios?.mayorista_usd) {
+        const precioMayoristaUsd = productoActual.precio_mayorista_usd || productoActual.precios?.mayorista_usd || '';
         document.getElementById('edit-precio-mayorista-usd-container').classList.remove('hidden');
-        document.getElementById('edit-precio-mayorista-usd').value = productoActual.precio_mayorista_usd || '';
+        const editPrecioMayoristaUsd = document.getElementById('edit-precio-mayorista-usd');
+        editPrecioMayoristaUsd.disabled = false;
+        editPrecioMayoristaUsd.readOnly = false;
+        editPrecioMayoristaUsd.value = precioMayoristaUsd;
     } else {
         document.getElementById('edit-precio-mayorista-usd-container').classList.add('hidden');
     }
     
     editModal.classList.add('show');
+    
+    // Enfocar el primer campo
+    setTimeout(() => {
+        editPrecioMayoristaArs.focus();
+    }, 100);
 });
 
 // Cerrar modal
@@ -428,22 +470,48 @@ editForm.addEventListener('submit', async (e) => {
     
     if (!productoActual) return;
     
+    const editPrecioMinoristaArs = document.getElementById('edit-precio-minorista-ars');
+    const editPrecioMayoristaArs = document.getElementById('edit-precio-mayorista-ars');
+    
+    // Validar y limpiar precios antes de enviar
+    const limpiarPrecio = (valor) => {
+        if (!valor) return null;
+        const limpio = String(valor).trim().replace(/[^\d.,-]/g, '').replace(',', '.');
+        if (!limpio || limpio === '' || limpio === '-' || limpio === 'N/A' || limpio === 'null') {
+            return null;
+        }
+        // Validar que sea un número válido
+        const num = parseFloat(limpio);
+        if (isNaN(num) || num < 0) {
+            return null;
+        }
+        return limpio;
+    };
+    
+    const precioMinoristaArsLimpio = limpiarPrecio(editPrecioMinoristaArs.value);
+    const precioMayoristaArsLimpio = limpiarPrecio(editPrecioMayoristaArs.value);
+    
     const data = {
         variante_id: productoActual.id,
         stock_actual: parseInt(document.getElementById('edit-stock').value) || 0,
-        precio_minorista_ars: document.getElementById('edit-precio-minorista-ars').value || null,
-        precio_mayorista_ars: document.getElementById('edit-precio-mayorista-ars').value || null,
+        precio_minorista_ars: precioMinoristaArsLimpio,
+        precio_mayorista_ars: precioMayoristaArsLimpio,
         precio_minorista_ars_id: productoActual.precios_ids?.minorista_ars || null,
         precio_mayorista_ars_id: productoActual.precios_ids?.mayorista_ars || null,
     };
     
-    if (productoActual.precio_minorista_usd) {
-        data.precio_minorista_usd = document.getElementById('edit-precio-minorista-usd').value || null;
+    // Siempre incluir precios USD si los contenedores están visibles
+    const editPrecioMinoristaUsdContainer = document.getElementById('edit-precio-minorista-usd-container');
+    if (!editPrecioMinoristaUsdContainer.classList.contains('hidden')) {
+        const editPrecioMinoristaUsd = document.getElementById('edit-precio-minorista-usd');
+        data.precio_minorista_usd = editPrecioMinoristaUsd.value.trim() || null;
         data.precio_minorista_usd_id = productoActual.precios_ids?.minorista_usd || null;
     }
     
-    if (productoActual.precio_mayorista_usd) {
-        data.precio_mayorista_usd = document.getElementById('edit-precio-mayorista-usd').value || null;
+    const editPrecioMayoristaUsdContainer = document.getElementById('edit-precio-mayorista-usd-container');
+    if (!editPrecioMayoristaUsdContainer.classList.contains('hidden')) {
+        const editPrecioMayoristaUsd = document.getElementById('edit-precio-mayorista-usd');
+        data.precio_mayorista_usd = editPrecioMayoristaUsd.value.trim() || null;
         data.precio_mayorista_usd_id = productoActual.precios_ids?.mayorista_usd || null;
     }
     
@@ -473,7 +541,14 @@ editForm.addEventListener('submit', async (e) => {
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Error al actualizar el producto: ' + error.message);
+        
+        // Mostrar error en la interfaz
+        statusText.innerHTML = '<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg> Error al actualizar';
+        statusText.className = 'text-sm font-semibold text-rose-400';
+        statusDetail.textContent = error.message || 'Error desconocido. Verifica que los valores sean correctos.';
+        
+        // También mostrar alerta para asegurar que el usuario vea el error
+        alert('Error al actualizar el producto:\n\n' + (error.message || 'Error desconocido. Verifica que los valores sean correctos.'));
     }
 });
 

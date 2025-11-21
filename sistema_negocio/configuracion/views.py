@@ -1,5 +1,7 @@
 import json
+import logging
 from typing import Any, Dict, Iterable
+from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
 from django.contrib import messages
@@ -10,7 +12,9 @@ from django.db.migrations.executor import MigrationExecutor
 from django.http import HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
-from decimal import Decimal, InvalidOperation
+
+# Configurar logger
+logger = logging.getLogger(__name__)
 
 from core.db_inspector import column_exists, table_exists
 from crm.models import Cliente
@@ -119,7 +123,7 @@ def _contexto_panel(
         "salud_inventario": _salud_inventario(),
         "system_info": _system_info(configuracion, len(pendientes)),
         "historial_reciente": _historial_reciente(),
-        "escalas_precio": EscalaPrecioMayorista.objects.filter(configuracion=configuracion).order_by('orden', 'cantidad_minima'),
+        "escalas_precio": EscalaPrecioMayorista.objects.filter(configuracion=configuracion).prefetch_related('categorias').order_by('orden', 'cantidad_minima'),
     }
 
 
@@ -209,23 +213,75 @@ def panel_configuracion(request):
                 return redirect("configuracion:panel")
 
         else:
+            # Procesar formulario de configuración del sistema
             form = ConfiguracionSistemaForm(request.POST, request.FILES, instance=configuracion, prefix="sistema")
             pref_form = PreferenciaUsuarioForm(request.POST, instance=preferencias, prefix="preferencia")
+            
             if form.is_valid() and pref_form.is_valid():
-                instancia = form.save()
-                pref_form.save()
+                try:
+                    instancia = form.save()
+                    pref_form.save()
 
-                mensaje = "Configuración actualizada correctamente."
-                if instancia.dolar_blue_manual:
-                    mensaje += " Valor manual del dólar blue activo como respaldo."
+                    mensaje = "Configuración actualizada correctamente."
+                    if instancia.dolar_blue_manual:
+                        mensaje += " Valor manual del dólar blue activo como respaldo."
 
+                    if request.headers.get("HX-Request"):
+                        form = ConfiguracionSistemaForm(instance=instancia, prefix="sistema")
+                        pref_form = PreferenciaUsuarioForm(instance=preferencias, prefix="preferencia")
+                        tienda_form = ConfiguracionTiendaForm(instance=configuracion_tienda, prefix="tienda")
+                        local_form = LocalForm(prefix="local")
+                        contexto = _contexto_panel(
+                            instancia,
+                            configuracion_tienda,
+                            form,
+                            pref_form,
+                            tienda_form,
+                            local_form,
+                        )
+                        response = render(request, "configuracion/_panel_content.html", contexto)
+                        logo_url = instancia.logo.url if instancia.logo else ""
+                        response["HX-Trigger-After-Swap"] = json.dumps(
+                            {
+                                "configuracionActualizada": {
+                                    "nombre": instancia.nombre_comercial,
+                                    "lema": instancia.lema,
+                                    "color": instancia.color_principal,
+                                    "logo": logo_url,
+                                },
+                                "showToast": {"message": mensaje, "level": "success"},
+                            }
+                        )
+                        return response
+
+                    messages.success(request, mensaje)
+                    return redirect("configuracion:panel")
+                except Exception as e:
+                    logger.error(f"Error al guardar configuración: {e}", exc_info=True)
+                    
+                    error_msg = f"Error al guardar la configuración: {str(e)}"
+                    if request.headers.get("HX-Request"):
+                        contexto = _contexto_panel(
+                            configuracion,
+                            configuracion_tienda,
+                            form,
+                            pref_form,
+                            tienda_form,
+                            local_form,
+                        )
+                        response = render(request, "configuracion/_panel_content.html", contexto)
+                        response["HX-Trigger-After-Swap"] = json.dumps({
+                            "showToast": {"message": error_msg, "level": "error"},
+                        })
+                        return response
+                    
+                    messages.error(request, error_msg)
+            else:
+                # Formulario inválido - mostrar errores
+                error_msg = "Por favor, corrige los errores en el formulario."
                 if request.headers.get("HX-Request"):
-                    form = ConfiguracionSistemaForm(instance=instancia, prefix="sistema")
-                    pref_form = PreferenciaUsuarioForm(instance=preferencias, prefix="preferencia")
-                    tienda_form = ConfiguracionTiendaForm(instance=configuracion_tienda, prefix="tienda")
-                    local_form = LocalForm(prefix="local")
                     contexto = _contexto_panel(
-                        instancia,
+                        configuracion,
                         configuracion_tienda,
                         form,
                         pref_form,
@@ -233,22 +289,23 @@ def panel_configuracion(request):
                         local_form,
                     )
                     response = render(request, "configuracion/_panel_content.html", contexto)
-                    logo_url = instancia.logo.url if instancia.logo else ""
-                    response["HX-Trigger-After-Swap"] = json.dumps(
-                        {
-                            "configuracionActualizada": {
-                                "nombre": instancia.nombre_comercial,
-                                "lema": instancia.lema,
-                                "color": instancia.color_principal,
-                                "logo": logo_url,
-                            },
-                            "showToast": {"message": mensaje, "level": "success"},
-                        }
-                    )
+                    
+                    # Recopilar errores del formulario
+                    form_errors = []
+                    if form.errors:
+                        for field, errors in form.errors.items():
+                            for error in errors:
+                                form_errors.append(f"{field}: {error}")
+                    
+                    if form_errors:
+                        error_msg = "Errores en el formulario: " + "; ".join(form_errors[:3])
+                    
+                    response["HX-Trigger-After-Swap"] = json.dumps({
+                        "showToast": {"message": error_msg, "level": "error"},
+                    })
                     return response
-
-                messages.success(request, mensaje)
-                return redirect("configuracion:panel")
+                
+                messages.error(request, error_msg)
 
     contexto = _contexto_panel(
         configuracion,
@@ -379,10 +436,10 @@ def crear_escala_precio(request):
     """Crear una nueva escala de precio mayorista"""
     try:
         # Obtener datos del POST
-        cantidad_minima = request.POST.get("cantidad_minima")
+        cantidad_minima = request.POST.get("cantidad_minima", "").strip()
         cantidad_maxima = request.POST.get("cantidad_maxima", "").strip()
-        porcentaje_descuento = request.POST.get("porcentaje_descuento")
-        orden = request.POST.get("orden", "0")
+        porcentaje_descuento = request.POST.get("porcentaje_descuento", "").strip()
+        orden = request.POST.get("orden", "0").strip()
         activo = request.POST.get("activo") == "on" or request.POST.get("activo") == "true"
         
         # Validaciones
@@ -393,7 +450,7 @@ def crear_escala_precio(request):
             cantidad_minima = int(cantidad_minima)
             if cantidad_minima < 1:
                 raise ValueError("La cantidad mínima debe ser mayor a 0")
-        except ValueError:
+        except (ValueError, TypeError):
             raise ValueError("La cantidad mínima debe ser un número entero válido")
         
         if cantidad_maxima:
@@ -401,7 +458,7 @@ def crear_escala_precio(request):
                 cantidad_maxima = int(cantidad_maxima)
                 if cantidad_maxima < cantidad_minima:
                     raise ValueError("La cantidad máxima debe ser mayor o igual a la cantidad mínima")
-            except ValueError:
+            except (ValueError, TypeError):
                 raise ValueError("La cantidad máxima debe ser un número entero válido")
         else:
             cantidad_maxima = None
@@ -413,17 +470,23 @@ def crear_escala_precio(request):
             porcentaje_descuento = Decimal(str(porcentaje_descuento))
             if porcentaje_descuento < 0 or porcentaje_descuento > 100:
                 raise ValueError("El porcentaje de descuento debe estar entre 0 y 100")
-        except (ValueError, InvalidOperation):
-            raise ValueError("El porcentaje de descuento debe ser un número válido")
+        except (ValueError, InvalidOperation, TypeError):
+            raise ValueError("El porcentaje de descuento debe ser un número válido entre 0 y 100")
         
         try:
-            orden = int(orden)
-        except ValueError:
+            orden = int(orden) if orden else 0
+            if orden < 0:
+                orden = 0
+        except (ValueError, TypeError):
             orden = 0
         
         configuracion = ConfiguracionSistema.obtener_unica()
         
-        escala = EscalaPrecioMayorista.objects.create(
+        # Obtener categorías seleccionadas
+        categorias_ids = request.POST.getlist("categorias")
+        
+        # Crear la escala
+        escala = EscalaPrecioMayorista(
             configuracion=configuracion,
             cantidad_minima=cantidad_minima,
             cantidad_maxima=cantidad_maxima,
@@ -431,6 +494,19 @@ def crear_escala_precio(request):
             activo=activo,
             orden=orden,
         )
+        
+        # Validar el modelo antes de guardar
+        escala.full_clean()
+        escala.save()
+        
+        # Asignar categorías después de guardar (necesario para ManyToMany)
+        if categorias_ids:
+            try:
+                from inventario.models import Categoria
+                categorias = Categoria.objects.filter(pk__in=categorias_ids)
+                escala.categorias.set(categorias)
+            except Exception as e:
+                logger.warning(f"Error al asignar categorías a escala: {e}")
         
         if request.headers.get("HX-Request"):
             configuracion = ConfiguracionSistema.obtener_unica()
@@ -452,8 +528,6 @@ def crear_escala_precio(request):
         
         return JsonResponse({"success": True, "id": escala.id})
     except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
         logger.error(f"Error al crear escala: {e}", exc_info=True)
         if request.headers.get("HX-Request"):
             # Re-renderizar el panel completo con el error
@@ -488,37 +562,70 @@ def editar_escala_precio(request, escala_id):
         if "activo" in request.POST and len(post_keys) == 1:
             # Invertir el estado actual (toggle)
             escala.activo = not escala.activo
+            escala.full_clean()
             escala.save()
         else:
             # Edición completa
             if "cantidad_minima" in request.POST:
-                cantidad_minima = int(request.POST["cantidad_minima"])
-                if cantidad_minima < 1:
-                    raise ValueError("La cantidad mínima debe ser mayor a 0")
-                escala.cantidad_minima = cantidad_minima
+                cantidad_minima_str = request.POST.get("cantidad_minima", "").strip()
+                if cantidad_minima_str:
+                    try:
+                        cantidad_minima = int(cantidad_minima_str)
+                        if cantidad_minima < 1:
+                            raise ValueError("La cantidad mínima debe ser mayor a 0")
+                        escala.cantidad_minima = cantidad_minima
+                    except (ValueError, TypeError):
+                        raise ValueError("La cantidad mínima debe ser un número entero válido")
             
             if "cantidad_maxima" in request.POST:
-                cantidad_maxima = request.POST.get("cantidad_maxima", "").strip()
-                if cantidad_maxima:
-                    cantidad_maxima = int(cantidad_maxima)
-                    if escala.cantidad_minima and cantidad_maxima < escala.cantidad_minima:
-                        raise ValueError("La cantidad máxima debe ser mayor o igual a la cantidad mínima")
-                    escala.cantidad_maxima = cantidad_maxima
+                cantidad_maxima_str = request.POST.get("cantidad_maxima", "").strip()
+                if cantidad_maxima_str:
+                    try:
+                        cantidad_maxima = int(cantidad_maxima_str)
+                        if escala.cantidad_minima and cantidad_maxima < escala.cantidad_minima:
+                            raise ValueError("La cantidad máxima debe ser mayor o igual a la cantidad mínima")
+                        escala.cantidad_maxima = cantidad_maxima
+                    except (ValueError, TypeError):
+                        raise ValueError("La cantidad máxima debe ser un número entero válido")
                 else:
                     escala.cantidad_maxima = None
             
             if "porcentaje_descuento" in request.POST:
-                porcentaje_descuento = Decimal(str(request.POST["porcentaje_descuento"]))
-                if porcentaje_descuento < 0 or porcentaje_descuento > 100:
-                    raise ValueError("El porcentaje de descuento debe estar entre 0 y 100")
-                escala.porcentaje_descuento = porcentaje_descuento
+                porcentaje_str = request.POST.get("porcentaje_descuento", "").strip()
+                if porcentaje_str:
+                    try:
+                        porcentaje_descuento = Decimal(str(porcentaje_str))
+                        if porcentaje_descuento < 0 or porcentaje_descuento > 100:
+                            raise ValueError("El porcentaje de descuento debe estar entre 0 y 100")
+                        escala.porcentaje_descuento = porcentaje_descuento
+                    except (ValueError, InvalidOperation, TypeError):
+                        raise ValueError("El porcentaje de descuento debe ser un número válido entre 0 y 100")
             
             if "activo" in request.POST:
                 escala.activo = request.POST.get("activo") == "on" or request.POST.get("activo") == "true"
             
             if "orden" in request.POST:
-                escala.orden = int(request.POST.get("orden", 0))
+                orden_str = request.POST.get("orden", "0").strip()
+                try:
+                    orden = int(orden_str) if orden_str else 0
+                    if orden < 0:
+                        orden = 0
+                    escala.orden = orden
+                except (ValueError, TypeError):
+                    escala.orden = 0
             
+            # Actualizar categorías si se enviaron
+            if "categorias" in request.POST:
+                categorias_ids = request.POST.getlist("categorias")
+                try:
+                    from inventario.models import Categoria
+                    categorias = Categoria.objects.filter(pk__in=categorias_ids)
+                    escala.categorias.set(categorias)
+                except Exception as e:
+                    logger.warning(f"Error al actualizar categorías de escala: {e}")
+            
+            # Validar el modelo antes de guardar
+            escala.full_clean()
             escala.save()
         
         if request.headers.get("HX-Request"):
@@ -541,8 +648,6 @@ def editar_escala_precio(request, escala_id):
         
         return JsonResponse({"success": True})
     except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
         logger.error(f"Error al editar escala: {e}", exc_info=True)
         if request.headers.get("HX-Request"):
             # Re-renderizar el panel completo con el error
