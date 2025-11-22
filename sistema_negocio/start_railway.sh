@@ -27,6 +27,10 @@ python manage.py collectstatic --noinput
 echo "🔧 Verificando tabla django_migrations..."
 python manage.py create_django_migrations_table 2>/dev/null || true
 
+# Crear migraciones pendientes (si hay cambios en modelos)
+echo "📝 Verificando migraciones pendientes..."
+python manage.py makemigrations --noinput 2>/dev/null || echo "⚠️  No se pudieron crear migraciones automáticamente"
+
 # Ejecutar migraciones
 echo "🔄 Ejecutando migraciones..."
 python manage.py migrate --noinput
