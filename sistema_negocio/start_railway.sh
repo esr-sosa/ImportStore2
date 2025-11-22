@@ -2,7 +2,8 @@
 # Script de inicio para Railway
 # Detecta automáticamente si usar settings_railway o settings normal
 
-set -e
+# No usar set -e para permitir manejo de errores en migraciones
+set -o pipefail
 
 cd /app/sistema_negocio
 
@@ -28,12 +29,34 @@ echo "🔧 Verificando tabla django_migrations..."
 python manage.py create_django_migrations_table 2>/dev/null || true
 
 # Crear migraciones pendientes (si hay cambios en modelos)
-echo "📝 Verificando migraciones pendientes..."
-python manage.py makemigrations --noinput 2>/dev/null || echo "⚠️  No se pudieron crear migraciones automáticamente"
+echo "📝 Verificando y creando migraciones pendientes..."
+MAKE_OUTPUT=$(python manage.py makemigrations --noinput 2>&1) || {
+    echo "⚠️  No se pudieron crear migraciones automáticamente"
+    echo "$MAKE_OUTPUT" | head -20
+}
+if [ -n "$MAKE_OUTPUT" ]; then
+    echo "$MAKE_OUTPUT" | head -30
+fi
 
-# Ejecutar migraciones
+# Ejecutar migraciones para todas las apps
 echo "🔄 Ejecutando migraciones..."
-python manage.py migrate --noinput
+python manage.py migrate --noinput || {
+    echo "❌ Error al ejecutar migraciones, intentando continuar..."
+    python manage.py migrate --noinput --run-syncdb 2>&1 | head -20 || true
+}
+
+# Verificar estado de migraciones pendientes
+echo "📊 Verificando estado de migraciones..."
+PENDIENTES=$(python manage.py showmigrations --plan 2>&1 | grep -c "\[ \]" || echo "0")
+if [ "$PENDIENTES" -gt 0 ]; then
+    echo "⚠️  Hay $PENDIENTES migraciones pendientes:"
+    python manage.py showmigrations --plan 2>&1 | grep "\[ \]" | head -15
+    echo ""
+    echo "💡 Intentando aplicar migraciones pendientes nuevamente..."
+    python manage.py migrate --noinput 2>&1 | tail -20
+else
+    echo "✅ Todas las migraciones están aplicadas"
+fi
 
 # Iniciar Gunicorn
 PORT=${PORT:-8000}
