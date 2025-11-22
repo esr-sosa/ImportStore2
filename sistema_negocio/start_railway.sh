@@ -46,34 +46,41 @@ python manage.py migrate core 0008_rename_core_notifi_leida_9a8f2d_idx_core_noti
 }
 
 # SEGUNDO: Ejecutar migraciones de apps críticas (inventario y ventas)
-# Usar --fake-initial para crear tablas si no existen
-echo "🔄 Ejecutando migraciones de inventario (con --fake-initial)..."
-INVENTARIO_OUTPUT=$(python manage.py migrate inventario --fake-initial --noinput 2>&1)
-INVENTARIO_EXIT=$?
-echo "$INVENTARIO_OUTPUT" | tail -30
-if [ $INVENTARIO_EXIT -ne 0 ]; then
-    echo "⚠️  Error en inventario con --fake-initial, intentando --run-syncdb..."
-    python manage.py migrate inventario --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error al crear tablas de inventario"
-    # Intentar migraciones nuevamente después de --run-syncdb
-    echo "🔄 Reintentando migraciones de inventario..."
-    python manage.py migrate inventario --noinput 2>&1 | tail -20 || echo "⚠️  Migraciones de inventario aún fallan"
-fi
+# PRIMERO: Ejecutar migraciones iniciales específicas para crear las tablas base
+echo "🔄 Ejecutando migración inicial de inventario (0001_initial)..."
+python manage.py migrate inventario 0001_initial --noinput 2>&1 | tail -20 || {
+    echo "⚠️  Error en inventario.0001, intentando --fake-initial..."
+    python manage.py migrate inventario --fake-initial --noinput 2>&1 | tail -20 || {
+        echo "⚠️  Error con --fake-initial, intentando --run-syncdb..."
+        python manage.py migrate inventario --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error al crear tablas de inventario"
+    }
+}
 
-echo "🔄 Ejecutando migraciones de ventas (con --fake-initial)..."
-VENTAS_OUTPUT=$(python manage.py migrate ventas --fake-initial --noinput 2>&1)
-VENTAS_EXIT=$?
-echo "$VENTAS_OUTPUT" | tail -30
-if [ $VENTAS_EXIT -ne 0 ]; then
-    echo "⚠️  Error en ventas con --fake-initial, intentando --run-syncdb..."
-    python manage.py migrate ventas --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error al crear tablas de ventas"
-    # Intentar migraciones nuevamente después de --run-syncdb
-    echo "🔄 Reintentando migraciones de ventas..."
-    python manage.py migrate ventas --noinput 2>&1 | tail -20 || echo "⚠️  Migraciones de ventas aún fallan"
-fi
+# Continuar con el resto de migraciones de inventario
+echo "🔄 Continuando con migraciones de inventario..."
+python manage.py migrate inventario --noinput 2>&1 | tail -25 || echo "⚠️  Algunas migraciones de inventario fallaron"
+
+# Ahora ventas (depende de inventario)
+echo "🔄 Ejecutando migración inicial de ventas (0001_initial)..."
+python manage.py migrate ventas 0001_initial --noinput 2>&1 | tail -20 || {
+    echo "⚠️  Error en ventas.0001, intentando --fake-initial..."
+    python manage.py migrate ventas --fake-initial --noinput 2>&1 | tail -20 || {
+        echo "⚠️  Error con --fake-initial, intentando --run-syncdb..."
+        python manage.py migrate ventas --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error al crear tablas de ventas"
+    }
+}
+
+# Continuar con el resto de migraciones de ventas
+echo "🔄 Continuando con migraciones de ventas..."
+python manage.py migrate ventas --noinput 2>&1 | tail -25 || echo "⚠️  Algunas migraciones de ventas fallaron"
 
 # Verificar que las tablas se crearon, si no, forzar su creación
 echo "🔍 Verificando que las tablas críticas existan..."
 python manage.py create_missing_tables 2>&1 | tail -40 || echo "⚠️  Error al verificar/crear tablas (continuando...)"
+
+# Si aún faltan tablas, usar el comando más agresivo
+echo "🔧 Forzando creación de tablas faltantes (método directo)..."
+python manage.py force_create_tables 2>&1 | tail -40 || echo "⚠️  Error al forzar creación de tablas (continuando...)"
 
 # SEGUNDO: Ejecutar migraciones de otras apps (sin core)
 echo "🔄 Ejecutando migraciones de otras apps..."
