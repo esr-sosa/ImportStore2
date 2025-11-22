@@ -3,6 +3,62 @@
 from django.db import migrations, models
 
 
+def check_table_exists(connection, table_name):
+    """Verifica si una tabla existe"""
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM information_schema.TABLES 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = %s
+        """, [table_name])
+        return cursor.fetchone()[0] > 0
+
+
+def check_column_exists(connection, table_name, column_name):
+    """Verifica si una columna existe en una tabla"""
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM information_schema.COLUMNS 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = %s 
+            AND COLUMN_NAME = %s
+        """, [table_name, column_name])
+        return cursor.fetchone()[0] > 0
+
+
+def remove_field_if_exists(apps, schema_editor):
+    """Remueve campos solo si existen"""
+    db_alias = schema_editor.connection.alias
+    connection = schema_editor.connection
+    
+    # Verificar y remover campos de detalleventa
+    if check_table_exists(connection, 'ventas_detalleventa'):
+        if check_column_exists(connection, 'ventas_detalleventa', 'precio_unitario_usd_original'):
+            with connection.cursor() as cursor:
+                cursor.execute("ALTER TABLE ventas_detalleventa DROP COLUMN precio_unitario_usd_original")
+        
+        if check_column_exists(connection, 'ventas_detalleventa', 'tipo_cambio_usado'):
+            with connection.cursor() as cursor:
+                cursor.execute("ALTER TABLE ventas_detalleventa DROP COLUMN tipo_cambio_usado")
+    
+    # Verificar y remover campos de venta
+    if check_table_exists(connection, 'ventas_venta'):
+        if check_column_exists(connection, 'ventas_venta', 'actualizado'):
+            with connection.cursor() as cursor:
+                cursor.execute("ALTER TABLE ventas_venta DROP COLUMN actualizado")
+        
+        if check_column_exists(connection, 'ventas_venta', 'comprobante_pdf'):
+            with connection.cursor() as cursor:
+                cursor.execute("ALTER TABLE ventas_venta DROP COLUMN comprobante_pdf")
+
+
+def reverse_remove_field(apps, schema_editor):
+    """Reversa la operación (no implementado completamente)"""
+    pass
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -10,21 +66,9 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(
-            model_name='detalleventa',
-            name='precio_unitario_usd_original',
-        ),
-        migrations.RemoveField(
-            model_name='detalleventa',
-            name='tipo_cambio_usado',
-        ),
-        migrations.RemoveField(
-            model_name='venta',
-            name='actualizado',
-        ),
-        migrations.RemoveField(
-            model_name='venta',
-            name='comprobante_pdf',
+        migrations.RunPython(
+            remove_field_if_exists,
+            reverse_remove_field,
         ),
         migrations.AddField(
             model_name='venta',
