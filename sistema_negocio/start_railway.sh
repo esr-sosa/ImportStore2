@@ -23,6 +23,10 @@ fi
 echo "📦 Recopilando archivos estáticos..."
 python manage.py collectstatic --noinput
 
+# Crear tabla django_migrations si no existe
+echo "🔧 Verificando tabla django_migrations..."
+python manage.py create_django_migrations_table 2>/dev/null || true
+
 # Ejecutar migraciones
 echo "🔄 Ejecutando migraciones..."
 python manage.py migrate --noinput
