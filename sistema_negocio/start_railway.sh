@@ -38,41 +38,30 @@ if [ -n "$MAKE_OUTPUT" ]; then
     echo "$MAKE_OUTPUT" | head -30
 fi
 
-# PRIMERO: Marcar core.0008 como aplicada ANTES de ejecutar otras migraciones
+# PRIMERO: Usar --run-syncdb para crear TODAS las tablas sin migraciones
+# Esto crea las tablas directamente desde los modelos, sin depender de migraciones
+echo "🔧 Creando todas las tablas usando --run-syncdb (método directo)..."
+python manage.py migrate --run-syncdb --noinput 2>&1 | tail -40 || {
+    echo "⚠️  Error con --run-syncdb global, intentando por app..."
+    # Intentar por app
+    python manage.py migrate inventario --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error en inventario --run-syncdb"
+    python manage.py migrate ventas --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error en ventas --run-syncdb"
+    python manage.py migrate core --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error en core --run-syncdb"
+    python manage.py migrate crm --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error en crm --run-syncdb"
+}
+
+# SEGUNDO: Marcar core.0008 como aplicada ANTES de ejecutar otras migraciones
 # Esto evita que bloquee las demás
 echo "🔧 Marcando migración problemática de core como aplicada..."
 python manage.py migrate core 0008_rename_core_notifi_leida_9a8f2d_idx_core_notifi_leida_d2a21f_idx_and_more --fake --noinput 2>&1 | tail -5 || {
     echo "⚠️  No se pudo marcar core.0008 como aplicada (puede que ya esté aplicada o no exista)"
 }
 
-# SEGUNDO: Ejecutar migraciones de apps críticas (inventario y ventas)
-# PRIMERO: Ejecutar migraciones iniciales específicas para crear las tablas base
-echo "🔄 Ejecutando migración inicial de inventario (0001_initial)..."
-python manage.py migrate inventario 0001_initial --noinput 2>&1 | tail -20 || {
-    echo "⚠️  Error en inventario.0001, intentando --fake-initial..."
-    python manage.py migrate inventario --fake-initial --noinput 2>&1 | tail -20 || {
-        echo "⚠️  Error con --fake-initial, intentando --run-syncdb..."
-        python manage.py migrate inventario --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error al crear tablas de inventario"
-    }
+# TERCERO: Aplicar todas las migraciones para sincronizar el esquema
+echo "🔄 Aplicando todas las migraciones para sincronizar el esquema..."
+python manage.py migrate --noinput 2>&1 | tail -40 || {
+    echo "⚠️  Algunas migraciones fallaron, pero las tablas ya deberían existir"
 }
-
-# Continuar con el resto de migraciones de inventario
-echo "🔄 Continuando con migraciones de inventario..."
-python manage.py migrate inventario --noinput 2>&1 | tail -25 || echo "⚠️  Algunas migraciones de inventario fallaron"
-
-# Ahora ventas (depende de inventario)
-echo "🔄 Ejecutando migración inicial de ventas (0001_initial)..."
-python manage.py migrate ventas 0001_initial --noinput 2>&1 | tail -20 || {
-    echo "⚠️  Error en ventas.0001, intentando --fake-initial..."
-    python manage.py migrate ventas --fake-initial --noinput 2>&1 | tail -20 || {
-        echo "⚠️  Error con --fake-initial, intentando --run-syncdb..."
-        python manage.py migrate ventas --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error al crear tablas de ventas"
-    }
-}
-
-# Continuar con el resto de migraciones de ventas
-echo "🔄 Continuando con migraciones de ventas..."
-python manage.py migrate ventas --noinput 2>&1 | tail -25 || echo "⚠️  Algunas migraciones de ventas fallaron"
 
 # Verificar que las tablas se crearon, si no, forzar su creación
 echo "🔍 Verificando que las tablas críticas existan..."
