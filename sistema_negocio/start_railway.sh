@@ -71,26 +71,6 @@ python manage.py create_missing_tables 2>&1 | tail -40 || echo "⚠️  Error al
 echo "🔧 Forzando creación de tablas faltantes (método directo)..."
 python manage.py force_create_tables 2>&1 | tail -40 || echo "⚠️  Error al forzar creación de tablas (continuando...)"
 
-# SEGUNDO: Ejecutar migraciones de otras apps (sin core)
-echo "🔄 Ejecutando migraciones de otras apps..."
-python manage.py migrate crm --noinput 2>&1 | tail -10 || echo "⚠️  Error en crm (continuando...)"
-python manage.py migrate configuracion --noinput 2>&1 | tail -10 || echo "⚠️  Error en configuracion (continuando...)"
-python manage.py migrate caja --noinput 2>&1 | tail -10 || echo "⚠️  Error en caja (continuando...)"
-python manage.py migrate locales --noinput 2>&1 | tail -10 || echo "⚠️  Error en locales (continuando...)"
-python manage.py migrate historial --noinput 2>&1 | tail -10 || echo "⚠️  Error en historial (continuando...)"
-
-# TERCERO: Intentar ejecutar todas las migraciones (incluyendo core)
-echo "🔄 Ejecutando todas las migraciones (incluyendo core)..."
-python manage.py migrate --noinput 2>&1 | tail -30 || {
-    echo "⚠️  Algunas migraciones fallaron, intentando marcar core.0008 como aplicada..."
-    # Intentar marcar la migración problemática como aplicada
-    python manage.py migrate core 0008_rename_core_notifi_leida_9a8f2d_idx_core_notifi_leida_d2a21f_idx_and_more --fake --noinput 2>&1 | tail -5 || {
-        echo "⚠️  No se pudo marcar core.0008 como aplicada, continuando..."
-    }
-    # Intentar core nuevamente después de marcar como aplicada
-    python manage.py migrate core --noinput 2>&1 | tail -10 || echo "⚠️  Core aún falla, pero las otras apps están OK"
-}
-
 # Asegurar que la migración de sincronización de inventario se ejecute
 echo "🔧 Verificando migración de sincronización de inventario..."
 python manage.py migrate inventario 0010 --noinput 2>&1 | tail -10 || {
