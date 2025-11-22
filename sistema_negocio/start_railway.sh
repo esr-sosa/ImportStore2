@@ -68,6 +68,12 @@ else
     echo "✅ Todas las migraciones están aplicadas"
 fi
 
+# Forzar creación de columnas faltantes en inventario (por si las migraciones no las crearon)
+echo "🔧 Verificando y creando columnas faltantes en inventario..."
+python manage.py fix_inventario_schema 2>&1 | tail -20 || {
+    echo "⚠️  No se pudo ejecutar fix_inventario_schema, continuando..."
+}
+
 # Iniciar Gunicorn
 PORT=${PORT:-8000}
 echo "🚀 Iniciando servidor en puerto ${PORT}..."
