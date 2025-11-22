@@ -38,17 +38,11 @@ if [ -n "$MAKE_OUTPUT" ]; then
     echo "$MAKE_OUTPUT" | head -30
 fi
 
-# PRIMERO: Usar --run-syncdb para crear TODAS las tablas sin migraciones
-# Esto crea las tablas directamente desde los modelos, sin depender de migraciones
-echo "🔧 Creando todas las tablas usando --run-syncdb (método directo)..."
-python manage.py migrate --run-syncdb --noinput 2>&1 | tail -40 || {
-    echo "⚠️  Error con --run-syncdb global, intentando por app..."
-    # Intentar por app
-    python manage.py migrate inventario --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error en inventario --run-syncdb"
-    python manage.py migrate ventas --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error en ventas --run-syncdb"
-    python manage.py migrate core --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error en core --run-syncdb"
-    python manage.py migrate crm --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error en crm --run-syncdb"
-}
+# PRIMERO: Intentar ejecutar migraciones iniciales específicas para crear tablas base
+# Si las tablas no existen, las migraciones iniciales las crearán
+echo "🔧 Ejecutando migraciones iniciales para crear tablas base..."
+python manage.py migrate inventario 0001_initial --noinput 2>&1 | tail -20 || echo "⚠️  Error en inventario.0001 (puede que ya esté aplicada)"
+python manage.py migrate ventas 0001_initial --noinput 2>&1 | tail -20 || echo "⚠️  Error en ventas.0001 (puede que ya esté aplicada)"
 
 # SEGUNDO: Marcar core.0008 como aplicada ANTES de ejecutar otras migraciones
 # Esto evita que bloquee las demás

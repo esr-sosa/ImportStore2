@@ -5,7 +5,6 @@ Ejecutar: python manage.py force_create_tables
 """
 from django.core.management.base import BaseCommand
 from django.db import connection
-from django.core.management.sql import sql_create_index, sql_create_table
 from django.apps import apps
 
 
@@ -44,28 +43,18 @@ class Command(BaseCommand):
             return True
 
         try:
-            # Obtener el SQL para crear la tabla
-            sql_statements = sql_create_table(model_class._meta, connection)
-            
-            with connection.cursor() as cursor:
-                for statement in sql_statements:
-                    try:
-                        cursor.execute(statement)
-                        self.stdout.write(self.style.SUCCESS(f"   ✓ Tabla {table_name} creada"))
-                        return True
-                    except Exception as e:
-                        # Si falla, intentar con una versión simplificada
-                        error_msg = str(e)
-                        if "already exists" in error_msg.lower() or "duplicate" in error_msg.lower():
-                            self.stdout.write(f"   ✓ Tabla {table_name} ya existe (detectado por error)")
-                            return True
-                        self.stdout.write(self.style.WARNING(
-                            f"   ⚠️  Error al crear {table_name}: {error_msg[:100]}"
-                        ))
-                        return False
+            # Usar schema_editor para crear la tabla
+            with connection.schema_editor() as schema_editor:
+                schema_editor.create_model(model_class)
+                self.stdout.write(self.style.SUCCESS(f"   ✓ Tabla {table_name} creada"))
+                return True
         except Exception as e:
+            error_msg = str(e)
+            if "already exists" in error_msg.lower() or "duplicate" in error_msg.lower() or "Table" in error_msg and "already exists" in error_msg:
+                self.stdout.write(f"   ✓ Tabla {table_name} ya existe (detectado por error)")
+                return True
             self.stdout.write(self.style.ERROR(
-                f"   ✗ Error al generar SQL para {table_name}: {str(e)[:100]}"
+                f"   ✗ Error al crear {table_name}: {error_msg[:150]}"
             ))
             return False
 
