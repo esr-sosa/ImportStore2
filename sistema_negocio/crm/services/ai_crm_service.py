@@ -189,7 +189,7 @@ def obtener_configuracion_sistema() -> Dict:
     Obtiene la configuración del sistema para usar en las respuestas de IA.
     """
     try:
-        config = ConfiguracionSistema.carga()
+        config = ConfiguracionSistema.obtener_unica()
         return {
             'nombre_local': config.nombre_local or config.nombre_comercial or 'ImportStore',
             'direccion': config.domicilio_comercial or '',

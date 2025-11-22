@@ -828,7 +828,7 @@ def tienda_preview(request):
             }
         )
 
-    configuracion_sistema = ConfiguracionSistema.carga()
+    configuracion_sistema = ConfiguracionSistema.obtener_unica()
     configuracion_tienda = ConfiguracionTienda.obtener_unica()
     locales = Local.objects.order_by("nombre")
     dolar_blue = obtener_valor_dolar_blue()

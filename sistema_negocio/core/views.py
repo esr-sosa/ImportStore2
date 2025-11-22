@@ -26,7 +26,7 @@ class IosLoginView(LoginView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         tienda = ConfiguracionTienda.obtener_unica()
-        sistema = ConfiguracionSistema.carga()
+        sistema = ConfiguracionSistema.obtener_unica()
 
         # Obtener logo de forma segura
         store_logo = None

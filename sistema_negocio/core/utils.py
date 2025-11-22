@@ -47,7 +47,7 @@ def obtener_valor_dolar_blue(force: bool = False) -> float | None:
     try:
         from configuracion.models import ConfiguracionSistema  # type: ignore
 
-        manual_config = ConfiguracionSistema.carga().dolar_blue_manual
+        manual_config = ConfiguracionSistema.obtener_unica().dolar_blue_manual
     except Exception:
         manual_config = None
 

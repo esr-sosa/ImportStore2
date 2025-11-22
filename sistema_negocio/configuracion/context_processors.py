@@ -19,7 +19,7 @@ def configuracion_global(request):
     try:
         from .models import ConfiguracionSistema, PreferenciaUsuario
 
-        configuracion_sistema = ConfiguracionSistema.carga()
+        configuracion_sistema = ConfiguracionSistema.obtener_unica()
 
         user = getattr(request, "user", None)
         if user and user.is_authenticated:
