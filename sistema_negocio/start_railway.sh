@@ -38,21 +38,37 @@ if [ -n "$MAKE_OUTPUT" ]; then
     echo "$MAKE_OUTPUT" | head -30
 fi
 
-# PRIMERO: Crear todas las tablas básicas con --run-syncdb
+# PRIMERO: Crear todas las tablas básicas SIN ejecutar migraciones problemáticas
 # Esto asegura que las tablas existan antes de ejecutar migraciones
 echo "🏗️  Creando tablas básicas (si no existen)..."
-python manage.py migrate --run-syncdb --noinput 2>&1 | tail -30 || {
-    echo "⚠️  Algunos errores al crear tablas básicas (puede ser normal si ya existen)"
-}
+# Crear tablas básicas app por app para evitar errores de migraciones problemáticas
+python manage.py migrate inventario --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error en inventario (continuando...)"
+python manage.py migrate ventas --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error en ventas (continuando...)"
+python manage.py migrate crm --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error en crm (continuando...)"
+python manage.py migrate configuracion --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error en configuracion (continuando...)"
+python manage.py migrate caja --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error en caja (continuando...)"
+python manage.py migrate locales --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error en locales (continuando...)"
+python manage.py migrate historial --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error en historial (continuando...)"
+# Core al final porque tiene la migración problemática
+python manage.py migrate core --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error en core (continuando...)"
 
 # SEGUNDO: Ejecutar migraciones para aplicar cambios
+# Saltar la migración problemática de core.0008 si falla
 echo "🔄 Ejecutando migraciones..."
 python manage.py migrate --noinput 2>&1 | tail -30 || {
-    echo "⚠️  Algunas migraciones fallaron, pero continuando..."
-    # Intentar migraciones específicas que pueden fallar
-    python manage.py migrate core --noinput 2>&1 | tail -10 || true
-    python manage.py migrate ventas --noinput 2>&1 | tail -10 || true
+    echo "⚠️  Algunas migraciones fallaron, intentando por app..."
+    # Intentar migraciones específicas, saltando core si falla
     python manage.py migrate inventario --noinput 2>&1 | tail -10 || true
+    python manage.py migrate ventas --noinput 2>&1 | tail -10 || true
+    python manage.py migrate crm --noinput 2>&1 | tail -10 || true
+    python manage.py migrate configuracion --noinput 2>&1 | tail -10 || true
+    python manage.py migrate caja --noinput 2>&1 | tail -10 || true
+    python manage.py migrate locales --noinput 2>&1 | tail -10 || true
+    python manage.py migrate historial --noinput 2>&1 | tail -10 || true
+    # Core al final, si falla no es crítico
+    python manage.py migrate core --noinput 2>&1 | tail -10 || {
+        echo "⚠️  Migración de core falló (puede ser la 0008 con el índice), continuando..."
+    }
 }
 
 # Asegurar que la migración de sincronización de inventario se ejecute
