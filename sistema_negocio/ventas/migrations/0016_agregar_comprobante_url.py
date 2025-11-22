@@ -54,8 +54,23 @@ def remove_field_if_exists(apps, schema_editor):
                 cursor.execute("ALTER TABLE ventas_venta DROP COLUMN comprobante_pdf")
 
 
-def reverse_remove_field(apps, schema_editor):
-    """Reversa la operación (no implementado completamente)"""
+def add_comprobante_url_if_table_exists(apps, schema_editor):
+    """Agrega el campo comprobante_url solo si la tabla existe"""
+    db_alias = schema_editor.connection.alias
+    connection = schema_editor.connection
+    
+    # Verificar si la tabla existe antes de agregar el campo
+    if check_table_exists(connection, 'ventas_venta'):
+        if not check_column_exists(connection, 'ventas_venta', 'comprobante_url'):
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    ALTER TABLE ventas_venta 
+                    ADD COLUMN comprobante_url VARCHAR(500) NULL
+                """)
+
+
+def reverse_add_comprobante_url(apps, schema_editor):
+    """Reversa la operación"""
     pass
 
 
@@ -70,9 +85,19 @@ class Migration(migrations.Migration):
             remove_field_if_exists,
             reverse_remove_field,
         ),
-        migrations.AddField(
-            model_name='venta',
-            name='comprobante_url',
-            field=models.URLField(blank=True, help_text='URL del PDF del comprobante almacenado en Bunny Storage', max_length=500, null=True, verbose_name='URL del Comprobante PDF'),
+        migrations.RunPython(
+            add_comprobante_url_if_table_exists,
+            reverse_add_comprobante_url,
+        ),
+        # Actualizar el estado de Django (siempre se ejecuta para mantener consistencia)
+        migrations.SeparateDatabaseAndState(
+            database_operations=[],  # Ya se hizo con RunPython
+            state_operations=[
+                migrations.AddField(
+                    model_name='venta',
+                    name='comprobante_url',
+                    field=models.URLField(blank=True, help_text='URL del PDF del comprobante almacenado en Bunny Storage', max_length=500, null=True, verbose_name='URL del Comprobante PDF'),
+                ),
+            ],
         ),
     ]
