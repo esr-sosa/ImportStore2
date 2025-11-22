@@ -23,12 +23,21 @@ CREATE TABLE `ventas_carritoremoto` (
   UNIQUE KEY `ventas_carritoremoto_usuario_id_uniq` (`usuario_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Agregar foreign key después (solo si auth_user existe)
+-- Agregar foreign key después (solo si auth_user existe Y tiene id como PRIMARY KEY)
 SET @user_table_exists = 0;
 SELECT COUNT(*) INTO @user_table_exists 
 FROM information_schema.TABLES 
 WHERE TABLE_SCHEMA = DATABASE() 
   AND TABLE_NAME = 'auth_user';
+
+-- Verificar que auth_user.id es PRIMARY KEY
+SET @user_id_is_pk = 0;
+SELECT COUNT(*) INTO @user_id_is_pk 
+FROM information_schema.COLUMNS 
+WHERE TABLE_SCHEMA = DATABASE() 
+  AND TABLE_NAME = 'auth_user' 
+  AND COLUMN_NAME = 'id' 
+  AND COLUMN_KEY = 'PRI';
 
 SET @fk_exists = 0;
 SELECT COUNT(*) INTO @fk_exists 
@@ -38,9 +47,9 @@ WHERE CONSTRAINT_SCHEMA = DATABASE()
   AND CONSTRAINT_NAME = 'ventas_carritoremoto_usuario_id_fk' 
   AND CONSTRAINT_TYPE = 'FOREIGN KEY';
 
-SET @sql = IF(@user_table_exists > 0 AND @fk_exists = 0,
+SET @sql = IF(@user_table_exists > 0 AND @user_id_is_pk > 0 AND @fk_exists = 0,
   'ALTER TABLE `ventas_carritoremoto` ADD CONSTRAINT `ventas_carritoremoto_usuario_id_fk` FOREIGN KEY (`usuario_id`) REFERENCES `auth_user` (`id`) ON DELETE CASCADE',
-  'SELECT "Foreign key ventas_carritoremoto_usuario_id_fk ya existe o auth_user no existe" AS mensaje'
+  'SELECT "Foreign key ventas_carritoremoto_usuario_id_fk omitida (ya existe, auth_user no existe, o id no es PRIMARY KEY)" AS mensaje'
 );
 
 PREPARE stmt FROM @sql;
@@ -67,12 +76,21 @@ CREATE TABLE `ventas_solicitudimpresion` (
   KEY `ventas_solicitudimpresion_venta_id_idx` (`venta_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Agregar foreign key a auth_user (solo si existe)
+-- Agregar foreign key a auth_user (solo si existe Y tiene id como PRIMARY KEY)
 SET @user_table_exists = 0;
 SELECT COUNT(*) INTO @user_table_exists 
 FROM information_schema.TABLES 
 WHERE TABLE_SCHEMA = DATABASE() 
   AND TABLE_NAME = 'auth_user';
+
+-- Verificar que auth_user.id es PRIMARY KEY
+SET @user_id_is_pk = 0;
+SELECT COUNT(*) INTO @user_id_is_pk 
+FROM information_schema.COLUMNS 
+WHERE TABLE_SCHEMA = DATABASE() 
+  AND TABLE_NAME = 'auth_user' 
+  AND COLUMN_NAME = 'id' 
+  AND COLUMN_KEY = 'PRI';
 
 SET @fk_exists = 0;
 SELECT COUNT(*) INTO @fk_exists 
@@ -82,9 +100,9 @@ WHERE CONSTRAINT_SCHEMA = DATABASE()
   AND CONSTRAINT_NAME = 'ventas_solicitudimpresion_usuario_id_fk' 
   AND CONSTRAINT_TYPE = 'FOREIGN KEY';
 
-SET @sql = IF(@user_table_exists > 0 AND @fk_exists = 0,
+SET @sql = IF(@user_table_exists > 0 AND @user_id_is_pk > 0 AND @fk_exists = 0,
   'ALTER TABLE `ventas_solicitudimpresion` ADD CONSTRAINT `ventas_solicitudimpresion_usuario_id_fk` FOREIGN KEY (`usuario_id`) REFERENCES `auth_user` (`id`) ON DELETE CASCADE',
-  'SELECT "Foreign key ventas_solicitudimpresion_usuario_id_fk ya existe o auth_user no existe" AS mensaje'
+  'SELECT "Foreign key ventas_solicitudimpresion_usuario_id_fk omitida (ya existe, auth_user no existe, o id no es PRIMARY KEY)" AS mensaje'
 );
 
 PREPARE stmt FROM @sql;
