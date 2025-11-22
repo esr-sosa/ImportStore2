@@ -17,7 +17,7 @@ CREATE TABLE `inventario_categoria` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `nombre` varchar(120) NOT NULL,
   `parent_id` bigint(20) DEFAULT NULL,
-  `descripcion` longtext NOT NULL DEFAULT '',
+  `descripcion` longtext NOT NULL,
   `garantia_dias` int(10) UNSIGNED DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `inventario_categoria_parent_id_idx` (`parent_id`),

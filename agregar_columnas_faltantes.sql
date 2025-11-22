@@ -89,7 +89,7 @@ SET @col_exists = (
 );
 
 SET @sql = IF(@col_exists = 0,
-  'ALTER TABLE `inventario_categoria` ADD COLUMN `descripcion` longtext NOT NULL DEFAULT "" AFTER `parent_id`;',
+  'ALTER TABLE `inventario_categoria` ADD COLUMN `descripcion` longtext NOT NULL AFTER `parent_id`;',
   'SELECT "Columna descripcion ya existe" AS mensaje;'
 );
 
