@@ -281,7 +281,7 @@ DATABASE_URL = os.getenv('DATABASE_URL')
 MYSQL_URL = os.getenv('MYSQL_URL')
 MYSQL_PUBLIC_URL = os.getenv('MYSQL_PUBLIC_URL')
 
-# Prioridad: MYSQL_URL (Railway MySQL) > DATABASE_URL (PostgreSQL) > Variables individuales
+# Prioridad: MYSQL_URL (Railway MySQL) > DATABASE_URL con mysql:// > DATABASE_URL (PostgreSQL) > Variables individuales
 if MYSQL_URL or MYSQL_PUBLIC_URL:
     # Railway MySQL - parsear URL de MySQL
     mysql_url = MYSQL_URL or MYSQL_PUBLIC_URL
@@ -312,8 +312,37 @@ if MYSQL_URL or MYSQL_PUBLIC_URL:
             # Permitir versiones anteriores en Railway
             return
     django.db.backends.mysql.base.DatabaseWrapper.check_database_version_supported = patched_check_database_version_supported
+elif DATABASE_URL and DATABASE_URL.startswith('mysql://'):
+    # Si hay DATABASE_URL con formato MySQL, parsearlo
+    from urllib.parse import urlparse
+    db_url = urlparse(DATABASE_URL)
+    
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': db_url.path[1:] if db_url.path else os.getenv('DB_NAME', 'railway'),
+            'USER': db_url.username or os.getenv('DB_USER', 'root'),
+            'PASSWORD': db_url.password or os.getenv('DB_PASSWORD', ''),
+            'HOST': db_url.hostname or os.getenv('DB_HOST', 'localhost'),
+            'PORT': db_url.port or os.getenv('DB_PORT', '3306'),
+            'OPTIONS': {
+                'charset': 'utf8mb4',
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            },
+        }
+    }
+    # Deshabilitar validación de versión de MariaDB para Railway
+    import django.db.backends.mysql.base
+    original_check_database_version_supported = django.db.backends.mysql.base.DatabaseWrapper.check_database_version_supported
+    def patched_check_database_version_supported(self):
+        try:
+            return original_check_database_version_supported(self)
+        except Exception:
+            # Permitir versiones anteriores en Railway
+            return
+    django.db.backends.mysql.base.DatabaseWrapper.check_database_version_supported = patched_check_database_version_supported
 elif DATABASE_URL:
-    # Si hay DATABASE_URL, usar PostgreSQL con dj-database-url
+    # Si hay DATABASE_URL con formato PostgreSQL, usar dj-database-url
     try:
         import dj_database_url
         DATABASES = {

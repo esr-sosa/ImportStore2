@@ -18,9 +18,9 @@ MYSQL_URL = os.getenv('MYSQL_URL')
 MYSQL_PUBLIC_URL = os.getenv('MYSQL_PUBLIC_URL')
 DATABASE_URL = os.getenv('DATABASE_URL')
 
-if MYSQL_URL or MYSQL_PUBLIC_URL:
+if MYSQL_URL or MYSQL_PUBLIC_URL or (DATABASE_URL and DATABASE_URL.startswith('mysql://')):
     # Railway MySQL - parsear URL de MySQL
-    mysql_url = MYSQL_URL or MYSQL_PUBLIC_URL
+    mysql_url = MYSQL_URL or MYSQL_PUBLIC_URL or DATABASE_URL
     from urllib.parse import urlparse
     db_url = urlparse(mysql_url)
     
