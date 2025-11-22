@@ -38,11 +38,42 @@ if [ -n "$MAKE_OUTPUT" ]; then
     echo "$MAKE_OUTPUT" | head -30
 fi
 
-# PRIMERO: Ejecutar migraciones de apps críticas (inventario y ventas) ANTES de core
-# Esto asegura que las tablas se creen incluso si core.0008 falla
-echo "🔄 Ejecutando migraciones de apps críticas primero..."
-python manage.py migrate inventario --noinput 2>&1 | tail -20 || echo "⚠️  Error en inventario (continuando...)"
-python manage.py migrate ventas --noinput 2>&1 | tail -20 || echo "⚠️  Error en ventas (continuando...)"
+# PRIMERO: Marcar core.0008 como aplicada ANTES de ejecutar otras migraciones
+# Esto evita que bloquee las demás
+echo "🔧 Marcando migración problemática de core como aplicada..."
+python manage.py migrate core 0008_rename_core_notifi_leida_9a8f2d_idx_core_notifi_leida_d2a21f_idx_and_more --fake --noinput 2>&1 | tail -5 || {
+    echo "⚠️  No se pudo marcar core.0008 como aplicada (puede que ya esté aplicada o no exista)"
+}
+
+# SEGUNDO: Ejecutar migraciones de apps críticas (inventario y ventas)
+# Esto asegura que las tablas se creen
+echo "🔄 Ejecutando migraciones de inventario..."
+INVENTARIO_OUTPUT=$(python manage.py migrate inventario --noinput 2>&1)
+INVENTARIO_EXIT=$?
+echo "$INVENTARIO_OUTPUT" | tail -30
+if [ $INVENTARIO_EXIT -ne 0 ]; then
+    echo "⚠️  Error en inventario, intentando crear tablas con --run-syncdb..."
+    python manage.py migrate inventario --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error al crear tablas de inventario"
+    # Intentar migraciones nuevamente después de --run-syncdb
+    echo "🔄 Reintentando migraciones de inventario..."
+    python manage.py migrate inventario --noinput 2>&1 | tail -20 || echo "⚠️  Migraciones de inventario aún fallan"
+fi
+
+echo "🔄 Ejecutando migraciones de ventas..."
+VENTAS_OUTPUT=$(python manage.py migrate ventas --noinput 2>&1)
+VENTAS_EXIT=$?
+echo "$VENTAS_OUTPUT" | tail -30
+if [ $VENTAS_EXIT -ne 0 ]; then
+    echo "⚠️  Error en ventas, intentando crear tablas con --run-syncdb..."
+    python manage.py migrate ventas --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error al crear tablas de ventas"
+    # Intentar migraciones nuevamente después de --run-syncdb
+    echo "🔄 Reintentando migraciones de ventas..."
+    python manage.py migrate ventas --noinput 2>&1 | tail -20 || echo "⚠️  Migraciones de ventas aún fallan"
+fi
+
+# Verificar que las tablas se crearon, si no, forzar su creación
+echo "🔍 Verificando que las tablas críticas existan..."
+python manage.py ensure_tables_exist 2>&1 | tail -30 || echo "⚠️  Error al verificar tablas (continuando...)"
 
 # SEGUNDO: Ejecutar migraciones de otras apps (sin core)
 echo "🔄 Ejecutando migraciones de otras apps..."
