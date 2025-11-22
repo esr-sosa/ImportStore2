@@ -54,6 +54,11 @@ def remove_field_if_exists(apps, schema_editor):
                 cursor.execute("ALTER TABLE ventas_venta DROP COLUMN comprobante_pdf")
 
 
+def reverse_remove_field(apps, schema_editor):
+    """Reversa la operación (no implementado completamente)"""
+    pass
+
+
 def add_comprobante_url_if_table_exists(apps, schema_editor):
     """Agrega el campo comprobante_url solo si la tabla existe"""
     db_alias = schema_editor.connection.alias
