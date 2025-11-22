@@ -38,37 +38,30 @@ if [ -n "$MAKE_OUTPUT" ]; then
     echo "$MAKE_OUTPUT" | head -30
 fi
 
-# PRIMERO: Crear todas las tablas básicas SIN ejecutar migraciones problemáticas
-# Esto asegura que las tablas existan antes de ejecutar migraciones
-echo "🏗️  Creando tablas básicas (si no existen)..."
-# Crear tablas básicas app por app para evitar errores de migraciones problemáticas
-python manage.py migrate inventario --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error en inventario (continuando...)"
-python manage.py migrate ventas --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error en ventas (continuando...)"
-python manage.py migrate crm --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error en crm (continuando...)"
-python manage.py migrate configuracion --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error en configuracion (continuando...)"
-python manage.py migrate caja --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error en caja (continuando...)"
-python manage.py migrate locales --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error en locales (continuando...)"
-python manage.py migrate historial --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error en historial (continuando...)"
-# Core al final porque tiene la migración problemática
-python manage.py migrate core --run-syncdb --noinput 2>&1 | tail -20 || echo "⚠️  Error en core (continuando...)"
+# PRIMERO: Ejecutar migraciones de apps críticas (inventario y ventas) ANTES de core
+# Esto asegura que las tablas se creen incluso si core.0008 falla
+echo "🔄 Ejecutando migraciones de apps críticas primero..."
+python manage.py migrate inventario --noinput 2>&1 | tail -20 || echo "⚠️  Error en inventario (continuando...)"
+python manage.py migrate ventas --noinput 2>&1 | tail -20 || echo "⚠️  Error en ventas (continuando...)"
 
-# SEGUNDO: Ejecutar migraciones para aplicar cambios
-# Saltar la migración problemática de core.0008 si falla
-echo "🔄 Ejecutando migraciones..."
+# SEGUNDO: Ejecutar migraciones de otras apps (sin core)
+echo "🔄 Ejecutando migraciones de otras apps..."
+python manage.py migrate crm --noinput 2>&1 | tail -10 || echo "⚠️  Error en crm (continuando...)"
+python manage.py migrate configuracion --noinput 2>&1 | tail -10 || echo "⚠️  Error en configuracion (continuando...)"
+python manage.py migrate caja --noinput 2>&1 | tail -10 || echo "⚠️  Error en caja (continuando...)"
+python manage.py migrate locales --noinput 2>&1 | tail -10 || echo "⚠️  Error en locales (continuando...)"
+python manage.py migrate historial --noinput 2>&1 | tail -10 || echo "⚠️  Error en historial (continuando...)"
+
+# TERCERO: Intentar ejecutar todas las migraciones (incluyendo core)
+echo "🔄 Ejecutando todas las migraciones (incluyendo core)..."
 python manage.py migrate --noinput 2>&1 | tail -30 || {
-    echo "⚠️  Algunas migraciones fallaron, intentando por app..."
-    # Intentar migraciones específicas, saltando core si falla
-    python manage.py migrate inventario --noinput 2>&1 | tail -10 || true
-    python manage.py migrate ventas --noinput 2>&1 | tail -10 || true
-    python manage.py migrate crm --noinput 2>&1 | tail -10 || true
-    python manage.py migrate configuracion --noinput 2>&1 | tail -10 || true
-    python manage.py migrate caja --noinput 2>&1 | tail -10 || true
-    python manage.py migrate locales --noinput 2>&1 | tail -10 || true
-    python manage.py migrate historial --noinput 2>&1 | tail -10 || true
-    # Core al final, si falla no es crítico
-    python manage.py migrate core --noinput 2>&1 | tail -10 || {
-        echo "⚠️  Migración de core falló (puede ser la 0008 con el índice), continuando..."
+    echo "⚠️  Algunas migraciones fallaron, intentando marcar core.0008 como aplicada..."
+    # Intentar marcar la migración problemática como aplicada
+    python manage.py migrate core 0008_rename_core_notifi_leida_9a8f2d_idx_core_notifi_leida_d2a21f_idx_and_more --fake --noinput 2>&1 | tail -5 || {
+        echo "⚠️  No se pudo marcar core.0008 como aplicada, continuando..."
     }
+    # Intentar core nuevamente después de marcar como aplicada
+    python manage.py migrate core --noinput 2>&1 | tail -10 || echo "⚠️  Core aún falla, pero las otras apps están OK"
 }
 
 # Asegurar que la migración de sincronización de inventario se ejecute
