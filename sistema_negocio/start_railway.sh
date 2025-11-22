@@ -45,6 +45,16 @@ python manage.py migrate --noinput || {
     python manage.py migrate --noinput --run-syncdb 2>&1 | head -20 || true
 }
 
+# Asegurar que la migración de sincronización de inventario se ejecute
+echo "🔧 Verificando migración de sincronización de inventario..."
+python manage.py migrate inventario 0010 --noinput 2>&1 | tail -10 || {
+    echo "⚠️  No se pudo ejecutar la migración de sincronización específica"
+}
+
+# Ejecutar todas las migraciones nuevamente para asegurar que todo esté aplicado
+echo "🔄 Ejecutando migraciones finales..."
+python manage.py migrate --noinput 2>&1 | tail -15
+
 # Verificar estado de migraciones pendientes
 echo "📊 Verificando estado de migraciones..."
 PENDIENTES=$(python manage.py showmigrations --plan 2>&1 | grep -c "\[ \]" || echo "0")
