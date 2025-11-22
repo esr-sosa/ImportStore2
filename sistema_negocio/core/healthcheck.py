@@ -29,7 +29,8 @@ def healthcheck(request):
     try:
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
-            health_status['checks']['database'] = 'healthy'
+            db_engine = connection.vendor
+            health_status['checks']['database'] = f'healthy ({db_engine})'
     except Exception as e:
         logger.error(f"Database healthcheck failed: {e}")
         health_status['checks']['database'] = f'unhealthy: {str(e)}'

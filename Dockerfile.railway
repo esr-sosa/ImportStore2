@@ -7,10 +7,11 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Instalar dependencias del sistema
+# Instalar dependencias del sistema (MySQL y PostgreSQL para compatibilidad)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
+    libmariadb-dev \
     libpq-dev \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
@@ -30,6 +31,10 @@ COPY sistema_negocio/ /app/sistema_negocio/
 RUN mkdir -p /app/media /app/staticfiles /app/logs && \
     chmod -R 755 /app/media /app/staticfiles /app/logs
 
+# Copiar y hacer ejecutable el script de inicio
+COPY sistema_negocio/start_railway.sh /app/sistema_negocio/start_railway.sh
+RUN chmod +x /app/sistema_negocio/start_railway.sh
+
 # Exponer puerto (Railway usa PORT variable)
 EXPOSE $PORT
 
@@ -37,6 +42,9 @@ EXPOSE $PORT
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:$PORT/health/', timeout=5)" || exit 1
 
-# Comando por defecto (Railway inyecta PORT)
-CMD sh -c "cd /app/sistema_negocio && python manage.py collectstatic --noinput && python manage.py migrate && gunicorn --bind 0.0.0.0:\$PORT --workers 4 --threads 2 --timeout 120 --access-logfile - --error-logfile - core.wsgi:application"
+# Configurar settings de Railway (se puede sobrescribir con variable de entorno)
+ENV DJANGO_SETTINGS_MODULE=core.settings_railway
+
+# Comando por defecto (usar script de inicio)
+CMD ["/app/sistema_negocio/start_railway.sh"]
 

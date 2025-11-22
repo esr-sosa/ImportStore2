@@ -5,36 +5,87 @@ Uso: DJANGO_SETTINGS_MODULE=core.settings_railway python manage.py ...
 import os
 from pathlib import Path
 import dj_database_url
-from .settings_production import *
+from .settings import *
 
 # Base directory
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # ============================================
-# BASE DE DATOS (Railway PostgreSQL)
+# BASE DE DATOS (Railway MySQL o PostgreSQL)
 # ============================================
-# Railway inyecta DATABASE_URL automáticamente
+# Railway inyecta MYSQL_URL o DATABASE_URL automáticamente
+MYSQL_URL = os.getenv('MYSQL_URL')
+MYSQL_PUBLIC_URL = os.getenv('MYSQL_PUBLIC_URL')
 DATABASE_URL = os.getenv('DATABASE_URL')
 
-if DATABASE_URL:
-    # Usar dj-database-url para parsear DATABASE_URL
-    DATABASES = {
-        'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)
-    }
-else:
-    # Fallback a variables individuales
+if MYSQL_URL or MYSQL_PUBLIC_URL:
+    # Railway MySQL - parsear URL de MySQL
+    mysql_url = MYSQL_URL or MYSQL_PUBLIC_URL
+    from urllib.parse import urlparse
+    db_url = urlparse(mysql_url)
+    
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.getenv('DB_NAME', 'railway'),
-            'USER': os.getenv('DB_USER', 'postgres'),
-            'PASSWORD': os.getenv('DB_PASSWORD'),
-            'HOST': os.getenv('DB_HOST', 'localhost'),
-            'PORT': os.getenv('DB_PORT', '5432'),
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': db_url.path[1:] if db_url.path else os.getenv('MYSQLDATABASE', 'railway'),
+            'USER': db_url.username or os.getenv('MYSQLUSER', 'root'),
+            'PASSWORD': db_url.password or os.getenv('MYSQLPASSWORD', ''),
+            'HOST': db_url.hostname or os.getenv('MYSQLHOST', 'localhost'),
+            'PORT': db_url.port or os.getenv('MYSQLPORT', '3306'),
             'OPTIONS': {
-                'connect_timeout': 10,
+                'charset': 'utf8mb4',
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
             },
-            'CONN_MAX_AGE': 600,
+        }
+    }
+    # Deshabilitar validación de versión de MariaDB para Railway
+    import django.db.backends.mysql.base
+    original_check_database_version_supported = django.db.backends.mysql.base.DatabaseWrapper.check_database_version_supported
+    def patched_check_database_version_supported(self):
+        try:
+            return original_check_database_version_supported(self)
+        except Exception:
+            # Permitir versiones anteriores en Railway
+            return
+    django.db.backends.mysql.base.DatabaseWrapper.check_database_version_supported = patched_check_database_version_supported
+elif DATABASE_URL:
+    # Railway PostgreSQL - usar dj-database-url para parsear DATABASE_URL
+    try:
+        DATABASES = {
+            'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)
+        }
+    except Exception:
+        # Fallback a parseo manual
+        from urllib.parse import urlparse
+        db_url = urlparse(DATABASE_URL)
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': db_url.path[1:],
+                'USER': db_url.username,
+                'PASSWORD': db_url.password,
+                'HOST': db_url.hostname,
+                'PORT': db_url.port or '5432',
+                'OPTIONS': {
+                    'connect_timeout': 10,
+                },
+                'CONN_MAX_AGE': 600,
+            }
+        }
+else:
+    # Fallback a variables individuales de MySQL
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': os.getenv('MYSQLDATABASE', os.getenv('DB_NAME', 'railway')),
+            'USER': os.getenv('MYSQLUSER', os.getenv('DB_USER', 'root')),
+            'PASSWORD': os.getenv('MYSQLPASSWORD', os.getenv('DB_PASSWORD', '')),
+            'HOST': os.getenv('MYSQLHOST', os.getenv('DB_HOST', 'localhost')),
+            'PORT': os.getenv('MYSQLPORT', os.getenv('DB_PORT', '3306')),
+            'OPTIONS': {
+                'charset': 'utf8mb4',
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            },
         }
     }
 

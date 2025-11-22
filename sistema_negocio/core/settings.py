@@ -276,57 +276,120 @@ TEMPLATES = [
 WSGI_APPLICATION = 'core.wsgi.application'
 
 
-DB_ENGINE = os.getenv("DB_ENGINE", "sqlite").lower()
+# Detectar DATABASE_URL o variables de Railway MySQL
+DATABASE_URL = os.getenv('DATABASE_URL')
+MYSQL_URL = os.getenv('MYSQL_URL')
+MYSQL_PUBLIC_URL = os.getenv('MYSQL_PUBLIC_URL')
 
-if DB_ENGINE == "postgresql" or DB_ENGINE == "postgres":
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.getenv('DB_NAME', 'sistema_negocio'),
-            'USER': os.getenv('DB_USER', 'postgres'),
-            'PASSWORD': os.getenv('DB_PASSWORD', ''),
-            'HOST': os.getenv('DB_HOST', 'localhost'),
-            'PORT': os.getenv('DB_PORT', '5432'),
-            'OPTIONS': {
-                'connect_timeout': 10,
-            },
-            'CONN_MAX_AGE': 600,  # Pool de conexiones
-        }
-    }
-elif DB_ENGINE == "mysql":
+# Prioridad: MYSQL_URL (Railway MySQL) > DATABASE_URL (PostgreSQL) > Variables individuales
+if MYSQL_URL or MYSQL_PUBLIC_URL:
+    # Railway MySQL - parsear URL de MySQL
+    mysql_url = MYSQL_URL or MYSQL_PUBLIC_URL
+    from urllib.parse import urlparse
+    db_url = urlparse(mysql_url)
+    
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.mysql',
-            'NAME': os.getenv('DB_NAME', 'sistema_negocio'),
-            'USER': os.getenv('DB_USER', 'root'),
-            'PASSWORD': os.getenv('DB_PASSWORD', ''),
-            'HOST': os.getenv('DB_HOST', 'localhost'),
-            'PORT': os.getenv('DB_PORT', '3306'),
+            'NAME': db_url.path[1:] if db_url.path else os.getenv('MYSQLDATABASE', 'railway'),
+            'USER': db_url.username or os.getenv('MYSQLUSER', 'root'),
+            'PASSWORD': db_url.password or os.getenv('MYSQLPASSWORD', ''),
+            'HOST': db_url.hostname or os.getenv('MYSQLHOST', 'localhost'),
+            'PORT': db_url.port or os.getenv('MYSQLPORT', '3306'),
             'OPTIONS': {
-                'charset': os.getenv('DB_CHARSET', 'utf8mb4'),
+                'charset': 'utf8mb4',
                 'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
             },
         }
     }
-    # Deshabilitar validación de versión de MariaDB para desarrollo local
+    # Deshabilitar validación de versión de MariaDB para Railway
     import django.db.backends.mysql.base
     original_check_database_version_supported = django.db.backends.mysql.base.DatabaseWrapper.check_database_version_supported
     def patched_check_database_version_supported(self):
         try:
             return original_check_database_version_supported(self)
         except Exception:
-            # Permitir versiones anteriores en desarrollo
-            if DEBUG:
-                return
-            raise
+            # Permitir versiones anteriores en Railway
+            return
     django.db.backends.mysql.base.DatabaseWrapper.check_database_version_supported = patched_check_database_version_supported
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / os.getenv('SQLITE_NAME', 'db.sqlite3'),
+elif DATABASE_URL:
+    # Si hay DATABASE_URL, usar PostgreSQL con dj-database-url
+    try:
+        import dj_database_url
+        DATABASES = {
+            'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)
         }
-    }
+    except ImportError:
+        # Si no está instalado dj-database-url, parsear manualmente
+        from urllib.parse import urlparse
+        db_url = urlparse(DATABASE_URL)
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': db_url.path[1:],  # Remover el '/' inicial
+                'USER': db_url.username,
+                'PASSWORD': db_url.password,
+                'HOST': db_url.hostname,
+                'PORT': db_url.port or '5432',
+                'OPTIONS': {
+                    'connect_timeout': 10,
+                },
+                'CONN_MAX_AGE': 600,
+            }
+        }
+else:
+    # Si no hay DATABASE_URL ni MYSQL_URL, usar la lógica anterior
+    DB_ENGINE = os.getenv("DB_ENGINE", "sqlite").lower()
+
+    if DB_ENGINE == "postgresql" or DB_ENGINE == "postgres":
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': os.getenv('DB_NAME', 'sistema_negocio'),
+                'USER': os.getenv('DB_USER', 'postgres'),
+                'PASSWORD': os.getenv('DB_PASSWORD', ''),
+                'HOST': os.getenv('DB_HOST', 'localhost'),
+                'PORT': os.getenv('DB_PORT', '5432'),
+                'OPTIONS': {
+                    'connect_timeout': 10,
+                },
+                'CONN_MAX_AGE': 600,  # Pool de conexiones
+            }
+        }
+    elif DB_ENGINE == "mysql":
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.mysql',
+                'NAME': os.getenv('DB_NAME', 'sistema_negocio'),
+                'USER': os.getenv('DB_USER', 'root'),
+                'PASSWORD': os.getenv('DB_PASSWORD', ''),
+                'HOST': os.getenv('DB_HOST', 'localhost'),
+                'PORT': os.getenv('DB_PORT', '3306'),
+                'OPTIONS': {
+                    'charset': os.getenv('DB_CHARSET', 'utf8mb4'),
+                    'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+                },
+            }
+        }
+        # Deshabilitar validación de versión de MariaDB para desarrollo local
+        import django.db.backends.mysql.base
+        original_check_database_version_supported = django.db.backends.mysql.base.DatabaseWrapper.check_database_version_supported
+        def patched_check_database_version_supported(self):
+            try:
+                return original_check_database_version_supported(self)
+            except Exception:
+                # Permitir versiones anteriores en desarrollo
+                if DEBUG:
+                    return
+                raise
+        django.db.backends.mysql.base.DatabaseWrapper.check_database_version_supported = patched_check_database_version_supported
+    else:
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': BASE_DIR / os.getenv('SQLITE_NAME', 'db.sqlite3'),
+            }
+        }
 
 
 # Password validation
