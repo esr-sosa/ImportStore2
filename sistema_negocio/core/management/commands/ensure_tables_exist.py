@@ -47,6 +47,9 @@ class Command(BaseCommand):
             'ventas': [
                 'ventas_venta',
                 'ventas_detalleventa',
+                'ventas_carritoremoto',
+                'ventas_solicitudimpresion',
+                'ventas_cupon',
             ],
             'core': [
                 'core_perfilusuario',
