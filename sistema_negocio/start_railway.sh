@@ -32,13 +32,15 @@ echo "🔄 Ejecutando migraciones..."
 python manage.py migrate --noinput
 
 # Iniciar Gunicorn
-echo "🚀 Iniciando servidor..."
+PORT=${PORT:-8000}
+echo "🚀 Iniciando servidor en puerto ${PORT}..."
 exec gunicorn \
-    --bind 0.0.0.0:${PORT:-8000} \
+    --bind 0.0.0.0:${PORT} \
     --workers 4 \
     --threads 2 \
     --timeout 120 \
     --access-logfile - \
     --error-logfile - \
+    --log-level info \
     core.wsgi:application
 

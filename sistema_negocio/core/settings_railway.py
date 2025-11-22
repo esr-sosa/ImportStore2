@@ -96,13 +96,17 @@ RAILWAY_PUBLIC_DOMAIN = os.getenv('RAILWAY_PUBLIC_DOMAIN', '')
 ALLOWED_HOSTS_ENV = os.getenv('DJANGO_ALLOWED_HOSTS', '')
 
 if ALLOWED_HOSTS_ENV:
+    # Parsear hosts separados por comas
     ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS_ENV.split(',') if host.strip()]
+    # Si hay wildcards, también agregar el dominio específico si está disponible
+    if '*' in ALLOWED_HOSTS_ENV or '*.railway.app' in ALLOWED_HOSTS_ENV:
+        if RAILWAY_PUBLIC_DOMAIN and RAILWAY_PUBLIC_DOMAIN not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(RAILWAY_PUBLIC_DOMAIN)
 else:
     # Defaults para Railway
     ALLOWED_HOSTS = ['*']  # Railway maneja el routing
-
-if RAILWAY_PUBLIC_DOMAIN:
-    ALLOWED_HOSTS.append(RAILWAY_PUBLIC_DOMAIN)
+    if RAILWAY_PUBLIC_DOMAIN:
+        ALLOWED_HOSTS.append(RAILWAY_PUBLIC_DOMAIN)
 
 # ============================================
 # CSRF TRUSTED ORIGINS
@@ -110,12 +114,18 @@ if RAILWAY_PUBLIC_DOMAIN:
 CSRF_TRUSTED_ORIGINS_ENV = os.getenv('DJANGO_CSRF_TRUSTED_ORIGINS', '')
 
 if CSRF_TRUSTED_ORIGINS_ENV:
+    # Parsear origins separados por comas
     CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in CSRF_TRUSTED_ORIGINS_ENV.split(',') if origin.strip()]
+    # Si hay wildcards, también agregar el dominio específico si está disponible
+    if '*' in CSRF_TRUSTED_ORIGINS_ENV or '*.railway.app' in CSRF_TRUSTED_ORIGINS_ENV:
+        if RAILWAY_PUBLIC_DOMAIN:
+            specific_origin = f'https://{RAILWAY_PUBLIC_DOMAIN}'
+            if specific_origin not in CSRF_TRUSTED_ORIGINS:
+                CSRF_TRUSTED_ORIGINS.append(specific_origin)
 else:
     CSRF_TRUSTED_ORIGINS = []
-
-if RAILWAY_PUBLIC_DOMAIN:
-    CSRF_TRUSTED_ORIGINS.append(f'https://{RAILWAY_PUBLIC_DOMAIN}')
+    if RAILWAY_PUBLIC_DOMAIN:
+        CSRF_TRUSTED_ORIGINS.append(f'https://{RAILWAY_PUBLIC_DOMAIN}')
 
 # ============================================
 # STATIC FILES (Railway usa volúmenes efímeros)
