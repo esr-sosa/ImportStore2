@@ -11,14 +11,25 @@ SET FOREIGN_KEY_CHECKS = 0;
 -- TABLAS DE INVENTARIO
 -- ============================================
 
--- 1. Categoría (sin dependencias)
+-- 1. Categoría (sin dependencias, pero tiene self-reference)
 DROP TABLE IF EXISTS `inventario_categoria`;
 CREATE TABLE `inventario_categoria` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `nombre` varchar(100) NOT NULL,
+  `nombre` varchar(120) NOT NULL,
+  `parent_id` bigint(20) DEFAULT NULL,
+  `descripcion` longtext NOT NULL DEFAULT '',
+  `garantia_dias` int(10) UNSIGNED DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `inventario_categoria_nombre_uniq` (`nombre`)
+  KEY `inventario_categoria_parent_id_idx` (`parent_id`),
+  KEY `idx_categoria_nombre` (`nombre`),
+  KEY `idx_categoria_parent` (`parent_id`),
+  UNIQUE KEY `unique_categoria_nombre_parent` (`nombre`, `parent_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Agregar foreign key self-reference después de crear la tabla
+ALTER TABLE `inventario_categoria`
+  ADD CONSTRAINT `inventario_categoria_parent_id_fk` 
+  FOREIGN KEY (`parent_id`) REFERENCES `inventario_categoria` (`id`) ON DELETE CASCADE;
 
 -- 2. Proveedor (sin dependencias)
 DROP TABLE IF EXISTS `inventario_proveedor`;
