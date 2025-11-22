@@ -21,14 +21,16 @@ class Command(BaseCommand):
             
             if not table_exists:
                 # Crear la tabla django_migrations
+                # Asegurar que AUTO_INCREMENT esté configurado correctamente
                 cursor.execute("""
                     CREATE TABLE django_migrations (
-                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        id BIGINT NOT NULL AUTO_INCREMENT,
                         app VARCHAR(255) NOT NULL,
                         name VARCHAR(255) NOT NULL,
                         applied DATETIME(6) NOT NULL,
+                        PRIMARY KEY (id),
                         UNIQUE KEY django_migrations_app_name_uc (app, name)
-                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                    ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4
                 """)
                 self.stdout.write(
                     self.style.SUCCESS('✅ Tabla django_migrations creada')
