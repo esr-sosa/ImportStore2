@@ -124,6 +124,8 @@ class Command(BaseCommand):
         columns_to_create = [
             # ProductoVariante
             ("inventario_productovariante", "sku", "VARCHAR(64)", None, True),
+            ("inventario_productovariante", "nombre_variante", "VARCHAR(200)", "''", False),
+            ("inventario_productovariante", "qr_code", "VARCHAR(255)", None, True),
             ("inventario_productovariante", "stock_actual", "INTEGER", "0", False),
             ("inventario_productovariante", "stock_minimo", "INTEGER", "0", False),
             ("inventario_productovariante", "activo", "BOOLEAN", "1", False),
