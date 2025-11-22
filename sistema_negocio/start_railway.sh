@@ -38,17 +38,27 @@ if [ -n "$MAKE_OUTPUT" ]; then
     echo "$MAKE_OUTPUT" | head -30
 fi
 
-# Ejecutar migraciones para todas las apps
+# PRIMERO: Crear todas las tablas básicas con --run-syncdb
+# Esto asegura que las tablas existan antes de ejecutar migraciones
+echo "🏗️  Creando tablas básicas (si no existen)..."
+python manage.py migrate --run-syncdb --noinput 2>&1 | tail -30 || {
+    echo "⚠️  Algunos errores al crear tablas básicas (puede ser normal si ya existen)"
+}
+
+# SEGUNDO: Ejecutar migraciones para aplicar cambios
 echo "🔄 Ejecutando migraciones..."
-python manage.py migrate --noinput || {
-    echo "❌ Error al ejecutar migraciones, intentando continuar..."
-    python manage.py migrate --noinput --run-syncdb 2>&1 | head -20 || true
+python manage.py migrate --noinput 2>&1 | tail -30 || {
+    echo "⚠️  Algunas migraciones fallaron, pero continuando..."
+    # Intentar migraciones específicas que pueden fallar
+    python manage.py migrate core --noinput 2>&1 | tail -10 || true
+    python manage.py migrate ventas --noinput 2>&1 | tail -10 || true
+    python manage.py migrate inventario --noinput 2>&1 | tail -10 || true
 }
 
 # Asegurar que la migración de sincronización de inventario se ejecute
 echo "🔧 Verificando migración de sincronización de inventario..."
 python manage.py migrate inventario 0010 --noinput 2>&1 | tail -10 || {
-    echo "⚠️  No se pudo ejecutar la migración de sincronización específica"
+    echo "⚠️  No se pudo ejecutar la migración de sincronización específica (puede que ya esté aplicada)"
 }
 
 # Ejecutar todas las migraciones nuevamente para asegurar que todo esté aplicado

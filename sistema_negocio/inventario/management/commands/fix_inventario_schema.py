@@ -72,11 +72,53 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING(f"Error al agregar columna {table_name}.{column_name}: {e}"))
                 return False
 
+    def _table_exists(self, table_name):
+        """Verifica si una tabla existe"""
+        with connection.cursor() as cursor:
+            if connection.vendor == 'mysql':
+                cursor.execute(
+                    """
+                    SELECT COUNT(*) FROM information_schema.TABLES 
+                    WHERE TABLE_SCHEMA = DATABASE() 
+                    AND TABLE_NAME = %s
+                    """,
+                    [table_name]
+                )
+                return cursor.fetchone()[0] > 0
+            elif connection.vendor == 'postgresql':
+                cursor.execute(
+                    """
+                    SELECT COUNT(*) FROM information_schema.tables 
+                    WHERE table_name = %s
+                    """,
+                    [table_name]
+                )
+                return cursor.fetchone()[0] > 0
+        return False
+
     def handle(self, *args, **options):
         dry_run = options['dry_run']
         
         if dry_run:
             self.stdout.write(self.style.WARNING("MODO DRY-RUN: No se harán cambios reales\n"))
+
+        # Verificar que las tablas existan primero
+        required_tables = [
+            "inventario_productovariante",
+            "inventario_producto",
+            "inventario_precio"
+        ]
+        
+        missing_tables = [table for table in required_tables if not self._table_exists(table)]
+        
+        if missing_tables:
+            self.stdout.write(self.style.ERROR(
+                f"❌ Las siguientes tablas no existen: {', '.join(missing_tables)}\n"
+            ))
+            self.stdout.write(self.style.WARNING(
+                "💡 Ejecutá primero: python manage.py migrate --run-syncdb\n"
+            ))
+            return
 
         # Definir las columnas que necesitamos crear
         columns_to_create = [
