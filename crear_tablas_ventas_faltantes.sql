@@ -13,16 +13,39 @@ SET FOREIGN_KEY_CHECKS = 0;
 
 DROP TABLE IF EXISTS `ventas_carritoremoto`;
 
+-- Crear tabla sin foreign key primero
 CREATE TABLE `ventas_carritoremoto` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `items` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`items`)),
   `actualizado` datetime(6) NOT NULL DEFAULT current_timestamp(6) ON UPDATE current_timestamp(6),
   `usuario_id` int(11) NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `ventas_carritoremoto_usuario_id_uniq` (`usuario_id`),
-  CONSTRAINT `ventas_carritoremoto_usuario_id_fk` 
-    FOREIGN KEY (`usuario_id`) REFERENCES `auth_user` (`id`) ON DELETE CASCADE
+  UNIQUE KEY `ventas_carritoremoto_usuario_id_uniq` (`usuario_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Agregar foreign key después (solo si auth_user existe)
+SET @user_table_exists = 0;
+SELECT COUNT(*) INTO @user_table_exists 
+FROM information_schema.TABLES 
+WHERE TABLE_SCHEMA = DATABASE() 
+  AND TABLE_NAME = 'auth_user';
+
+SET @fk_exists = 0;
+SELECT COUNT(*) INTO @fk_exists 
+FROM information_schema.TABLE_CONSTRAINTS 
+WHERE CONSTRAINT_SCHEMA = DATABASE() 
+  AND TABLE_NAME = 'ventas_carritoremoto' 
+  AND CONSTRAINT_NAME = 'ventas_carritoremoto_usuario_id_fk' 
+  AND CONSTRAINT_TYPE = 'FOREIGN KEY';
+
+SET @sql = IF(@user_table_exists > 0 AND @fk_exists = 0,
+  'ALTER TABLE `ventas_carritoremoto` ADD CONSTRAINT `ventas_carritoremoto_usuario_id_fk` FOREIGN KEY (`usuario_id`) REFERENCES `auth_user` (`id`) ON DELETE CASCADE',
+  'SELECT "Foreign key ventas_carritoremoto_usuario_id_fk ya existe o auth_user no existe" AS mensaje'
+);
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- ============================================
 -- 2. CREAR TABLA ventas_solicitudimpresion
@@ -30,6 +53,7 @@ CREATE TABLE `ventas_carritoremoto` (
 
 DROP TABLE IF EXISTS `ventas_solicitudimpresion`;
 
+-- Crear tabla sin foreign keys primero
 CREATE TABLE `ventas_solicitudimpresion` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `estado` varchar(20) NOT NULL,
@@ -40,12 +64,56 @@ CREATE TABLE `ventas_solicitudimpresion` (
   `venta_id` varchar(20) NOT NULL,
   PRIMARY KEY (`id`),
   KEY `ventas_solicitudimpresion_usuario_id_idx` (`usuario_id`),
-  KEY `ventas_solicitudimpresion_venta_id_idx` (`venta_id`),
-  CONSTRAINT `ventas_solicitudimpresion_usuario_id_fk` 
-    FOREIGN KEY (`usuario_id`) REFERENCES `auth_user` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `ventas_solicitudimpresion_venta_id_fk` 
-    FOREIGN KEY (`venta_id`) REFERENCES `ventas_venta` (`id`) ON DELETE CASCADE
+  KEY `ventas_solicitudimpresion_venta_id_idx` (`venta_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Agregar foreign key a auth_user (solo si existe)
+SET @user_table_exists = 0;
+SELECT COUNT(*) INTO @user_table_exists 
+FROM information_schema.TABLES 
+WHERE TABLE_SCHEMA = DATABASE() 
+  AND TABLE_NAME = 'auth_user';
+
+SET @fk_exists = 0;
+SELECT COUNT(*) INTO @fk_exists 
+FROM information_schema.TABLE_CONSTRAINTS 
+WHERE CONSTRAINT_SCHEMA = DATABASE() 
+  AND TABLE_NAME = 'ventas_solicitudimpresion' 
+  AND CONSTRAINT_NAME = 'ventas_solicitudimpresion_usuario_id_fk' 
+  AND CONSTRAINT_TYPE = 'FOREIGN KEY';
+
+SET @sql = IF(@user_table_exists > 0 AND @fk_exists = 0,
+  'ALTER TABLE `ventas_solicitudimpresion` ADD CONSTRAINT `ventas_solicitudimpresion_usuario_id_fk` FOREIGN KEY (`usuario_id`) REFERENCES `auth_user` (`id`) ON DELETE CASCADE',
+  'SELECT "Foreign key ventas_solicitudimpresion_usuario_id_fk ya existe o auth_user no existe" AS mensaje'
+);
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- Agregar foreign key a ventas_venta (solo si existe)
+SET @venta_table_exists = 0;
+SELECT COUNT(*) INTO @venta_table_exists 
+FROM information_schema.TABLES 
+WHERE TABLE_SCHEMA = DATABASE() 
+  AND TABLE_NAME = 'ventas_venta';
+
+SET @fk_exists = 0;
+SELECT COUNT(*) INTO @fk_exists 
+FROM information_schema.TABLE_CONSTRAINTS 
+WHERE CONSTRAINT_SCHEMA = DATABASE() 
+  AND TABLE_NAME = 'ventas_solicitudimpresion' 
+  AND CONSTRAINT_NAME = 'ventas_solicitudimpresion_venta_id_fk' 
+  AND CONSTRAINT_TYPE = 'FOREIGN KEY';
+
+SET @sql = IF(@venta_table_exists > 0 AND @fk_exists = 0,
+  'ALTER TABLE `ventas_solicitudimpresion` ADD CONSTRAINT `ventas_solicitudimpresion_venta_id_fk` FOREIGN KEY (`venta_id`) REFERENCES `ventas_venta` (`id`) ON DELETE CASCADE',
+  'SELECT "Foreign key ventas_solicitudimpresion_venta_id_fk ya existe o ventas_venta no existe" AS mensaje'
+);
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- ============================================
 -- 3. AGREGAR COLUMNA cupon_id A ventas_venta
