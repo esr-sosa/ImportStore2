@@ -23,6 +23,42 @@ def _apply_returning_patches():
                     elif not isinstance(sql, str):
                         sql_str = str(sql)
                     
+                    # Parche especial para INSERT en django_migrations: MySQL estricto requiere id explícito
+                    if 'INSERT INTO' in sql_str.upper() and 'django_migrations' in sql_str:
+                        # Verificar si el INSERT no incluye id
+                        if '(`id`' not in sql_str and '(id' not in sql_str and '`id`' not in sql_str:
+                            # Modificar el SQL para incluir id con NULL (que activará AUTO_INCREMENT)
+                            import re
+                            # Patrón: INSERT INTO django_migrations (app, name, applied) VALUES ...
+                            pattern = r'INSERT INTO\s+(?:`)?django_migrations(?:`)?\s*\(([^)]+)\)\s*VALUES'
+                            match = re.search(pattern, sql_str, re.IGNORECASE)
+                            if match:
+                                columns = match.group(1)
+                                # Agregar id al principio de las columnas
+                                new_columns = f"id, {columns}"
+                                sql_str = re.sub(
+                                    pattern,
+                                    lambda m: f"INSERT INTO django_migrations ({new_columns}) VALUES",
+                                    sql_str,
+                                    flags=re.IGNORECASE
+                                )
+                                # Agregar NULL para id en los valores
+                                # Buscar VALUES (?, ?, ?) o VALUES (%s, %s, %s)
+                                values_pattern = r'VALUES\s*\(([^)]+)\)'
+                                values_match = re.search(values_pattern, sql_str, re.IGNORECASE)
+                                if values_match:
+                                    values = values_match.group(1)
+                                    # Contar cuántos placeholders hay
+                                    placeholder_count = values.count('?') + values.count('%s')
+                                    if placeholder_count > 0:
+                                        # Agregar NULL al principio
+                                        sql_str = re.sub(
+                                            values_pattern,
+                                            lambda m: f"VALUES (NULL, {m.group(1)})",
+                                            sql_str,
+                                            flags=re.IGNORECASE
+                                        )
+                    
                     if 'RETURNING' in sql_str.upper():
                         # Encontrar la posición de RETURNING (case-insensitive)
                         sql_upper = sql_str.upper()
@@ -38,6 +74,13 @@ def _apply_returning_patches():
                                 sql = sql_str.encode('utf-8')
                             else:
                                 sql = sql_str
+                    
+                    # Actualizar sql si fue modificado
+                    if isinstance(sql, bytes) and not isinstance(sql_str, bytes):
+                        sql = sql_str.encode('utf-8') if isinstance(sql_str, str) else sql_str
+                    elif not isinstance(sql, bytes) and sql_str != sql:
+                        sql = sql_str
+                
                 return original_execute(self, sql, params)
             
             CursorWrapper.execute = patched_execute

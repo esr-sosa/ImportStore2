@@ -34,7 +34,7 @@ if MYSQL_URL or MYSQL_PUBLIC_URL or (DATABASE_URL and DATABASE_URL.startswith('m
             'PORT': db_url.port or os.getenv('MYSQLPORT', '3306'),
             'OPTIONS': {
                 'charset': 'utf8mb4',
-                'init_command': "SET sql_mode='STRICT_TRANS_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO'",
+                'init_command': "SET sql_mode='NO_ENGINE_SUBSTITUTION'",
             },
         }
     }
@@ -84,7 +84,7 @@ else:
             'PORT': os.getenv('MYSQLPORT', os.getenv('DB_PORT', '3306')),
             'OPTIONS': {
                 'charset': 'utf8mb4',
-                'init_command': "SET sql_mode='STRICT_TRANS_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO'",
+                'init_command': "SET sql_mode='NO_ENGINE_SUBSTITUTION'",
             },
         }
     }
